@@ -1,0 +1,244 @@
+# ============================================================
+# xplatgen API Definition - Example
+# A hypothetical interactive application engine
+#
+# All data types (structs, enums, unions, constants) are defined
+# in FlatBuffers schemas. This file defines only the API surface:
+# handles, interfaces, and methods.
+#
+# The C ABI boundary is strictly unidirectional — the bound
+# language calls into the implementation, never the reverse.
+# Async event delivery uses a shared ring buffer with
+# platform-native signaling, not callbacks.
+# ============================================================
+
+# --- Metadata ---
+api:
+  name: example_app_engine
+  version: 0.1.0
+  description: "Example interactive application engine API"
+
+# --- FlatBuffers Schema Includes ---
+# Types from these files are referenced by fully-qualified FlatBuffers namespace.
+# All enums, structs, unions, and constants live here.
+flatbuffers:
+  - schemas/geometry.fbs
+  - schemas/input_events.fbs
+  - schemas/rendering.fbs
+  - schemas/scene.fbs
+  - schemas/common.fbs          # ErrorCode, LogLevel, EntityId, etc.
+
+# --- Opaque Handles ---
+# Implementation-managed objects. These are not data types — they
+# represent lifecycle-managed resources behind the C ABI.
+# C ABI: typedef struct <name>_s* <name>_handle;
+handles:
+  - name: Engine
+    description: "Top-level application engine instance"
+
+  - name: Renderer
+    description: "Rendering context bound to a platform surface"
+
+  - name: Scene
+    description: "Scene graph container"
+
+  - name: Texture
+    description: "GPU texture resource"
+
+# --- Interfaces ---
+# Grouped collections of related methods.
+#
+# C ABI function naming: <api_name>_<interface>_<method>
+#   e.g. example_app_engine_lifecycle_create_engine
+#
+# Error convention: methods with an "error" field return the error enum
+# from the C function. If the method also has a "returns" field, the
+# return value is delivered through a final out-parameter pointer.
+#
+# Example generated C for a fallible method with a return value:
+#   int32_t example_app_engine_lifecycle_create_engine(
+#       engine_handle* out_result
+#   );
+#
+# Example generated C for an infallible method with a return value:
+#   Common_entity_id example_app_engine_scene_get_root_entity(
+#       scene_handle scene
+#   );
+
+interfaces:
+
+  # --------------------------------------------------------
+  # Engine lifecycle
+  # --------------------------------------------------------
+  - name: lifecycle
+    description: "Engine creation, configuration, and teardown"
+    methods:
+
+      - name: create_engine
+        description: "Create and initialize the engine instance"
+        returns:
+          type: handle:Engine
+        error: Common.ErrorCode
+
+      - name: destroy_engine
+        description: "Shut down and release all engine resources"
+        parameters:
+          - name: engine
+            type: handle:Engine
+
+  # --------------------------------------------------------
+  # Rendering
+  # --------------------------------------------------------
+  - name: renderer
+    description: "Rendering context and frame management"
+    methods:
+
+      - name: create_renderer
+        parameters:
+          - name: engine
+            type: handle:Engine
+          - name: config
+            type: Rendering.RendererConfig
+            transfer: ref
+        returns:
+          type: handle:Renderer
+        error: Common.ErrorCode
+
+      - name: destroy_renderer
+        parameters:
+          - name: renderer
+            type: handle:Renderer
+
+      - name: begin_frame
+        parameters:
+          - name: renderer
+            type: handle:Renderer
+        error: Common.ErrorCode
+
+      - name: end_frame
+        parameters:
+          - name: renderer
+            type: handle:Renderer
+        error: Common.ErrorCode
+
+  # --------------------------------------------------------
+  # Textures
+  # --------------------------------------------------------
+  - name: texture
+    description: "Texture resource loading and management"
+    methods:
+
+      - name: load_texture_from_path
+        parameters:
+          - name: renderer
+            type: handle:Renderer
+          - name: path
+            type: string
+        returns:
+          type: handle:Texture
+        error: Common.ErrorCode
+
+      - name: load_texture_from_buffer
+        parameters:
+          - name: renderer
+            type: handle:Renderer
+          - name: data
+            type: buffer<uint8>
+          - name: format
+            type: Rendering.TextureFormat
+        returns:
+          type: handle:Texture
+        error: Common.ErrorCode
+
+      - name: destroy_texture
+        parameters:
+          - name: texture
+            type: handle:Texture
+
+  # --------------------------------------------------------
+  # Scene management
+  # --------------------------------------------------------
+  - name: scene
+    description: "Scene graph creation and entity management"
+    methods:
+
+      - name: create_scene
+        parameters:
+          - name: engine
+            type: handle:Engine
+        returns:
+          type: handle:Scene
+        error: Common.ErrorCode
+
+      - name: destroy_scene
+        parameters:
+          - name: scene
+            type: handle:Scene
+
+      - name: add_entity
+        parameters:
+          - name: scene
+            type: handle:Scene
+          - name: definition
+            type: Scene.EntityDefinition
+            transfer: ref
+        returns:
+          type: Common.EntityId
+        error: Common.ErrorCode
+
+      - name: remove_entity
+        parameters:
+          - name: scene
+            type: handle:Scene
+          - name: entity_id
+            type: Common.EntityId
+        error: Common.ErrorCode
+
+      - name: update_entity_transform
+        description: "Hot path - may be called per entity per frame"
+        parameters:
+          - name: scene
+            type: handle:Scene
+          - name: entity_id
+            type: Common.EntityId
+          - name: transform
+            type: Geometry.Transform3D
+            transfer: ref
+
+  # --------------------------------------------------------
+  # Input
+  # --------------------------------------------------------
+  - name: input
+    description: "Input event processing"
+    methods:
+
+      - name: push_touch_events
+        description: >
+          Submit touch events from the platform layer into the engine.
+          Hot path - designed for minimal marshalling overhead.
+        parameters:
+          - name: engine
+            type: handle:Engine
+          - name: events
+            type: Input.TouchEventBatch
+            transfer: ref
+        error: Common.ErrorCode
+
+  # --------------------------------------------------------
+  # Event polling
+  # --------------------------------------------------------
+  - name: events
+    description: "Poll for events from the implementation"
+    methods:
+
+      - name: poll_events
+        description: >
+          Drain pending events from the implementation. Call once per
+          frame or when signaled by the platform event queue integration.
+        parameters:
+          - name: engine
+            type: handle:Engine
+          - name: events
+            type: Common.EventQueue
+            transfer: ref_mut
+        error: Common.ErrorCode
