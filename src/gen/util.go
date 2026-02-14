@@ -104,6 +104,16 @@ func ToCamelCase(s string) string {
 	return strings.ToLower(pascal[:1]) + pascal[1:]
 }
 
+// ExportMacroName returns the export macro name for an API, e.g. "HELLO_XPLATTERGY_EXPORT".
+func ExportMacroName(apiName string) string {
+	return UpperSnakeCase(apiName) + "_EXPORT"
+}
+
+// BuildMacroName returns the build macro name for an API, e.g. "HELLO_XPLATTERGY_BUILD".
+func BuildMacroName(apiName string) string {
+	return UpperSnakeCase(apiName) + "_BUILD"
+}
+
 // CollectErrorTypes returns deduplicated error type names used across all methods.
 func CollectErrorTypes(api *model.APIDefinition) []string {
 	seen := map[string]bool{}

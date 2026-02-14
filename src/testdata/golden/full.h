@@ -4,6 +4,19 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+/* Symbol visibility */
+#if defined(_WIN32) || defined(_WIN64)
+  #ifdef EXAMPLE_APP_ENGINE_BUILD
+    #define EXAMPLE_APP_ENGINE_EXPORT __declspec(dllexport)
+  #else
+    #define EXAMPLE_APP_ENGINE_EXPORT __declspec(dllimport)
+  #endif
+#elif defined(__GNUC__) || defined(__clang__)
+  #define EXAMPLE_APP_ENGINE_EXPORT __attribute__((visibility("default")))
+#else
+  #define EXAMPLE_APP_ENGINE_EXPORT
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -93,38 +106,44 @@ uint32_t example_app_engine_resource_size(const char* name);
 int32_t  example_app_engine_resource_read(const char* name, uint8_t* buffer, uint32_t buffer_size);
 
 /* lifecycle */
-int32_t example_app_engine_lifecycle_create_engine(engine_handle* out_result);
-void example_app_engine_lifecycle_destroy_engine(engine_handle engine);
+EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_lifecycle_create_engine(
+    engine_handle* out_result);
+EXAMPLE_APP_ENGINE_EXPORT void example_app_engine_lifecycle_destroy_engine(
+    engine_handle engine);
 
 /* renderer */
-int32_t example_app_engine_renderer_create_renderer(
+EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_renderer_create_renderer(
     engine_handle engine,
     const Rendering_RendererConfig* config,
     renderer_handle* out_result);
-void example_app_engine_renderer_destroy_renderer(renderer_handle renderer);
-int32_t example_app_engine_renderer_begin_frame(renderer_handle renderer);
-int32_t example_app_engine_renderer_end_frame(renderer_handle renderer);
+EXAMPLE_APP_ENGINE_EXPORT void example_app_engine_renderer_destroy_renderer(
+    renderer_handle renderer);
+EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_renderer_begin_frame(
+    renderer_handle renderer);
+EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_renderer_end_frame(
+    renderer_handle renderer);
 
 /* texture */
-int32_t example_app_engine_texture_load_texture_from_path(
+EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_texture_load_texture_from_path(
     renderer_handle renderer,
     const char* path,
     texture_handle* out_result);
-int32_t example_app_engine_texture_load_texture_from_buffer(
+EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_texture_load_texture_from_buffer(
     renderer_handle renderer,
     const uint8_t* data,
     uint32_t data_len,
     Rendering_TextureFormat format,
     texture_handle* out_result);
-void example_app_engine_texture_destroy_texture(texture_handle texture);
+EXAMPLE_APP_ENGINE_EXPORT void example_app_engine_texture_destroy_texture(
+    texture_handle texture);
 
 /* input */
-int32_t example_app_engine_input_push_touch_events(
+EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_input_push_touch_events(
     engine_handle engine,
     const Input_TouchEventBatch* events);
 
 /* events */
-int32_t example_app_engine_events_poll_events(
+EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_events_poll_events(
     engine_handle engine,
     Common_EventQueue* events);
 

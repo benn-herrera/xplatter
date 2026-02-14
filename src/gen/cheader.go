@@ -33,6 +33,9 @@ func (g *CHeaderGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	b.WriteString("#include <stdint.h>\n")
 	b.WriteString("#include <stdbool.h>\n\n")
 
+	// Symbol visibility export macro
+	writeExportMacro(&b, apiName)
+
 	// C++ compatibility
 	b.WriteString("#ifdef __cplusplus\n")
 	b.WriteString("extern \"C\" {\n")
@@ -56,10 +59,11 @@ func (g *CHeaderGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	writePlatformServices(&b, apiName)
 
 	// Interfaces
+	exportMacro := ExportMacroName(apiName)
 	for _, iface := range api.Interfaces {
 		fmt.Fprintf(&b, "/* %s */\n", iface.Name)
 		for _, method := range iface.Methods {
-			writeMethodSignature(&b, apiName, iface.Name, &method)
+			writeMethodSignature(&b, apiName, iface.Name, &method, exportMacro)
 		}
 		b.WriteString("\n")
 	}
@@ -77,6 +81,23 @@ func (g *CHeaderGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	}, nil
 }
 
+func writeExportMacro(b *strings.Builder, apiName string) {
+	exportMacro := ExportMacroName(apiName)
+	buildMacro := BuildMacroName(apiName)
+	b.WriteString("/* Symbol visibility */\n")
+	b.WriteString("#if defined(_WIN32) || defined(_WIN64)\n")
+	fmt.Fprintf(b, "  #ifdef %s\n", buildMacro)
+	fmt.Fprintf(b, "    #define %s __declspec(dllexport)\n", exportMacro)
+	b.WriteString("  #else\n")
+	fmt.Fprintf(b, "    #define %s __declspec(dllimport)\n", exportMacro)
+	b.WriteString("  #endif\n")
+	b.WriteString("#elif defined(__GNUC__) || defined(__clang__)\n")
+	fmt.Fprintf(b, "  #define %s __attribute__((visibility(\"default\")))\n", exportMacro)
+	b.WriteString("#else\n")
+	fmt.Fprintf(b, "  #define %s\n", exportMacro)
+	b.WriteString("#endif\n\n")
+}
+
 func writePlatformServices(b *strings.Builder, apiName string) {
 	b.WriteString("/* Platform services — implement these per platform */\n")
 	fmt.Fprintf(b, "void %s_log_sink(int32_t level, const char* tag, const char* message);\n", apiName)
@@ -88,7 +109,7 @@ func writePlatformServices(b *strings.Builder, apiName string) {
 	b.WriteString("\n")
 }
 
-func writeMethodSignature(b *strings.Builder, apiName, ifaceName string, method *model.MethodDef) {
+func writeMethodSignature(b *strings.Builder, apiName, ifaceName string, method *model.MethodDef, exportMacro string) {
 	funcName := CABIFunctionName(apiName, ifaceName, method.Name)
 	hasError := method.Error != ""
 	hasReturn := method.Returns != nil
@@ -124,10 +145,10 @@ func writeMethodSignature(b *strings.Builder, apiName, ifaceName string, method 
 	}
 
 	// Decide formatting: single line or multi-line
-	sig := fmt.Sprintf("%s %s(%s)", returnType, funcName, paramStr)
+	sig := fmt.Sprintf("%s %s %s(%s)", exportMacro, returnType, funcName, paramStr)
 	if len(sig) > 80 {
 		// Multi-line format
-		fmt.Fprintf(b, "%s %s(\n", returnType, funcName)
+		fmt.Fprintf(b, "%s %s %s(\n", exportMacro, returnType, funcName)
 		for i, p := range params {
 			if i < len(params)-1 {
 				fmt.Fprintf(b, "    %s,\n", p)

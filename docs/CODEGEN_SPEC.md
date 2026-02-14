@@ -200,6 +200,10 @@ Referenced by fully-qualified FlatBuffers namespace (e.g., `Common.ErrorCode`, `
 
 Valid as both parameter and return types. Should typically use `transfer: ref` as parameters.
 
+**C type name mapping:** Dots become underscores. `Common.ErrorCode` → `Common_ErrorCode`, `Geometry.Transform3D` → `Geometry_Transform3D`. This mapping is used consistently across all generators.
+
+**C header type emission:** The generated C header includes full `typedef enum`, `typedef struct` definitions for all FlatBuffer types referenced by the API. These are emitted after handle typedefs and before platform services. Enums are emitted first, then structs, then tables. Within each category, types are sorted alphabetically for deterministic output.
+
 ### 4.6 Parameter vs Return Type Matrix
 
 | Type | Parameter | Return |
@@ -235,6 +239,33 @@ The implementation communicates back via a shared ring buffer with platform-nati
 All state is per-handle. Multiple engine instances can coexist. No architectural barriers to concurrent instances.
 
 ## 6. C ABI Code Generation Rules
+
+### 6.0 C Header Structure
+
+The generated C header (`{api_name}.h`) has a fixed section ordering:
+
+1. Include guard: `#ifndef {UPPER_SNAKE_CASE(api_name)}_H` / `#define ...`
+2. Standard includes: `#include <stdint.h>`, `#include <stdbool.h>`
+3. Symbol visibility export macro (see Section 6.6)
+4. C++ compatibility: `#ifdef __cplusplus` / `extern "C" {` / `#endif`
+5. Handle typedefs (if any handles defined)
+6. FlatBuffer type definitions (enums, then structs, then tables — sorted alphabetically within each category)
+7. Platform service declarations (no export macro — these are link-time provided)
+8. Interface method declarations (grouped by interface, prefixed with export macro)
+9. Closing C++ guard: `#ifdef __cplusplus` / `}` / `#endif`
+10. Closing include guard: `#endif`
+
+**Formatting rules:**
+
+- Function signatures exceeding **80 characters** wrap to multi-line format with 4-space indented parameters, one per line
+- Single-line: `EXPORT int32_t api_iface_method(type param);`
+- Multi-line:
+  ```c
+  EXPORT int32_t api_iface_method(
+      type param1,
+      type param2);
+  ```
+- The 80-character check is on the full signature including the export macro prefix
 
 ### 6.1 Function Naming
 
@@ -315,6 +346,36 @@ const char* path
 
 Always `const char*`, always UTF-8, always null-terminated.
 
+### 6.6 Symbol Visibility / Export Macro
+
+Generated shared libraries must export only API-defined symbols. The C header emits a per-API export macro that handles platform differences:
+
+```c
+/* Symbol visibility */
+#if defined(_WIN32) || defined(_WIN64)
+  #ifdef <UPPER_API_NAME>_BUILD
+    #define <UPPER_API_NAME>_EXPORT __declspec(dllexport)
+  #else
+    #define <UPPER_API_NAME>_EXPORT __declspec(dllimport)
+  #endif
+#elif defined(__GNUC__) || defined(__clang__)
+  #define <UPPER_API_NAME>_EXPORT __attribute__((visibility("default")))
+#else
+  #define <UPPER_API_NAME>_EXPORT
+#endif
+```
+
+Where `<UPPER_API_NAME>` is the API name in `UPPER_SNAKE_CASE` (e.g., `HELLO_XPLATTERGY` for API name `hello_xplattergy`).
+
+**Rules:**
+
+- The export macro block is emitted after standard includes and before the `extern "C"` block
+- The `<UPPER_API_NAME>_BUILD` macro is defined by the build system when compiling the shared library; consumers do not define it (getting `dllimport` on Windows)
+- **API method declarations** (C header) and **API method definitions** (C++ shim) are prefixed with `<UPPER_API_NAME>_EXPORT`
+- **Platform services** are NOT prefixed — they are provided by the consumer at link time, not exported by the library
+- The macro appears before the return type: `MACRO return_type function_name(params)`
+- Rust (`#[no_mangle]` + `cdylib`) and Go (`//export` + `c-shared`) handle symbol export natively — no codegen changes needed for those
+
 ## 7. Platform Binding Generation (Layer 1)
 
 The core output. Language-agnostic, always generated.
@@ -345,6 +406,79 @@ All platform bindings route through the C ABI. The WASM/JS path uses C ABI expor
 ### 7.3 Per-Platform Handle Wrapping
 
 Generated platform bindings wrap opaque handles in idiomatic types — Kotlin classes, Swift classes, JS objects — with create/destroy methods mapped to constructor/close or destructor patterns.
+
+### 7.4 Kotlin/JNI Binding Details
+
+**Output:** `{PascalCase(api_name)}.kt` + `{api_name}_jni.c`
+
+**Naming:**
+
+| Concept | Pattern | Example (`api_name: hello_world`) |
+|---------|---------|-----------------------------------|
+| Kotlin package | `{api_name}` with `_` → `.` | `hello.world` |
+| Handle class | `{handle.Name}` (PascalCase from YAML) | `Engine` |
+| Singleton object | `{PascalCase(api_name)}` | `HelloWorld` |
+| JNI function | `Java_{package_path}_{Class}_{method}` | `Java_hello_world_Engine_start` |
+| Error exception | `{FlatBufferCType}Exception` | `CommonErrorCodeException` |
+
+**Type mappings:**
+
+| xplattergy | Kotlin | JNI C |
+|------------|--------|-------|
+| `string` | `String` | `jstring` |
+| `buffer<uint8>` | `ByteArray` | `jbyteArray` |
+| `handle:X` | Handle class | `jlong` |
+| Primitives | `Int`, `Long`, `Float`, `Boolean` | `jint`, `jlong`, `jfloat`, `jboolean` |
+| FlatBuffer | `ByteArray` | `jbyteArray` |
+
+**Method patterns:**
+- Factory methods (create): return the handle class
+- Instance methods: called on handle class, skip the handle parameter (it's `this`)
+- Destroy: mapped to `close()` or similar teardown
+
+### 7.5 Swift Binding Details
+
+**Output:** `{PascalCase(api_name)}.swift`
+
+**Naming:**
+
+| Concept | Pattern | Example |
+|---------|---------|---------|
+| Handle class | `{handle.Name}` (PascalCase) | `Engine` |
+| Error enum | `{FlatBufferCType}Error: Error` | `CommonErrorCodeError` |
+
+**Type mappings:**
+
+| xplattergy | Swift |
+|------------|-------|
+| `string` | `String` (marshalled via `withCString`) |
+| `buffer<uint8>` | `Data` / `UnsafeMutableBufferPointer<UInt8>` |
+| `handle:X` | Handle class |
+| Primitives | `Int32`, `UInt64`, `Bool`, `Float`, `Double` |
+| FlatBuffer | `UnsafePointer<Type>` / `UnsafeMutablePointer<Type>` |
+
+**Handle lifecycle:** Factory methods are static class methods. Destroy methods are called from `deinit`.
+
+### 7.6 JavaScript/WASM Binding Details
+
+**Output:** `{api_name}.js` (ES module)
+
+**Naming:**
+
+| Concept | Pattern | Example |
+|---------|---------|---------|
+| Handle class | `{handle.Name}` (PascalCase) | `Engine` |
+| Loader function | `load{PascalCase(api_name)}` | `loadHelloWorld` |
+| Method names | `{camelCase(method_name)}` | `beginFrame` |
+
+**Patterns:**
+- Handle classes use `#ptr` private field, zeroed on `dispose()`
+- Strings: `TextEncoder`/`TextDecoder` for WASM linear memory marshalling
+- Buffers: copied into/out of WASM memory via `TypedArray`
+- Fallible methods with return: allocate out-param space in WASM memory, read result via `DataView`
+- Cleanup via `finally { _free(ptr) }` for temporaries
+
+**Platform service imports:** Passed as a services object to the loader. Functions: `logSink`, `resourceCount`, `resourceName`, `resourceExists`, `resourceSize`, `resourceRead`.
 
 ## 8. Platform Services Layer
 
@@ -404,7 +538,7 @@ Since there are no callbacks, the implementation communicates back via a **share
 
 ## 9. Implementation Interface & Scaffolding (Layer 2)
 
-Controlled by the `impl_lang` field. For each supported language, three things are generated:
+Controlled by the `impl_lang` field. For each supported language, an abstract interface, a C ABI shim, and a stub implementation are generated.
 
 ### 9.1 Generation Matrix
 
@@ -417,27 +551,207 @@ Controlled by the `impl_lang` field. For each supported language, three things a
 
 With `c`, only the C API header is generated. Use for pure C implementations or any language not in the front-door path.
 
-### 9.2 C ABI Shim Details
+### 9.2 Output File Manifest
 
-The shim is generated code that bridges the C ABI functions to the implementation language's abstract interface. The consumer never writes C.
+The C header (`{api_name}.h`) is always generated regardless of `impl_lang`. Additional files per language:
 
-**Per-type marshalling in the shim:**
+**`impl_lang: cpp`** — 4 files:
 
-| Type | C++ Shim | Rust Shim | Go Shim |
-|------|----------|-----------|---------|
-| Primitives | Pass through | Pass through | Pass through |
-| `string` | `const char*` native | `CStr::from_ptr()` | `C.GoString()` |
-| `buffer<T>` | Pointer + length | `std::slice::from_raw_parts()` | Slice from C pointer |
-| FlatBuffer ref | Pass pointer through | Pass pointer through | Pass pointer through |
-| Handle | `reinterpret_cast<T*>(handle)` | `Box::from_raw()` / `&*ptr` | Handle map lookup |
+| File | Purpose |
+|------|---------|
+| `{api_name}_interface.h` | Abstract class with pure virtual methods |
+| `{api_name}_shim.cpp` | `extern "C"` shim delegating to interface |
+| `{api_name}_impl.h` | Concrete class declaration |
+| `{api_name}_impl.cpp` | Stub method bodies + factory function |
 
-**Handle management per language:**
+**`impl_lang: rust`** — 3–4 files:
 
-- **C++**: Handles are `reinterpret_cast` of the concrete class pointer. `create` does `new`, returns cast to `void*`. `destroy` does `delete`.
-- **Rust**: `Box::into_raw()` to export, `Box::from_raw()` to recover. Standard pattern.
-- **Go**: Integer handle map (cgo doesn't allow passing Go pointers to C). Create inserts into map and returns integer key. Each call looks up by key.
+| File | Purpose |
+|------|---------|
+| `{api_name}_trait.rs` | Trait definitions (one per interface) |
+| `{api_name}_ffi.rs` | `#[no_mangle] extern "C"` shim functions |
+| `{api_name}_impl.rs` | Stub `impl` blocks |
+| `{api_name}_types.rs` | FlatBuffer type definitions (emitted if types exist) |
 
-### 9.3 Design Rationale
+**`impl_lang: go`** — 3–4 files:
+
+| File | Purpose |
+|------|---------|
+| `{api_name}_interface.go` | Go interface type definitions |
+| `{api_name}_cgo.go` | `//export` cgo shim functions |
+| `{api_name}_impl.go` | Stub interface implementation |
+| `{api_name}_types.go` | Go enum constants (emitted if enums exist) |
+
+**Platform bindings** (always generated alongside the above):
+
+| File | Purpose |
+|------|---------|
+| `{PascalCase(api_name)}.kt` | Kotlin public API |
+| `{api_name}_jni.c` | JNI C bridge |
+| `{PascalCase(api_name)}.swift` | Swift public API + C bridge |
+| `{api_name}.js` | JavaScript/WASM ES module |
+
+### 9.3 Create/Destroy Method Detection
+
+The shim generators use heuristics to detect factory and teardown methods, which get special shim bodies:
+
+**Create method** — all of these must be true:
+- Method returns a handle type (`returns.type` is `handle:X`)
+- Method is fallible (has `error` field)
+- Method has **no** handle input parameters (pure factory — no existing handle to delegate through)
+
+**Destroy method** — all of these must be true:
+- Method name starts with `"destroy"`
+- First parameter is a handle type
+- Method is infallible (no `error` field)
+- Method has no return value
+
+All other methods are "regular" — they find the first handle parameter, cast it to the implementation object, and delegate the call.
+
+### 9.4 C++ Generator Details
+
+**Naming conventions:**
+
+| Concept | Pattern | Example (`api_name: hello_world`) |
+|---------|---------|-----------------------------------|
+| Interface class | `{PascalCase(api_name)}Interface` | `HelloWorldInterface` |
+| Impl class | `{PascalCase(api_name)}Impl` | `HelloWorldImpl` |
+| Factory function | `create_{api_name}_instance()` | `create_hello_world_instance()` |
+| Interface guard | `{UPPER_SNAKE_CASE(api_name)}_INTERFACE_H` | `HELLO_WORLD_INTERFACE_H` |
+| Impl guard | `{UPPER_SNAKE_CASE(api_name)}_IMPL_H` | `HELLO_WORLD_IMPL_H` |
+
+**Interface type mappings** (C++ interface uses idiomatic types, not raw C):
+
+| xplattergy Type | C++ Interface Type |
+|-----------------|--------------------|
+| `string` | `std::string_view` |
+| `buffer<T>` (ref) | `std::span<const T>` |
+| `buffer<T>` (ref_mut) | `std::span<T>` |
+| `handle:X` | `void*` (opaque in interface; shim does the cast) |
+| Primitives | stdint types (`int32_t`, `float`, etc.) |
+| FlatBuffer (ref) | `const Type*` |
+| FlatBuffer (ref_mut) | `Type*` |
+
+**Interface header includes:** `<stdint.h>`, `<stdbool.h>`, `<cstddef>`, `<string_view>`, `<span>`, and the C header (`"{api_name}.h"`) for FlatBuffer type definitions.
+
+**Shim behavior:**
+
+The shim `#include`s the C header and the interface header. All functions are inside `extern "C" { }`. Each function definition is prefixed with the export macro (`<UPPER_API_NAME>_EXPORT`).
+
+- **Create shim:** Calls `create_{api_name}_instance()`, checks for null, casts to handle via `reinterpret_cast`, stores in `*out_result`, returns 0
+- **Destroy shim:** Casts handle back to interface pointer via `reinterpret_cast`, calls `delete`
+- **Regular shim:** Casts handle param to `{InterfaceClass}*`, wraps string params in `std::string_view()`, wraps buffer params in `std::span()`, calls `self->{method}(args)`. Handle params pass through (the interface takes `void*`).
+
+### 9.5 Rust Generator Details
+
+**Naming conventions:**
+
+| Concept | Pattern | Example |
+|---------|---------|---------|
+| Trait name | `{PascalCase(interface_name)}` | `Lifecycle`, `Renderer` |
+| ZST struct | `pub struct Impl;` | (always `Impl`) |
+| Trait impl | `impl {TraitName} for Impl` | `impl Lifecycle for Impl` |
+
+**ZST dispatch pattern:**
+
+All trait methods take `&self`. A zero-sized type `Impl` implements all traits. FFI functions call trait methods via UFCS: `Lifecycle::create_greeter(&Impl, ...)`. This provides compile-time dispatch with zero runtime overhead.
+
+**Trait type mappings:**
+
+| xplattergy Type | Rust Trait Type | Rust FFI Type |
+|-----------------|-----------------|---------------|
+| `string` | `&str` | `*const c_char` |
+| `buffer<T>` (ref) | `&[T]` | `*const T`, `u32` |
+| `buffer<T>` (ref_mut) | `&mut [T]` | `*mut T`, `u32` |
+| `handle:X` | `*mut c_void` | `*mut c_void` |
+| Primitives | Rust types (`i32`, `u64`, `bool`, `f32`) | Same |
+| FlatBuffer (ref) | `&Type` | `*const Type` |
+| FlatBuffer (ref_mut) | `&mut Type` | `*mut Type` |
+
+**FFI function pattern:**
+
+```rust
+#[no_mangle]
+pub unsafe extern "C" fn {cabi_function_name}(params) -> i32 {
+    // Convert: CStr::from_ptr(s).to_str().expect("invalid UTF-8")
+    // Convert: std::slice::from_raw_parts(ptr, len as usize)
+    // Convert: &*ptr (for FlatBuffer const ref)
+    match {TraitName}::{method}(&Impl, converted_args) {
+        Ok(val) => { *out_result = val; 0 }
+        Err(e) => e as i32,
+    }
+}
+```
+
+**Error handling:** Trait methods with `error` return `Result<T, ErrorType>`. The FFI shim matches on Ok/Err and converts to integer error code.
+
+### 9.6 Go Generator Details
+
+**Naming conventions:**
+
+| Concept | Pattern | Example (`api_name: hello_world`) |
+|---------|---------|-----------------------------------|
+| Package name | `{api_name}` with underscores removed | `helloworld` |
+| Interface name | `{PascalCase(interface_name)}` | `Lifecycle`, `Renderer` |
+
+**Critical cgo rule:** Do NOT `#include` the generated C header in files that contain `//export` functions. This causes conflicting prototype errors between the C header declarations and cgo's auto-generated wrappers. Instead, use local C type definitions in the cgo preamble comment:
+
+```go
+/*
+typedef struct greeter_s* greeter_handle;
+typedef struct { const char* message; } Hello_Greeting;
+*/
+import "C"
+```
+
+**Handle map pattern:**
+
+Go cannot pass Go pointers to C. Instead, use an integer handle map:
+
+```go
+var (
+    handles   sync.Map
+    nextHandle uintptr
+)
+
+func allocHandle(impl interface{}) C.{handle_type} {
+    h := atomic.AddUintptr(&nextHandle, 1)
+    handles.Store(h, impl)
+    return C.{handle_type}(unsafe.Pointer(h))
+}
+
+func lookupHandle(h C.{handle_type}) (impl, bool) {
+    val, ok := handles.Load(uintptr(unsafe.Pointer(h)))
+    ...
+}
+
+func freeHandle(h C.{handle_type}) {
+    handles.Delete(uintptr(unsafe.Pointer(h)))
+}
+```
+
+**`//export` function pattern:**
+
+```go
+//export {cabi_function_name}
+func {cabi_function_name}(params) C.int32_t {
+    impl, ok := lookupHandle(handle)
+    goStr := C.GoString(cStr)
+    // delegate to impl...
+}
+```
+
+**Go type mappings:**
+
+| xplattergy Type | Go Interface Type | cgo Type |
+|-----------------|-------------------|----------|
+| `string` | `string` | `*C.char` |
+| `buffer<T>` | `[]T` | `*C.{ctype}`, `C.uint32_t` |
+| `handle:X` | `uintptr` | `C.{handle_typedef}` |
+| Primitives | Go types (`int32`, `uint64`, `bool`) | `C.int32_t`, `C.uint64_t`, `C._Bool` |
+| FlatBuffer | `*C.{Type}` | `*C.{Type}` |
+
+### 9.7 Design Rationale
 
 All shim code is mechanically derivable from the API definition — no analysis or domain knowledge required. Each method produces one shim function determined entirely by parameter types, transfer semantics, return type, and error convention. This:
 
@@ -603,6 +917,23 @@ interfaces:
 #include <stdint.h>
 #include <stdbool.h>
 
+/* Symbol visibility */
+#if defined(_WIN32) || defined(_WIN64)
+  #ifdef EXAMPLE_APP_ENGINE_BUILD
+    #define EXAMPLE_APP_ENGINE_EXPORT __declspec(dllexport)
+  #else
+    #define EXAMPLE_APP_ENGINE_EXPORT __declspec(dllimport)
+  #endif
+#elif defined(__GNUC__) || defined(__clang__)
+  #define EXAMPLE_APP_ENGINE_EXPORT __attribute__((visibility("default")))
+#else
+  #define EXAMPLE_APP_ENGINE_EXPORT
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct engine_s* engine_handle;
 typedef struct renderer_s* renderer_handle;
 typedef struct scene_s* scene_handle;
@@ -617,39 +948,50 @@ uint32_t example_app_engine_resource_size(const char* name);
 int32_t  example_app_engine_resource_read(const char* name, uint8_t* buffer, uint32_t buffer_size);
 
 /* lifecycle */
-int32_t example_app_engine_lifecycle_create_engine(engine_handle* out_result);
-void    example_app_engine_lifecycle_destroy_engine(engine_handle engine);
+EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_lifecycle_create_engine(
+    engine_handle* out_result);
+EXAMPLE_APP_ENGINE_EXPORT void example_app_engine_lifecycle_destroy_engine(
+    engine_handle engine);
 
 /* renderer */
-int32_t example_app_engine_renderer_create_renderer(
+EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_renderer_create_renderer(
     engine_handle engine,
     const Rendering_RendererConfig* config,
     renderer_handle* out_result);
-void    example_app_engine_renderer_destroy_renderer(renderer_handle renderer);
-int32_t example_app_engine_renderer_begin_frame(renderer_handle renderer);
-int32_t example_app_engine_renderer_end_frame(renderer_handle renderer);
+EXAMPLE_APP_ENGINE_EXPORT void example_app_engine_renderer_destroy_renderer(
+    renderer_handle renderer);
+EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_renderer_begin_frame(
+    renderer_handle renderer);
+EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_renderer_end_frame(
+    renderer_handle renderer);
 
 /* texture */
-int32_t example_app_engine_texture_load_texture_from_path(
+EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_texture_load_texture_from_path(
     renderer_handle renderer,
     const char* path,
     texture_handle* out_result);
-int32_t example_app_engine_texture_load_texture_from_buffer(
+EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_texture_load_texture_from_buffer(
     renderer_handle renderer,
-    const uint8_t* data, uint32_t data_len,
-    int32_t format,
+    const uint8_t* data,
+    uint32_t data_len,
+    Rendering_TextureFormat format,
     texture_handle* out_result);
-void    example_app_engine_texture_destroy_texture(texture_handle texture);
+EXAMPLE_APP_ENGINE_EXPORT void example_app_engine_texture_destroy_texture(
+    texture_handle texture);
 
 /* input */
-int32_t example_app_engine_input_push_touch_events(
+EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_input_push_touch_events(
     engine_handle engine,
     const Input_TouchEventBatch* events);
 
 /* events */
-int32_t example_app_engine_events_poll_events(
+EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_events_poll_events(
     engine_handle engine,
     Common_EventQueue* events);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 ```

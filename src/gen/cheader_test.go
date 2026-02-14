@@ -168,8 +168,11 @@ func TestCHeaderGenerator_FallibleWithReturn(t *testing.T) {
 
 	content := string(files[0].Content)
 	// create_engine: fallible (error) + returns handle → out_result param
-	if !strings.Contains(content, "int32_t test_api_lifecycle_create_engine(engine_handle* out_result);") {
+	if !strings.Contains(content, "TEST_API_EXPORT int32_t test_api_lifecycle_create_engine(") {
 		t.Error("missing or incorrect create_engine signature (fallible + return → out_result)")
+	}
+	if !strings.Contains(content, "engine_handle* out_result);") {
+		t.Error("missing out_result parameter in create_engine")
 	}
 }
 
@@ -184,7 +187,7 @@ func TestCHeaderGenerator_InfallibleVoid(t *testing.T) {
 
 	content := string(files[0].Content)
 	// destroy_engine: infallible + no return → void
-	if !strings.Contains(content, "void test_api_lifecycle_destroy_engine(engine_handle engine);") {
+	if !strings.Contains(content, "TEST_API_EXPORT void test_api_lifecycle_destroy_engine(engine_handle engine);") {
 		t.Error("missing or incorrect destroy_engine signature (void)")
 	}
 }

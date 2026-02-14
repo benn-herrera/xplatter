@@ -4,6 +4,19 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+/* Symbol visibility */
+#if defined(_WIN32) || defined(_WIN64)
+  #ifdef TEST_API_BUILD
+    #define TEST_API_EXPORT __declspec(dllexport)
+  #else
+    #define TEST_API_EXPORT __declspec(dllimport)
+  #endif
+#elif defined(__GNUC__) || defined(__clang__)
+  #define TEST_API_EXPORT __attribute__((visibility("default")))
+#else
+  #define TEST_API_EXPORT
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -90,8 +103,9 @@ uint32_t test_api_resource_size(const char* name);
 int32_t  test_api_resource_read(const char* name, uint8_t* buffer, uint32_t buffer_size);
 
 /* lifecycle */
-int32_t test_api_lifecycle_create_engine(engine_handle* out_result);
-void test_api_lifecycle_destroy_engine(engine_handle engine);
+TEST_API_EXPORT int32_t test_api_lifecycle_create_engine(
+    engine_handle* out_result);
+TEST_API_EXPORT void test_api_lifecycle_destroy_engine(engine_handle engine);
 
 #ifdef __cplusplus
 }

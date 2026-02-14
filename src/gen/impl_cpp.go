@@ -217,7 +217,8 @@ func (g *ImplCppGenerator) writeShimFunction(b *strings.Builder, api *model.APID
 		cParamStr = "void"
 	}
 
-	fmt.Fprintf(b, "%s %s(%s) {\n", returnType, funcName, cParamStr)
+	exportMacro := ExportMacroName(apiName)
+	fmt.Fprintf(b, "%s %s %s(%s) {\n", exportMacro, returnType, funcName, cParamStr)
 
 	if isCreate {
 		// Create method: call factory, cast to handle, store in out_result

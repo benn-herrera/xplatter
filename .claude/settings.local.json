@@ -32,7 +32,11 @@
       "Bash(../../bin/xplattergy generate:*)",
       "Bash(cargo test:*)",
       "Bash(1:*)",
-      "Bash(../../../bin/xplattergy generate:*)"
+      "Bash(../../../bin/xplattergy generate:*)",
+      "Bash(c++:*)",
+      "Bash(cc:*)",
+      "Bash(nm:*)",
+      "Bash(cargo build:*)"
     ]
   }
 }
