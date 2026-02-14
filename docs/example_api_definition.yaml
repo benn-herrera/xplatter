@@ -1,5 +1,5 @@
 # ============================================================
-# xplatgen API Definition - Example
+# xplattergy API Definition - Example
 # A hypothetical interactive application engine
 #
 # All data types (structs, enums, unions, constants) are defined
@@ -17,6 +17,11 @@ api:
   name: example_app_engine
   version: 0.1.0
   description: "Example interactive application engine API"
+  impl_lang: cpp
+  targets:
+    - android
+    - ios
+    - web
 
 # --- FlatBuffers Schema Includes ---
 # Types from these files are referenced by fully-qualified FlatBuffers namespace.

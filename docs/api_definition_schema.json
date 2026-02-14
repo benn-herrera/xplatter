@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://xplatgen.dev/schemas/api-definition/v1",
-  "title": "xplatgen API Definition",
-  "description": "Schema for xplatgen API definition YAML files. Defines the API surface (handles, interfaces, methods) for cross-platform code generation. All data types (structs, enums, unions, constants) are defined in FlatBuffers schemas, not in this file.",
+  "$id": "https://xplattergy.dev/schemas/api-definition/v1",
+  "title": "xplattergy API Definition",
+  "description": "Schema for xplattergy API definition YAML files. Defines the API surface (handles, interfaces, methods) for cross-platform code generation. All data types (structs, enums, unions, constants) are defined in FlatBuffers schemas, not in this file.",
   "type": "object",
   "required": ["api", "flatbuffers", "interfaces"],
   "additionalProperties": false,
@@ -41,7 +41,7 @@
     "api_metadata": {
       "type": "object",
       "description": "API metadata.",
-      "required": ["name", "version"],
+      "required": ["name", "version", "impl_lang"],
       "additionalProperties": false,
       "properties": {
         "name": {
@@ -57,6 +57,21 @@
         "description": {
           "type": "string",
           "description": "Human-readable description of the API."
+        },
+        "impl_lang": {
+          "type": "string",
+          "description": "Implementation language for generated interface and stub files. 'cpp' generates abstract classes with pure virtual methods and a C ABI shim. 'rust' generates trait definitions with skeleton impls and a C ABI shim. 'go' generates interface types with cgo-annotated stub functions and a C ABI shim. 'c' generates only the C API header — use this for pure C implementations or any language not in the front-door path (the consumer implements the C ABI functions directly).",
+          "enum": ["cpp", "rust", "go", "c"]
+        },
+        "targets": {
+          "type": "array",
+          "description": "Subset of platform binding targets to generate. If omitted, all targets are generated.",
+          "items": {
+            "type": "string",
+            "enum": ["android", "ios", "web", "windows", "macos", "linux"]
+          },
+          "minItems": 1,
+          "uniqueItems": true
         }
       }
     },

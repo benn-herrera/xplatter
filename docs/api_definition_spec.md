@@ -1,6 +1,6 @@
-# xplatgen API Definition Specification
+# <img src="logo.png" alt="drawing" width="32"/> xplattergy API Definition Specification
 
-This document specifies the YAML format for defining cross-platform APIs in xplatgen. The API definition file describes the **API surface** — handles, interfaces, and methods — that the code gen tool uses to produce the C ABI header, platform bindings, and optional implementation scaffolding.
+This document specifies the YAML format for defining cross-platform APIs in xplattergy. The API definition file describes the **API surface** — handles, interfaces, and methods — that the code gen tool uses to produce the C ABI header, platform bindings, and optional implementation scaffolding.
 
 All data types (structs, enums, unions, constants, typedefs) are defined in FlatBuffers schemas, not in this file. The API definition references FlatBuffers types by their fully-qualified namespace.
 
@@ -26,6 +26,11 @@ api:
   name: my_library
   version: 1.0.0
   description: "Optional human-readable description"
+  impl_lang: rust
+  targets:
+    - android
+    - ios
+    - web
 ```
 
 | Field | Required | Type | Description |
@@ -33,6 +38,8 @@ api:
 | `name` | yes | string | API name. Must be `snake_case` (`^[a-z][a-z0-9_]*$`). Used as a prefix in all generated C ABI function names. |
 | `version` | yes | string | Semantic version (`major.minor.patch`). |
 | `description` | no | string | Human-readable description of the API. |
+| `impl_lang` | yes | string | Implementation language for generated interface files. `cpp`: abstract class with pure virtual methods + C ABI shim. `rust`: trait definition with skeleton impl + C ABI shim. `go`: interface type with cgo-annotated stubs + C ABI shim. `c`: C API header only — for pure C implementations or any language not in the front-door path (the consumer implements the C ABI functions directly). |
+| `targets` | no | array | Subset of platform targets to generate bindings for. Valid values: `android`, `ios`, `web`, `windows`, `macos`, `linux`. If omitted, all targets are generated. |
 
 ## `flatbuffers` — Schema Includes
 

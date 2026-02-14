@@ -1,8 +1,8 @@
-# xplatgen Architecture Overview
+# <img src="docs/logo.png" alt="drawing" width="32"/> xplattergy Architecture Overview
 
 ## What It Is
 
-xplatgen is a code generation system that produces cross-platform API bindings from a single API definition. It targets six platforms — Android, iOS, Web, Windows, macOS, and Linux — and is agnostic to the language used to implement the underlying library.
+xplattergy is a code generation system that produces cross-platform API bindings from a single API definition. It targets six platforms — Android, iOS, Web, Windows, macOS, and Linux — and is agnostic to the language used to implement the underlying library.
 
 ## Core Principle
 
@@ -21,22 +21,31 @@ This is the product. Given an API definition and FlatBuffers schemas as input, t
 
 All generated bindings route through the C ABI. The WASM/JS path uses C ABI exports from the WASM module rather than language-specific binding mechanisms, ensuring any implementation language that compiles to WASM works uniformly.
 
-### Layer 2 — Implementation Scaffolding (Per-Language, Convenience)
+### Layer 2 — Implementation Interface & Scaffolding
 
-Optional code gen that produces a starting point for the implementation side:
+Code gen that produces the complete implementation-side stack for the chosen language, as specified by the `impl_lang` field in the API definition. For each supported language, three things are generated:
 
-- **C++** — abstract class / pure virtual interface + stub implementations
-- **Rust** — trait definition + skeleton impl
-- **Go** — interface type + stub functions with cgo export annotations
+1. **Abstract interface** — the API contract expressed in the implementation language's idioms
+2. **C ABI shim** — generated bridge code that implements the exported C functions by delegating to the abstract interface, handling all marshalling between C types and language-native types
+3. **Stub implementation** — a skeleton that satisfies the abstract interface, ready for the consumer to fill in
 
-This layer is additive. Adding a new scaffolding target never touches Layer 1.
+| `impl_lang` | Abstract Interface | C ABI Shim | Stubs |
+|-------------|-------------------|------------|-------|
+| `cpp` | Abstract class with pure virtual methods | `.cpp` implementing each C function via virtual dispatch on the handle | Concrete class with stub method bodies |
+| `rust` | Trait definition | `extern "C"` functions delegating to the trait impl | Skeleton `impl` block |
+| `go` | Interface type | `//export` cgo functions delegating to the interface impl | Stub functions |
+| `c` | — | — | — |
+
+With `c`, only the C API header is generated. This is the option for pure C implementations or any language not in the front-door path — the consumer implements the exported C functions directly.
+
+For supported languages, the consumer never writes C. They implement the abstract interface in their language, build, and the generated shim handles all C ABI compliance. Adding a new implementation language target never touches Layer 1.
 
 ## Data Flow
 
 ```
 ┌──────────────────────┐     ┌──────────────────────┐
-│  API Definition YAML │     │  FlatBuffers Schemas  │
-│  (authored)          │     │  (.fbs, authored)     │
+│  API Definition YAML │     │  FlatBuffers Schemas │
+│  (authored)          │     │  (.fbs, authored)    │
 └─────────┬────────────┘     └─────────┬────────────┘
           │                            │
           ▼                            ▼
@@ -46,23 +55,31 @@ This layer is additive. Adding a new scaffolding target never touches Layer 1.
 │  Reads API definition + FlatBuffers schemas.        │
 │  Invokes FlatBuffers compiler for per-language      │
 │  struct code. Generates C ABI header, platform      │
-│  bindings, and optional impl scaffolding.           │
+│  bindings, and impl interface + scaffolding.        │
 └──┬──────────┬──────────┬──────────┬──────────┬──────┘
    │          │          │          │          │
    ▼          ▼          ▼          ▼          ▼
- C API     Kotlin/     Swift/    JS/WASM    Impl
- Header    JNI         C bridge  bindings   scaffolding
-   │                                        (optional)
-   │                                            │
-   │   ┌────────────────────────────────────┐   │
-   │   │  User Implementation               │   │
-   │   │  (C++, Rust, Go, or any language   │   │
-   │   │   that can export a C ABI)         │   │
-   └──>│                                    │<──┘
-       │  Implements the C API header.      │
-       │  Scaffolding provides a starting   │
-       │  point; user fills in the logic.   │
-       └──────────────┬─────────────────────┘
+ C API     Kotlin/     Swift/    JS/WASM    Impl language
+ Header    JNI         C bridge  bindings   output:
+   │                                        ┌───────────┐
+   │                                        │ Abstract  │
+   │                                        │ interface │
+   │                                        ├───────────┤
+   │                                        │ C ABI     │
+   │                                        │ shim      │
+   │                                        ├───────────┤
+   │                                        │ Stub      │
+   │                                        │ impl      │
+   │                                        └────┬──────┘
+   │                                             │
+   │   ┌─────────────────────────────────────┐   │
+   │   │  User Implementation                │   │
+   │   │                                     │   │
+   │   │  Implements the abstract interface  │<──┘
+   └──>│  in their chosen language. The      │
+       │  generated C ABI shim handles all   │
+       │  FFI compliance — no C required.    │
+       └──────────────┬──────────────────────┘
                       │
                       │ builds to
                       ▼
@@ -169,7 +186,7 @@ FlatBuffers serves three roles in the system:
 
 1. **Data structure IDL** — `.fbs` schemas define all data types (structs, enums, unions, tables, constants) used in the API. All type definitions live in FlatBuffers — the YAML API definition exclusively describes the API surface (interfaces, methods, handles). This avoids inventing a type definition language and gives users a well-documented, mature format they may already know.
 
-2. **Per-language struct codegen** — the FlatBuffers compiler generates idiomatic data structure code for every target language. The xplatgen code gen tool does not need to replicate this.
+2. **Per-language struct codegen** — the FlatBuffers compiler generates idiomatic data structure code for every target language. The xplattergy code gen tool does not need to replicate this.
 
 3. **Serialization** — zero-copy marshalling across the JNI boundary, binary-compatible save files across platforms, and a wire format for cross-device communication.
 
@@ -204,6 +221,13 @@ Shipped alongside the core tool but not baked into the code gen:
 
 These serve as both practical utilities and end-to-end integration test cases for validating marshalling throughput (targeting 120+ FPS input processing).
 
+- **Build integration examples** — minimal project skeletons showing how to wire xplattergy code gen into standard build systems:
+  - C++: CMake
+  - Rust: `build.rs`
+  - Go: `go generate` + Makefile
+
+  Each example demonstrates invoking the code gen tool as a build step, placing generated files, and compiling the result end-to-end.
+
 ## Technical Decisions
 
 | Decision | Rationale |
@@ -214,7 +238,7 @@ These serve as both practical utilities and end-to-end integration test cases fo
 | Go for code gen tool | Compiles to a single static binary with trivial cross-compilation — eliminates runtime/environment bootstrapping for end users. |
 | Borrowing-only FFI boundary | Ownership transfer across FFI requires release callbacks and inverted control flow; borrowing keeps both sides simple and auditable. |
 | WASM via C ABI exports (not language-specific) | Ensures any implementation language that compiles to WASM works, rather than coupling to Emscripten/embind or wasm-bindgen. |
-| C++, Rust, Go for impl scaffolding | The three viable languages with mature support for all six target platforms, C ABI export, and linear-memory WASM compilation. |
+| C++, Rust, Go impl interface + C ABI shim + stubs | The three viable languages with mature support for all six target platforms, C ABI export, and linear-memory WASM compilation. Generated shim means the consumer never writes C. |
 | Prebuilt binaries + build-from-source fallback | Covers the common case with zero friction while providing a reliable escape hatch for uncommon platforms. |
 | Input events as first-party contrib | Near-universal need, exercises the hot path, provides a concrete performance benchmark for the generated bindings. |
 | Link-time platform services (logging, resources) | Fixed, narrow interfaces that the code gen always produces; link-time resolution avoids callback machinery while giving the implementation access to platform-native capabilities. |

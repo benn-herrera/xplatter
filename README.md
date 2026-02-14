@@ -1,6 +1,10 @@
-# xplatgen
+# <img src="docs/logo.png" alt="drawing" width="32"/> xplattergy
 
-xplatgen *(splat-jen)* is a code generation tool that produces cross-platform API bindings from a single API definition. Define your API once in YAML, define your data types in FlatBuffers, and xplatgen generates the C ABI contract and idiomatic bindings for every target platform.
+## What
+xplattergy *(splat-er-jee)* is a code generation tool that produces performant cross-platform API bindings from a single API definition. Define your API once in YAML, define your data types in FlatBuffers, and xplattergy generates the C ABI contract and idiomatic bindings for every target platform.
+
+## Why
+Unburdening human and/or agentic coders from highly formulaic authoring of cross platform bindings allows them to focus effort on designing and implementing the solution to the real problem at hand.
 
 ## Target Platforms
 
@@ -12,11 +16,11 @@ Android, iOS, Web, Windows, macOS, and Linux.
 - **Kotlin + JNI bridge** — idiomatic Kotlin API for Android
 - **Swift + C bridge** — idiomatic Swift API for iOS and macOS
 - **JavaScript + WASM bindings** — idiomatic JS API for web and desktop
-- **Implementation scaffolding** (optional) — starter code for C++, Rust, or Go
+- **Implementation interface & scaffolding** — abstract interface, C ABI shim, and stub implementation for C++, Rust, or Go.
 
 ## Implementation Language Agnostic
 
-xplatgen does not dictate what language you write your library in. Any language that can export a Pure C ABI and compile to WASM with C ABI exports is a valid choice. The generated bindings work the same regardless of whether the implementation behind them is C++, Rust, Go, or anything else.
+xplattergy does not dictate what language you write your library in. Any language that can export a Pure C ABI and compile to WASM with C ABI exports is a valid choice. The generated bindings work the same regardless of whether the implementation behind them is C++, Rust, Go, pure C, or anything else.
 
 ## Performant
 
@@ -28,7 +32,7 @@ Because all data types are defined in FlatBuffers schemas shared across every ta
 
 ## Built On
 
-- **FlatBuffers** — all data types are defined in `.fbs` schemas. FlatBuffers provides the type system, per-language struct codegen, and zero-copy serialization. xplatgen does not reinvent any of this.
+- **FlatBuffers** — all data types are defined in `.fbs` schemas. FlatBuffers provides the type system, per-language struct codegen, and zero-copy serialization. xplattergy does not reinvent any of this.
 - **YAML + JSON Schema** — API definitions are authored in YAML and validated by a JSON Schema, giving you editor autocompletion, inline validation, and a format that's friendly to both humans and AI coding agents.
 
 ## Core Platform Services
