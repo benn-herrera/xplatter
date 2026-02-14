@@ -46,19 +46,30 @@ vet:
 validate: $(BINARY)
 	$(BINARY) validate docs/example_api_definition.yaml
 
-## dist: Cross-compile for all distribution targets
+## dist: Build a batteries-included SDK archive for distribution
+dist: DIST_NAME := xplattergy-$(VERSION)
+dist: DIST_PKG  := $(DIST_DIR)/$(DIST_NAME)
 dist:
-	@mkdir -p $(DIST_DIR)
+	@mkdir -p $(DIST_PKG)/bin
 	@for platform in $(PLATFORMS); do \
 		GOOS=$${platform%/*}; \
 		GOARCH=$${platform#*/}; \
-		output="$(DIST_DIR)/xplattergy-$${GOOS}-$${GOARCH}"; \
+		output="$(DIST_PKG)/bin/xplattergy-$${GOOS}-$${GOARCH}"; \
 		if [ "$$GOOS" = "windows" ]; then output="$${output}.exe"; fi; \
 		echo "Building $$output ..."; \
 		cd $(SRC_DIR) && CGO_ENABLED=0 GOOS=$$GOOS GOARCH=$$GOARCH \
 			go build -ldflags "$(LDFLAGS)" -o "../$$output" . && cd ..; \
 	done
-	@echo "Distribution binaries in $(DIST_DIR)/"
+	@cp -r $(SRC_DIR) $(DIST_PKG)/$(SRC_DIR)
+	@cp build_codegen.sh $(DIST_PKG)/
+	@cp -r schemas $(DIST_PKG)/schemas
+	@cp docs/api_definition_schema.json $(DIST_PKG)/
+	@cp docs/api_definition_spec.md $(DIST_PKG)/
+	@cp docs/example_api_definition.yaml $(DIST_PKG)/
+	@cp LICENSE.md $(DIST_PKG)/
+	@cp README.md $(DIST_PKG)/
+	@tar -czf $(DIST_PKG).tar.gz -C $(DIST_DIR) $(DIST_NAME)
+	@echo "SDK archive ready: $(DIST_PKG).tar.gz"
 
 ## help: Show this help
 help:
