@@ -1,0 +1,68 @@
+namespace Common;
+
+enum ErrorCode : int32 {
+    Ok = 0,
+    InvalidArgument = 1,
+    OutOfMemory = 2,
+    NotFound = 3,
+    InternalError = 4
+}
+
+enum LogLevel : int32 {
+    Debug = 0,
+    Info = 1,
+    Warn = 2,
+    Error = 3
+}
+
+table EntityId {
+    id: uint64;
+}
+
+table EventQueue {
+    // Placeholder for event queue structure
+    capacity: uint32;
+}
+
+namespace Rendering;
+
+table RendererConfig {
+    width: uint32;
+    height: uint32;
+    vsync: bool;
+}
+
+enum TextureFormat : int32 {
+    RGBA8 = 0,
+    RGB8 = 1,
+    R8 = 2
+}
+
+namespace Input;
+
+table TouchEvent {
+    pointer_id: int32;
+    x: float;
+    y: float;
+    pressure: float;
+    timestamp_ns: uint64;
+}
+
+table TouchEventBatch {
+    events: [TouchEvent];
+}
+
+namespace Geometry;
+
+struct Transform3D {
+    m00: float; m01: float; m02: float; m03: float;
+    m10: float; m11: float; m12: float; m13: float;
+    m20: float; m21: float; m22: float; m23: float;
+    m30: float; m31: float; m32: float; m33: float;
+}
+
+namespace Scene;
+
+table EntityDefinition {
+    name: string;
+}

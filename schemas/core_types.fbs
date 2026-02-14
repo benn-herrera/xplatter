@@ -1,0 +1,35 @@
+// xplattergy Core Types
+//
+// FlatBuffers table types for returning string and buffer data across
+// the C ABI boundary. Since string and buffer<T> are parameter-only
+// types in xplattergy, these boxed types provide a standard way to
+// return such data via FlatBuffer result types.
+//
+// These types are provided as first-party contrib — usable by example
+// projects and end users, but not baked into the code gen tool.
+
+namespace Core;
+
+/// Boxed string for returning string data across the C ABI boundary.
+/// Use as a return type when a method needs to return string data.
+table BoxedString {
+    value: string;
+}
+
+/// Boxed byte buffer for returning raw byte data.
+/// Suitable for file contents, serialized data, or arbitrary binary blobs.
+table ByteBuffer {
+    data: [ubyte];
+}
+
+/// Boxed int32 buffer for returning arrays of 32-bit integers.
+/// Suitable for index arrays, ID lists, or integer sample data.
+table Int32Buffer {
+    data: [int32];
+}
+
+/// Boxed float32 buffer for returning arrays of 32-bit floats.
+/// Suitable for vertex data, audio samples, or sensor readings.
+table Float32Buffer {
+    data: [float32];
+}

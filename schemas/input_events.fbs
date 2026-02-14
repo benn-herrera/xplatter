@@ -1,0 +1,178 @@
+// xplattergy Input Events
+//
+// Standardized input event structures for cross-platform use.
+// Provided as first-party contrib for use in benchmarks, examples,
+// and by end users. These types exercise the FlatBuffers hot path
+// and serve as integration test cases for marshalling throughput
+// (targeting 120+ FPS input processing).
+
+namespace Input;
+
+// --- Enumerations ---
+
+enum KeyAction : byte {
+    Press = 0,
+    Release,
+    Repeat
+}
+
+enum MouseButton : byte {
+    Left = 0,
+    Right,
+    Middle,
+    Back,
+    Forward
+}
+
+enum TouchPhase : byte {
+    Began = 0,
+    Moved,
+    Stationary,
+    Ended,
+    Cancelled
+}
+
+enum GamepadButton : byte {
+    A = 0,
+    B,
+    X,
+    Y,
+    LeftBumper,
+    RightBumper,
+    Back,
+    Start,
+    Guide,
+    LeftThumb,
+    RightThumb,
+    DpadUp,
+    DpadDown,
+    DpadLeft,
+    DpadRight
+}
+
+enum GamepadAxis : byte {
+    LeftX = 0,
+    LeftY,
+    RightX,
+    RightY,
+    LeftTrigger,
+    RightTrigger
+}
+
+// --- Key Modifiers (bitmask) ---
+// Represented as uint32 in events. Defined here for documentation.
+// Bit 0: Shift
+// Bit 1: Control
+// Bit 2: Alt/Option
+// Bit 3: Super/Command/Windows
+
+// --- Event Types ---
+
+/// A single keyboard event.
+table KeyEvent {
+    /// Platform-independent key code (e.g., USB HID usage codes).
+    key_code: int32;
+
+    /// Platform-specific scan code.
+    scan_code: int32;
+
+    /// Press, release, or repeat.
+    action: KeyAction;
+
+    /// Modifier key bitmask (shift, ctrl, alt, super).
+    modifiers: uint32;
+
+    /// Event timestamp in nanoseconds (monotonic clock).
+    timestamp_ns: uint64;
+}
+
+/// A single mouse event.
+table MouseEvent {
+    /// Cursor X position in window coordinates.
+    x: float32;
+
+    /// Cursor Y position in window coordinates.
+    y: float32;
+
+    /// Which button was pressed/released (if applicable).
+    button: MouseButton;
+
+    /// Press or release (for button events).
+    action: KeyAction;
+
+    /// Horizontal scroll delta.
+    scroll_x: float32;
+
+    /// Vertical scroll delta.
+    scroll_y: float32;
+
+    /// Modifier key bitmask.
+    modifiers: uint32;
+
+    /// Event timestamp in nanoseconds (monotonic clock).
+    timestamp_ns: uint64;
+}
+
+/// A single touch event.
+table TouchEvent {
+    /// Unique identifier for this touch pointer.
+    pointer_id: int32;
+
+    /// Touch X position in window coordinates.
+    x: float32;
+
+    /// Touch Y position in window coordinates.
+    y: float32;
+
+    /// Touch pressure (0.0 to 1.0, if available).
+    pressure: float32;
+
+    /// Touch phase (began, moved, ended, etc.).
+    phase: TouchPhase;
+
+    /// Event timestamp in nanoseconds (monotonic clock).
+    timestamp_ns: uint64;
+}
+
+/// A single gamepad event.
+table GamepadEvent {
+    /// Identifier for the gamepad device.
+    gamepad_id: int32;
+
+    /// Which button was pressed/released (for button events).
+    button: GamepadButton;
+
+    /// Press or release (for button events).
+    action: KeyAction;
+
+    /// Current axis values (indexed by GamepadAxis).
+    /// Only populated for axis-change events.
+    axis_values: [float32];
+
+    /// Event timestamp in nanoseconds (monotonic clock).
+    timestamp_ns: uint64;
+}
+
+// --- Batch Types ---
+// Batches group multiple events for efficient bulk transfer across
+// the FFI boundary. Use these for high-frequency input paths.
+
+/// Batch of keyboard events.
+table KeyEventBatch {
+    events: [KeyEvent];
+}
+
+/// Batch of mouse events.
+table MouseEventBatch {
+    events: [MouseEvent];
+}
+
+/// Batch of touch events.
+table TouchEventBatch {
+    events: [TouchEvent];
+}
+
+/// Batch of gamepad events.
+table GamepadEventBatch {
+    events: [GamepadEvent];
+}

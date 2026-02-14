@@ -2,7 +2,26 @@
   "permissions": {
     "allow": [
       "Bash(python3:*)",
-      "Bash(pip3 install:*)"
+      "Bash(pip3 install:*)",
+      "WebSearch",
+      "WebFetch(domain:flatbuffers.dev)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.tutorialspoint.com)",
+      "WebFetch(domain:groups.google.com)",
+      "Bash(go mod init:*)",
+      "Bash(go get:*)",
+      "Bash(go build:*)",
+      "Bash(go test:*)",
+      "Bash(/tmp/xplattergy version:*)",
+      "Bash(/tmp/xplattergy validate:*)",
+      "Bash(/tmp/xplattergy generate:*)",
+      "Bash(find:*)",
+      "Bash(chmod:*)",
+      "Bash(./build_codegen.sh:*)",
+      "Bash(go version:*)",
+      "Bash(while read f)",
+      "Bash(do sed -i '' 's|github.com/xplattergy/xplattergy|github.com/benn-herrera/xplattergy|g' \"$f\")",
+      "Bash(done)"
     ]
   }
 }

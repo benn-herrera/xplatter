@@ -1,0 +1,23 @@
+api:
+  name: test_api
+  version: 0.1.0
+  impl_lang: c
+
+flatbuffers:
+  - schemas/common.fbs
+
+handles:
+  - name: Engine
+    description: "Test engine handle"
+
+interfaces:
+  - name: lifecycle
+    methods:
+      - name: create_engine
+        returns:
+          type: handle:Engine
+        error: Common.ErrorCode
+      - name: destroy_engine
+        parameters:
+          - name: engine
+            type: handle:Engine

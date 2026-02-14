@@ -1,0 +1,700 @@
+package gen
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/benn-herrera/xplattergy/model"
+	"github.com/benn-herrera/xplattergy/resolver"
+)
+
+func init() {
+	Register("kotlin", func() Generator { return &KotlinGenerator{} })
+}
+
+// KotlinGenerator produces a Kotlin public API file and a JNI C bridge file.
+type KotlinGenerator struct{}
+
+func (g *KotlinGenerator) Name() string { return "kotlin" }
+
+func (g *KotlinGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
+	api := ctx.API
+	apiName := api.API.Name
+	pascalName := ToPascalCase(apiName)
+	packageName := strings.ReplaceAll(apiName, "_", ".")
+
+	ktContent, err := generateKotlinFile(api, ctx.ResolvedTypes, pascalName, packageName)
+	if err != nil {
+		return nil, fmt.Errorf("generating Kotlin file: %w", err)
+	}
+
+	jniContent, err := generateJNIFile(api, ctx.ResolvedTypes, pascalName, packageName)
+	if err != nil {
+		return nil, fmt.Errorf("generating JNI C bridge: %w", err)
+	}
+
+	return []*OutputFile{
+		{Path: pascalName + ".kt", Content: []byte(ktContent)},
+		{Path: apiName + "_jni.c", Content: []byte(jniContent)},
+	}, nil
+}
+
+// ---------- Kotlin file generation ----------
+
+func generateKotlinFile(api *model.APIDefinition, resolved resolver.ResolvedTypes, pascalName, packageName string) (string, error) {
+	var b strings.Builder
+
+	// Package and imports
+	fmt.Fprintf(&b, "package %s\n\n", packageName)
+
+	// Error exception class — collect all unique error types
+	errorTypes := CollectErrorTypes(api)
+	for _, errType := range errorTypes {
+		writeKotlinException(&b, errType)
+	}
+
+	// Handle wrapper classes
+	for _, h := range api.Handles {
+		writeKotlinHandleClass(&b, h, api, pascalName)
+	}
+
+	// Singleton object for the native library and methods without handles
+	writeKotlinNativeObject(&b, api, pascalName, packageName)
+
+	return b.String(), nil
+}
+
+
+// writeKotlinException writes a Kotlin exception class for a FlatBuffer error enum.
+func writeKotlinException(b *strings.Builder, errType string) {
+	className := kotlinErrorExceptionName(errType)
+	fmt.Fprintf(b, "class %s(val errorCode: Int) : Exception(\"Error code: $errorCode\")\n\n", className)
+}
+
+// kotlinErrorExceptionName converts a FlatBuffer error type (e.g., "Common.ErrorCode")
+// to a Kotlin exception class name (e.g., "CommonErrorCodeException").
+func kotlinErrorExceptionName(errType string) string {
+	return strings.ReplaceAll(errType, ".", "") + "Exception"
+}
+
+// writeKotlinHandleClass writes a Kotlin wrapper class for an opaque handle.
+func writeKotlinHandleClass(b *strings.Builder, h model.HandleDef, api *model.APIDefinition, pascalName string) {
+	className := h.Name
+
+	if h.Description != "" {
+		fmt.Fprintf(b, "/**\n * %s\n */\n", h.Description)
+	}
+	fmt.Fprintf(b, "class %s internal constructor(internal val handle: Long) : AutoCloseable {\n", className)
+
+	// Find methods that take this handle as the first parameter (instance methods)
+	for _, iface := range api.Interfaces {
+		for _, method := range iface.Methods {
+			if isInstanceMethod(method, h.Name) {
+				writeKotlinInstanceMethod(b, api.API.Name, iface.Name, &method, h.Name, pascalName)
+			}
+		}
+	}
+
+	// AutoCloseable close method — find the destroy method if it exists
+	if ifaceName, methodName, found := FindDestroyInfo(api, h.Name); found {
+		fmt.Fprintf(b, "    override fun close() {\n")
+		fmt.Fprintf(b, "        %s.%s(handle)\n", pascalName, jniNativeMethodName(ifaceName, methodName))
+		fmt.Fprintf(b, "    }\n")
+	} else {
+		fmt.Fprintf(b, "    override fun close() { }\n")
+	}
+
+	fmt.Fprintf(b, "}\n\n")
+}
+
+// isInstanceMethod returns true if the method's first parameter is a handle of the given type.
+func isInstanceMethod(method model.MethodDef, handleName string) bool {
+	if len(method.Parameters) == 0 {
+		return false
+	}
+	first := method.Parameters[0]
+	hName, ok := model.IsHandle(first.Type)
+	return ok && hName == handleName
+}
+
+
+// writeKotlinInstanceMethod writes a Kotlin method on a handle wrapper class.
+func writeKotlinInstanceMethod(b *strings.Builder, apiName, ifaceName string, method *model.MethodDef, handleName, pascalName string) {
+	// Skip destroy methods (handled by close())
+	snake := model.HandleToSnake(handleName)
+	if (method.Name == "destroy_"+snake || method.Name == "release_"+snake) &&
+		len(method.Parameters) == 1 {
+		return
+	}
+
+	methodName := ToCamelCase(method.Name)
+	nativeName := jniNativeMethodName(ifaceName, method.Name)
+	hasError := method.Error != ""
+	hasReturn := method.Returns != nil
+
+	// Build Kotlin parameters (skip the first handle param — it's 'this')
+	var ktParams []string
+	var nativeCallArgs []string
+	nativeCallArgs = append(nativeCallArgs, "handle")
+
+	for _, p := range method.Parameters[1:] {
+		ktType := kotlinParamType(p.Type)
+		ktParams = append(ktParams, ToCamelCase(p.Name)+": "+ktType)
+		nativeCallArgs = append(nativeCallArgs, kotlinParamToNativeArg(p))
+	}
+
+	// Determine Kotlin return type
+	ktReturnType := ""
+	if hasReturn {
+		ktReturnType = kotlinReturnType(method.Returns.Type)
+	}
+
+	// Method signature
+	paramStr := strings.Join(ktParams, ", ")
+	if ktReturnType != "" {
+		fmt.Fprintf(b, "    fun %s(%s): %s {\n", methodName, paramStr, ktReturnType)
+	} else {
+		fmt.Fprintf(b, "    fun %s(%s) {\n", methodName, paramStr)
+	}
+
+	// Method body
+	callArgs := strings.Join(nativeCallArgs, ", ")
+	if hasError {
+		if hasReturn {
+			// Fallible with return: native method returns a Long array [errorCode, result]
+			fmt.Fprintf(b, "        val result = %s.%s(%s)\n", pascalName, nativeName, callArgs)
+			fmt.Fprintf(b, "        if (result[0] != 0L) throw %s(result[0].toInt())\n",
+				kotlinErrorExceptionName(method.Error))
+			retType := method.Returns.Type
+			if _, ok := model.IsHandle(retType); ok {
+				fmt.Fprintf(b, "        return %s(result[1])\n", kotlinHandleReturnType(retType))
+			} else {
+				fmt.Fprintf(b, "        return result[1]\n")
+			}
+		} else {
+			// Fallible without return
+			fmt.Fprintf(b, "        val rc = %s.%s(%s)\n", pascalName, nativeName, callArgs)
+			fmt.Fprintf(b, "        if (rc != 0) throw %s(rc)\n",
+				kotlinErrorExceptionName(method.Error))
+		}
+	} else {
+		if hasReturn {
+			retType := method.Returns.Type
+			if _, ok := model.IsHandle(retType); ok {
+				fmt.Fprintf(b, "        return %s(%s.%s(%s))\n",
+					kotlinHandleReturnType(retType), pascalName, nativeName, callArgs)
+			} else {
+				fmt.Fprintf(b, "        return %s.%s(%s)\n", pascalName, nativeName, callArgs)
+			}
+		} else {
+			fmt.Fprintf(b, "        %s.%s(%s)\n", pascalName, nativeName, callArgs)
+		}
+	}
+
+	fmt.Fprintf(b, "    }\n\n")
+}
+
+// writeKotlinNativeObject writes the companion/singleton object containing native methods
+// and factory functions (methods that don't take a handle as first param, or create handles).
+func writeKotlinNativeObject(b *strings.Builder, api *model.APIDefinition, pascalName, packageName string) {
+	fmt.Fprintf(b, "object %s {\n", pascalName)
+	fmt.Fprintf(b, "    init {\n")
+	fmt.Fprintf(b, "        System.loadLibrary(\"%s\")\n", api.API.Name)
+	fmt.Fprintf(b, "    }\n\n")
+
+	// Factory methods (methods that return handles without a handle as first param)
+	for _, iface := range api.Interfaces {
+		for _, method := range iface.Methods {
+			if !isAnyInstanceMethod(method, api) {
+				writeKotlinFactoryMethod(b, api.API.Name, iface.Name, &method, pascalName)
+			}
+		}
+	}
+
+	// JNI native method declarations
+	for _, iface := range api.Interfaces {
+		for _, method := range iface.Methods {
+			writeKotlinNativeDecl(b, iface.Name, &method)
+		}
+	}
+
+	fmt.Fprintf(b, "}\n")
+}
+
+// isAnyInstanceMethod returns true if this method is an instance method on any handle.
+func isAnyInstanceMethod(method model.MethodDef, api *model.APIDefinition) bool {
+	if len(method.Parameters) == 0 {
+		return false
+	}
+	first := method.Parameters[0]
+	hName, ok := model.IsHandle(first.Type)
+	if !ok {
+		return false
+	}
+	// Check that this handle is defined in the API
+	return api.HandleByName(hName) != nil
+}
+
+// writeKotlinFactoryMethod writes a top-level factory method (e.g., createEngine).
+func writeKotlinFactoryMethod(b *strings.Builder, apiName, ifaceName string, method *model.MethodDef, pascalName string) {
+	methodName := ToCamelCase(method.Name)
+	nativeName := jniNativeMethodName(ifaceName, method.Name)
+	hasError := method.Error != ""
+	hasReturn := method.Returns != nil
+
+	var ktParams []string
+	var nativeCallArgs []string
+	for _, p := range method.Parameters {
+		ktType := kotlinParamType(p.Type)
+		ktParams = append(ktParams, ToCamelCase(p.Name)+": "+ktType)
+		nativeCallArgs = append(nativeCallArgs, kotlinParamToNativeArg(p))
+	}
+
+	ktReturnType := ""
+	if hasReturn {
+		ktReturnType = kotlinReturnType(method.Returns.Type)
+	}
+
+	paramStr := strings.Join(ktParams, ", ")
+	if ktReturnType != "" {
+		fmt.Fprintf(b, "    fun %s(%s): %s {\n", methodName, paramStr, ktReturnType)
+	} else {
+		fmt.Fprintf(b, "    fun %s(%s) {\n", methodName, paramStr)
+	}
+
+	callArgs := strings.Join(nativeCallArgs, ", ")
+	if hasError {
+		if hasReturn {
+			fmt.Fprintf(b, "        val result = %s(%s)\n", nativeName, callArgs)
+			fmt.Fprintf(b, "        if (result[0] != 0L) throw %s(result[0].toInt())\n",
+				kotlinErrorExceptionName(method.Error))
+			retType := method.Returns.Type
+			if _, ok := model.IsHandle(retType); ok {
+				fmt.Fprintf(b, "        return %s(result[1])\n", kotlinHandleReturnType(retType))
+			} else {
+				fmt.Fprintf(b, "        return result[1]\n")
+			}
+		} else {
+			fmt.Fprintf(b, "        val rc = %s(%s)\n", nativeName, callArgs)
+			fmt.Fprintf(b, "        if (rc != 0) throw %s(rc)\n",
+				kotlinErrorExceptionName(method.Error))
+		}
+	} else {
+		if hasReturn {
+			retType := method.Returns.Type
+			if _, ok := model.IsHandle(retType); ok {
+				fmt.Fprintf(b, "        return %s(%s(%s))\n",
+					kotlinHandleReturnType(retType), nativeName, callArgs)
+			} else {
+				fmt.Fprintf(b, "        return %s(%s)\n", nativeName, callArgs)
+			}
+		} else {
+			fmt.Fprintf(b, "        %s(%s)\n", nativeName, callArgs)
+		}
+	}
+
+	fmt.Fprintf(b, "    }\n\n")
+}
+
+// writeKotlinNativeDecl writes a JNI external native method declaration.
+func writeKotlinNativeDecl(b *strings.Builder, ifaceName string, method *model.MethodDef) {
+	nativeName := jniNativeMethodName(ifaceName, method.Name)
+	hasError := method.Error != ""
+	hasReturn := method.Returns != nil
+
+	var params []string
+	for _, p := range method.Parameters {
+		params = append(params, kotlinNativeDeclParam(p))
+	}
+
+	var returnType string
+	switch {
+	case hasError && hasReturn:
+		returnType = "LongArray"
+	case hasError && !hasReturn:
+		returnType = "Int"
+	case !hasError && hasReturn:
+		returnType = kotlinNativeReturnType(method.Returns.Type)
+	default:
+		returnType = "Unit"
+	}
+
+	paramStr := strings.Join(params, ", ")
+	fmt.Fprintf(b, "    external fun %s(%s): %s\n", nativeName, paramStr, returnType)
+}
+
+// ---------- JNI C bridge file generation ----------
+
+func generateJNIFile(api *model.APIDefinition, resolved resolver.ResolvedTypes, pascalName, packageName string) (string, error) {
+	var b strings.Builder
+
+	apiName := api.API.Name
+	jniClassPath := strings.ReplaceAll(packageName, ".", "_") + "_" + pascalName
+
+	// Header
+	b.WriteString("#include <jni.h>\n")
+	b.WriteString("#include <string.h>\n")
+	fmt.Fprintf(&b, "#include \"%s.h\"\n\n", apiName)
+
+	// Helper: throw exception
+	fmt.Fprintf(&b, "static void throw_exception(JNIEnv *env, const char *class_name, const char *message) {\n")
+	fmt.Fprintf(&b, "    jclass cls = (*env)->FindClass(env, class_name);\n")
+	fmt.Fprintf(&b, "    if (cls != NULL) {\n")
+	fmt.Fprintf(&b, "        (*env)->ThrowNew(env, cls, message);\n")
+	fmt.Fprintf(&b, "    }\n")
+	fmt.Fprintf(&b, "}\n\n")
+
+	// Generate JNI functions for each method
+	for _, iface := range api.Interfaces {
+		fmt.Fprintf(&b, "/* %s */\n", iface.Name)
+		for _, method := range iface.Methods {
+			writeJNIFunction(&b, apiName, iface.Name, &method, jniClassPath)
+		}
+		b.WriteString("\n")
+	}
+
+	return b.String(), nil
+}
+
+func writeJNIFunction(b *strings.Builder, apiName, ifaceName string, method *model.MethodDef, jniClassPath string) {
+	cabiFunc := CABIFunctionName(apiName, ifaceName, method.Name)
+	jniMethodName := jniNativeMethodName(ifaceName, method.Name)
+	hasError := method.Error != ""
+	hasReturn := method.Returns != nil
+
+	// JNI return type
+	var jniRetType string
+	switch {
+	case hasError && hasReturn:
+		jniRetType = "jlongArray"
+	case hasError && !hasReturn:
+		jniRetType = "jint"
+	case !hasError && hasReturn:
+		jniRetType = jniCReturnType(method.Returns.Type)
+	default:
+		jniRetType = "void"
+	}
+
+	// JNI function name: Java_<package_class>_<method>
+	jniFuncName := fmt.Sprintf("Java_%s_%s", jniClassPath, jniMethodName)
+
+	// Build JNI parameter list
+	var jniParams []string
+	jniParams = append(jniParams, "JNIEnv *env", "jobject thiz")
+	for _, p := range method.Parameters {
+		jniParams = append(jniParams, jniParamDecl(&p)...)
+	}
+
+	// Function signature
+	paramStr := strings.Join(jniParams, ", ")
+	fmt.Fprintf(b, "JNIEXPORT %s JNICALL\n", jniRetType)
+	fmt.Fprintf(b, "%s(%s) {\n", jniFuncName, paramStr)
+
+	// String marshalling setup
+	var stringParams []model.ParameterDef
+	for _, p := range method.Parameters {
+		if model.IsString(p.Type) {
+			stringParams = append(stringParams, p)
+			jniVarName := ToCamelCase(p.Name)
+			fmt.Fprintf(b, "    const char *c_%s = (*env)->GetStringUTFChars(env, %s, NULL);\n",
+				p.Name, jniVarName)
+		}
+	}
+
+	// Build C ABI call arguments
+	var callArgs []string
+	for _, p := range method.Parameters {
+		callArgs = append(callArgs, jniToCArg(&p)...)
+	}
+
+	// Call the C ABI function
+	switch {
+	case hasError && hasReturn:
+		// Fallible with return: C function returns int32_t, result via out-param
+		retCType := CReturnType(method.Returns.Type)
+		fmt.Fprintf(b, "    %s out_result;\n", retCType)
+		callArgs = append(callArgs, "&out_result")
+		fmt.Fprintf(b, "    int32_t rc = %s(%s);\n", cabiFunc, strings.Join(callArgs, ", "))
+
+		// Release strings before returning
+		for _, sp := range stringParams {
+			jniVarName := ToCamelCase(sp.Name)
+			fmt.Fprintf(b, "    (*env)->ReleaseStringUTFChars(env, %s, c_%s);\n",
+				jniVarName, sp.Name)
+		}
+
+		// Return [errorCode, result] as jlongArray
+		fmt.Fprintf(b, "    jlongArray arr = (*env)->NewLongArray(env, 2);\n")
+		fmt.Fprintf(b, "    jlong values[2] = { (jlong)rc, (jlong)out_result };\n")
+		fmt.Fprintf(b, "    (*env)->SetLongArrayRegion(env, arr, 0, 2, values);\n")
+		fmt.Fprintf(b, "    return arr;\n")
+
+	case hasError && !hasReturn:
+		// Fallible without return
+		fmt.Fprintf(b, "    int32_t rc = %s(%s);\n", cabiFunc, strings.Join(callArgs, ", "))
+
+		// Release strings before returning
+		for _, sp := range stringParams {
+			jniVarName := ToCamelCase(sp.Name)
+			fmt.Fprintf(b, "    (*env)->ReleaseStringUTFChars(env, %s, c_%s);\n",
+				jniVarName, sp.Name)
+		}
+
+		fmt.Fprintf(b, "    return (jint)rc;\n")
+
+	case !hasError && hasReturn:
+		// Infallible with return
+		fmt.Fprintf(b, "    %s result = %s(%s);\n",
+			CReturnType(method.Returns.Type), cabiFunc, strings.Join(callArgs, ", "))
+
+		// Release strings before returning
+		for _, sp := range stringParams {
+			jniVarName := ToCamelCase(sp.Name)
+			fmt.Fprintf(b, "    (*env)->ReleaseStringUTFChars(env, %s, c_%s);\n",
+				jniVarName, sp.Name)
+		}
+
+		fmt.Fprintf(b, "    return (%s)result;\n", jniRetType)
+
+	default:
+		// Infallible void
+		fmt.Fprintf(b, "    %s(%s);\n", cabiFunc, strings.Join(callArgs, ", "))
+
+		// Release strings before returning
+		for _, sp := range stringParams {
+			jniVarName := ToCamelCase(sp.Name)
+			fmt.Fprintf(b, "    (*env)->ReleaseStringUTFChars(env, %s, c_%s);\n",
+				jniVarName, sp.Name)
+		}
+	}
+
+	fmt.Fprintf(b, "}\n\n")
+}
+
+// ---------- Kotlin type mapping helpers ----------
+
+// kotlinParamType maps an API parameter type to its Kotlin type.
+func kotlinParamType(t string) string {
+	if model.IsString(t) {
+		return "String"
+	}
+	if elemType, ok := model.IsBuffer(t); ok {
+		return kotlinArrayType(elemType)
+	}
+	if handleName, ok := model.IsHandle(t); ok {
+		return handleName
+	}
+	if model.IsPrimitive(t) {
+		return kotlinPrimitiveType(t)
+	}
+	// FlatBuffer type — passed as ByteArray (serialized)
+	return "ByteArray"
+}
+
+// kotlinReturnType maps an API return type to its Kotlin type.
+func kotlinReturnType(t string) string {
+	if handleName, ok := model.IsHandle(t); ok {
+		return handleName
+	}
+	if model.IsPrimitive(t) {
+		return kotlinPrimitiveType(t)
+	}
+	return "Long"
+}
+
+// kotlinHandleReturnType returns the Kotlin class name for a handle return type.
+func kotlinHandleReturnType(t string) string {
+	if handleName, ok := model.IsHandle(t); ok {
+		return handleName
+	}
+	return "Long"
+}
+
+// kotlinNativeReturnType maps an API return type to the JNI native method return type in Kotlin.
+func kotlinNativeReturnType(t string) string {
+	if _, ok := model.IsHandle(t); ok {
+		return "Long"
+	}
+	if model.IsPrimitive(t) {
+		return kotlinPrimitiveType(t)
+	}
+	return "Long"
+}
+
+// kotlinPrimitiveType maps an xplattergy primitive type to a Kotlin type.
+func kotlinPrimitiveType(t string) string {
+	switch t {
+	case "int8":
+		return "Byte"
+	case "int16":
+		return "Short"
+	case "int32":
+		return "Int"
+	case "int64":
+		return "Long"
+	case "uint8":
+		return "Byte"
+	case "uint16":
+		return "Short"
+	case "uint32":
+		return "Int"
+	case "uint64":
+		return "Long"
+	case "float32":
+		return "Float"
+	case "float64":
+		return "Double"
+	case "bool":
+		return "Boolean"
+	default:
+		return t
+	}
+}
+
+// kotlinArrayType maps a buffer element type to a Kotlin array type.
+func kotlinArrayType(elemType string) string {
+	switch elemType {
+	case "uint8", "int8":
+		return "ByteArray"
+	case "int16", "uint16":
+		return "ShortArray"
+	case "int32", "uint32":
+		return "IntArray"
+	case "int64", "uint64":
+		return "LongArray"
+	case "float32":
+		return "FloatArray"
+	case "float64":
+		return "DoubleArray"
+	default:
+		return "ByteArray"
+	}
+}
+
+// kotlinParamToNativeArg returns the Kotlin expression to pass a parameter to a native method.
+func kotlinParamToNativeArg(p model.ParameterDef) string {
+	if _, ok := model.IsHandle(p.Type); ok {
+		return ToCamelCase(p.Name) + ".handle"
+	}
+	return ToCamelCase(p.Name)
+}
+
+// kotlinNativeDeclParam returns the Kotlin parameter declaration for a native method.
+func kotlinNativeDeclParam(p model.ParameterDef) string {
+	name := ToCamelCase(p.Name)
+	if _, ok := model.IsHandle(p.Type); ok {
+		return name + ": Long"
+	}
+	if model.IsString(p.Type) {
+		return name + ": String"
+	}
+	if elemType, ok := model.IsBuffer(p.Type); ok {
+		return name + ": " + kotlinArrayType(elemType) + ", " + name + "Len: Int"
+	}
+	if model.IsPrimitive(p.Type) {
+		return name + ": " + kotlinPrimitiveType(p.Type)
+	}
+	// FlatBuffer type — passed as ByteArray
+	return name + ": ByteArray"
+}
+
+// jniNativeMethodName builds the Kotlin/JNI native method name: nativeIfaceMethod
+func jniNativeMethodName(ifaceName, methodName string) string {
+	return "native" + ToPascalCase(ifaceName) + ToPascalCase(methodName)
+}
+
+// ---------- JNI C type mapping helpers ----------
+
+// jniParamDecl returns JNI C parameter declarations for a given API parameter.
+func jniParamDecl(p *model.ParameterDef) []string {
+	name := ToCamelCase(p.Name)
+	if model.IsString(p.Type) {
+		return []string{"jstring " + name}
+	}
+	if elemType, ok := model.IsBuffer(p.Type); ok {
+		jniArrayType := jniArrayCType(elemType)
+		return []string{jniArrayType + " " + name, "jint " + name + "Len"}
+	}
+	if _, ok := model.IsHandle(p.Type); ok {
+		return []string{"jlong " + name}
+	}
+	if model.IsPrimitive(p.Type) {
+		return []string{jniPrimitiveCType(p.Type) + " " + name}
+	}
+	// FlatBuffer type — ByteArray
+	return []string{"jbyteArray " + name}
+}
+
+// jniToCArg returns the C expression(s) to pass a JNI parameter to the C ABI function.
+func jniToCArg(p *model.ParameterDef) []string {
+	name := ToCamelCase(p.Name)
+	if model.IsString(p.Type) {
+		return []string{"c_" + p.Name}
+	}
+	if _, ok := model.IsBuffer(p.Type); ok {
+		// For buffers, we need to get the array elements pointer
+		// This is simplified — in production you'd use GetByteArrayElements etc.
+		return []string{"(" + CParamType(p.Type, p.Transfer) + ")" + name, "(uint32_t)" + name + "Len"}
+	}
+	if _, ok := model.IsHandle(p.Type); ok {
+		return []string{"(" + HandleTypedefName(p.Type[7:]) + ")" + name}
+	}
+	if model.IsPrimitive(p.Type) {
+		return []string{"(" + model.PrimitiveCType(p.Type) + ")" + name}
+	}
+	// FlatBuffer type
+	return []string{"(" + CParamType(p.Type, p.Transfer) + ")" + name}
+}
+
+// jniCReturnType returns the JNI C return type for an API return type.
+func jniCReturnType(t string) string {
+	if _, ok := model.IsHandle(t); ok {
+		return "jlong"
+	}
+	if model.IsPrimitive(t) {
+		return jniPrimitiveCType(t)
+	}
+	return "jlong"
+}
+
+// jniPrimitiveCType maps a primitive type to its JNI C type.
+func jniPrimitiveCType(t string) string {
+	switch t {
+	case "int8", "uint8":
+		return "jbyte"
+	case "int16", "uint16":
+		return "jshort"
+	case "int32", "uint32":
+		return "jint"
+	case "int64", "uint64":
+		return "jlong"
+	case "float32":
+		return "jfloat"
+	case "float64":
+		return "jdouble"
+	case "bool":
+		return "jboolean"
+	default:
+		return "jint"
+	}
+}
+
+// jniArrayCType maps a buffer element type to its JNI C array type.
+func jniArrayCType(elemType string) string {
+	switch elemType {
+	case "uint8", "int8":
+		return "jbyteArray"
+	case "int16", "uint16":
+		return "jshortArray"
+	case "int32", "uint32":
+		return "jintArray"
+	case "int64", "uint64":
+		return "jlongArray"
+	case "float32":
+		return "jfloatArray"
+	case "float64":
+		return "jdoubleArray"
+	default:
+		return "jbyteArray"
+	}
+}

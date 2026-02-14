@@ -1,0 +1,190 @@
+package gen
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/benn-herrera/xplattergy/loader"
+	"github.com/benn-herrera/xplattergy/resolver"
+)
+
+func loadTestAPI(t *testing.T, name string) *Context {
+	t.Helper()
+	path := filepath.Join("..", "testdata", name)
+	def, err := loader.LoadAPIDefinition(path)
+	if err != nil {
+		t.Fatalf("failed to load %s: %v", name, err)
+	}
+
+	// Parse FBS for type resolution
+	fbsDir := filepath.Join("..", "testdata")
+	types, err := resolver.ParseFBSFiles(fbsDir, def.FlatBuffers)
+	if err != nil {
+		t.Fatalf("failed to parse FBS: %v", err)
+	}
+
+	return NewContext(def, types, "")
+}
+
+func TestCHeaderGenerator_Minimal(t *testing.T) {
+	ctx := loadTestAPI(t, "minimal.yaml")
+	gen := &CHeaderGenerator{}
+
+	files, err := gen.Generate(ctx)
+	if err != nil {
+		t.Fatalf("generation failed: %v", err)
+	}
+
+	if len(files) != 1 {
+		t.Fatalf("expected 1 output file, got %d", len(files))
+	}
+
+	if files[0].Path != "test_api.h" {
+		t.Errorf("expected filename test_api.h, got %q", files[0].Path)
+	}
+
+	got := string(files[0].Content)
+
+	// Load golden file
+	goldenPath := filepath.Join("..", "testdata", "golden", "minimal.h")
+	goldenBytes, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatalf("failed to read golden file: %v", err)
+	}
+	want := string(goldenBytes)
+
+	if got != want {
+		t.Errorf("generated C header does not match golden file.\n--- GOT ---\n%s\n--- WANT ---\n%s", got, want)
+	}
+}
+
+func TestCHeaderGenerator_Full(t *testing.T) {
+	ctx := loadTestAPI(t, "full.yaml")
+	gen := &CHeaderGenerator{}
+
+	files, err := gen.Generate(ctx)
+	if err != nil {
+		t.Fatalf("generation failed: %v", err)
+	}
+
+	if len(files) != 1 {
+		t.Fatalf("expected 1 output file, got %d", len(files))
+	}
+
+	got := string(files[0].Content)
+
+	// Load golden file
+	goldenPath := filepath.Join("..", "testdata", "golden", "full.h")
+	goldenBytes, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatalf("failed to read golden file: %v", err)
+	}
+	want := string(goldenBytes)
+
+	if got != want {
+		t.Errorf("generated C header does not match golden file.\n--- GOT ---\n%s\n--- WANT ---\n%s", got, want)
+	}
+}
+
+func TestCHeaderGenerator_IncludeGuard(t *testing.T) {
+	ctx := loadTestAPI(t, "minimal.yaml")
+	gen := &CHeaderGenerator{}
+
+	files, err := gen.Generate(ctx)
+	if err != nil {
+		t.Fatalf("generation failed: %v", err)
+	}
+
+	content := string(files[0].Content)
+	if !strings.Contains(content, "#ifndef TEST_API_H") {
+		t.Error("missing include guard #ifndef")
+	}
+	if !strings.Contains(content, "#define TEST_API_H") {
+		t.Error("missing include guard #define")
+	}
+	if !strings.HasSuffix(strings.TrimSpace(content), "#endif") {
+		t.Error("missing #endif at end")
+	}
+}
+
+func TestCHeaderGenerator_HandleTypedefs(t *testing.T) {
+	ctx := loadTestAPI(t, "full.yaml")
+	gen := &CHeaderGenerator{}
+
+	files, err := gen.Generate(ctx)
+	if err != nil {
+		t.Fatalf("generation failed: %v", err)
+	}
+
+	content := string(files[0].Content)
+	expectedHandles := []string{
+		"typedef struct engine_s* engine_handle;",
+		"typedef struct renderer_s* renderer_handle;",
+		"typedef struct scene_s* scene_handle;",
+		"typedef struct texture_s* texture_handle;",
+	}
+	for _, h := range expectedHandles {
+		if !strings.Contains(content, h) {
+			t.Errorf("missing handle typedef: %s", h)
+		}
+	}
+}
+
+func TestCHeaderGenerator_PlatformServices(t *testing.T) {
+	ctx := loadTestAPI(t, "minimal.yaml")
+	gen := &CHeaderGenerator{}
+
+	files, err := gen.Generate(ctx)
+	if err != nil {
+		t.Fatalf("generation failed: %v", err)
+	}
+
+	content := string(files[0].Content)
+	expectedServices := []string{
+		"void test_api_log_sink(",
+		"uint32_t test_api_resource_count(",
+		"int32_t  test_api_resource_name(",
+		"int32_t  test_api_resource_exists(",
+		"uint32_t test_api_resource_size(",
+		"int32_t  test_api_resource_read(",
+	}
+	for _, s := range expectedServices {
+		if !strings.Contains(content, s) {
+			t.Errorf("missing platform service: %s", s)
+		}
+	}
+}
+
+func TestCHeaderGenerator_FallibleWithReturn(t *testing.T) {
+	ctx := loadTestAPI(t, "minimal.yaml")
+	gen := &CHeaderGenerator{}
+
+	files, err := gen.Generate(ctx)
+	if err != nil {
+		t.Fatalf("generation failed: %v", err)
+	}
+
+	content := string(files[0].Content)
+	// create_engine: fallible (error) + returns handle → out_result param
+	if !strings.Contains(content, "int32_t test_api_lifecycle_create_engine(engine_handle* out_result);") {
+		t.Error("missing or incorrect create_engine signature (fallible + return → out_result)")
+	}
+}
+
+func TestCHeaderGenerator_InfallibleVoid(t *testing.T) {
+	ctx := loadTestAPI(t, "minimal.yaml")
+	gen := &CHeaderGenerator{}
+
+	files, err := gen.Generate(ctx)
+	if err != nil {
+		t.Fatalf("generation failed: %v", err)
+	}
+
+	content := string(files[0].Content)
+	// destroy_engine: infallible + no return → void
+	if !strings.Contains(content, "void test_api_lifecycle_destroy_engine(engine_handle engine);") {
+		t.Error("missing or incorrect destroy_engine signature (void)")
+	}
+}

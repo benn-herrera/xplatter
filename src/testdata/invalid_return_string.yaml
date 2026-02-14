@@ -1,0 +1,14 @@
+api:
+  name: bad_api
+  version: 0.1.0
+  impl_lang: c
+
+flatbuffers:
+  - schemas/common.fbs
+
+interfaces:
+  - name: test
+    methods:
+      - name: get_name
+        returns:
+          type: string
