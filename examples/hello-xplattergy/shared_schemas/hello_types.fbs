@@ -1,0 +1,18 @@
+// Canonical FlatBuffer schema for the hello_xplattergy example.
+// In production, flatc would generate per-language types from this file.
+// For these examples, simplified hand-written type definitions are used instead.
+
+namespace Hello;
+
+enum ErrorCode : int32 {
+    Ok = 0,
+    InvalidArgument = 1,
+    InternalError = 2
+}
+
+// if you just need to return a string in your API use
+// BoxedString from schemas/core_types.fbs
+// this is just a minimal example of defining your own types.
+table Greeting {
+    message: string;
+}

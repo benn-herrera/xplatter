@@ -2,9 +2,11 @@ package gen
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/benn-herrera/xplattergy/model"
+	"github.com/benn-herrera/xplattergy/resolver"
 )
 
 func init() {
@@ -31,6 +33,11 @@ func (g *CHeaderGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	b.WriteString("#include <stdint.h>\n")
 	b.WriteString("#include <stdbool.h>\n\n")
 
+	// C++ compatibility
+	b.WriteString("#ifdef __cplusplus\n")
+	b.WriteString("extern \"C\" {\n")
+	b.WriteString("#endif\n\n")
+
 	// Handle typedefs
 	if len(api.Handles) > 0 {
 		for _, h := range api.Handles {
@@ -38,6 +45,11 @@ func (g *CHeaderGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 			fmt.Fprintf(&b, "typedef struct %s_s* %s_handle;\n", snake, snake)
 		}
 		b.WriteString("\n")
+	}
+
+	// FlatBuffer type definitions
+	if len(ctx.ResolvedTypes) > 0 {
+		writeFBSTypeDefinitions(&b, ctx.ResolvedTypes)
 	}
 
 	// Platform services
@@ -51,6 +63,11 @@ func (g *CHeaderGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 		}
 		b.WriteString("\n")
 	}
+
+	// Close C++ compatibility
+	b.WriteString("#ifdef __cplusplus\n")
+	b.WriteString("}\n")
+	b.WriteString("#endif\n\n")
 
 	fmt.Fprintf(&b, "#endif\n")
 
@@ -162,4 +179,108 @@ func formatCParam(p *model.ParameterDef) []string {
 		return []string{"const " + cType + "* " + p.Name}
 	}
 	return []string{cType + " " + p.Name}
+}
+
+// writeFBSTypeDefinitions emits C type definitions for all FlatBuffer types.
+// Enums are emitted first, then structs, then tables.
+func writeFBSTypeDefinitions(b *strings.Builder, resolved resolver.ResolvedTypes) {
+	// Collect and sort type names for deterministic output
+	var enumNames, structNames, tableNames []string
+	for name, info := range resolved {
+		switch info.Kind {
+		case resolver.TypeKindEnum:
+			enumNames = append(enumNames, name)
+		case resolver.TypeKindStruct:
+			structNames = append(structNames, name)
+		case resolver.TypeKindTable:
+			tableNames = append(tableNames, name)
+		}
+	}
+	sort.Strings(enumNames)
+	sort.Strings(structNames)
+	sort.Strings(tableNames)
+
+	// Enums
+	for _, name := range enumNames {
+		info := resolved[name]
+		cName := model.FlatBufferCType(name)
+		b.WriteString("typedef enum {\n")
+		for i, val := range info.EnumValues {
+			if i < len(info.EnumValues)-1 {
+				fmt.Fprintf(b, "    %s_%s = %d,\n", cName, val.Name, val.Value)
+			} else {
+				fmt.Fprintf(b, "    %s_%s = %d\n", cName, val.Name, val.Value)
+			}
+		}
+		fmt.Fprintf(b, "} %s;\n\n", cName)
+	}
+
+	// Structs (fixed-size, by value)
+	for _, name := range structNames {
+		info := resolved[name]
+		cName := model.FlatBufferCType(name)
+		fmt.Fprintf(b, "typedef struct %s {\n", cName)
+		writeCStructFields(b, info.Fields)
+		fmt.Fprintf(b, "} %s;\n\n", cName)
+	}
+
+	// Tables
+	for _, name := range tableNames {
+		info := resolved[name]
+		cName := model.FlatBufferCType(name)
+		fmt.Fprintf(b, "typedef struct %s {\n", cName)
+		writeCStructFields(b, info.Fields)
+		fmt.Fprintf(b, "} %s;\n\n", cName)
+	}
+}
+
+// writeCStructFields writes C struct field declarations for FBS fields.
+func writeCStructFields(b *strings.Builder, fields []resolver.FieldDef) {
+	for _, f := range fields {
+		cType, extraField := fbsFieldToCType(f)
+		fmt.Fprintf(b, "    %s %s;\n", cType, f.Name)
+		if extraField != "" {
+			fmt.Fprintf(b, "    %s;\n", extraField)
+		}
+	}
+}
+
+// fbsFieldToCType maps an FBS field type to a C type.
+// Returns the C type and an optional extra field declaration (for vectors).
+func fbsFieldToCType(f resolver.FieldDef) (cType string, extraField string) {
+	t := f.Type
+	switch t {
+	case "string":
+		return "const char*", ""
+	case "bool":
+		return "bool", ""
+	case "int8":
+		return "int8_t", ""
+	case "uint8":
+		return "uint8_t", ""
+	case "int16":
+		return "int16_t", ""
+	case "uint16":
+		return "uint16_t", ""
+	case "int32":
+		return "int32_t", ""
+	case "uint32":
+		return "uint32_t", ""
+	case "int64":
+		return "int64_t", ""
+	case "uint64":
+		return "uint64_t", ""
+	case "float32":
+		return "float", ""
+	case "float64":
+		return "double", ""
+	}
+	// Vector type: [T]
+	if strings.HasPrefix(t, "[") && strings.HasSuffix(t, "]") {
+		elemType := t[1 : len(t)-1]
+		elemCType, _ := fbsFieldToCType(resolver.FieldDef{Name: f.Name, Type: elemType})
+		return "const " + elemCType + "*", fmt.Sprintf("uint32_t %s_count", f.Name)
+	}
+	// FlatBuffer type reference — use pointer for tables, value for structs
+	return model.FlatBufferCType(t), ""
 }

@@ -62,7 +62,9 @@ func (g *ImplCppGenerator) generateInterface(api *model.APIDefinition, apiName s
 	b.WriteString("#include <stdbool.h>\n")
 	b.WriteString("#include <cstddef>\n")
 	b.WriteString("#include <string_view>\n")
-	b.WriteString("#include <span>\n\n")
+	b.WriteString("#include <span>\n")
+	// Include the C header for FlatBuffer type definitions
+	fmt.Fprintf(&b, "#include \"%s.h\"\n\n", apiName)
 
 	// Abstract class
 	fmt.Fprintf(&b, "class %s {\n", className)
@@ -266,12 +268,9 @@ func (g *ImplCppGenerator) writeShimDelegation(b *strings.Builder, className str
 	// Cast handle to interface pointer
 	fmt.Fprintf(b, "    %s* self = reinterpret_cast<%s*>(%s);\n", className, className, handleParam.Name)
 
-	// Build the call arguments (skip the handle param, map types)
+	// Build the call arguments (handle param passes through as void*)
 	var callArgs []string
 	for _, p := range method.Parameters {
-		if p.Name == handleParam.Name {
-			continue
-		}
 		if model.IsString(p.Type) {
 			callArgs = append(callArgs, fmt.Sprintf("std::string_view(%s)", p.Name))
 		} else if _, ok := model.IsBuffer(p.Type); ok {

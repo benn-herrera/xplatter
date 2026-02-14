@@ -2,9 +2,11 @@ package gen
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/benn-herrera/xplattergy/model"
+	"github.com/benn-herrera/xplattergy/resolver"
 )
 
 func init() {
@@ -36,7 +38,14 @@ func (g *GoImplGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 		return nil, fmt.Errorf("generating stub impl: %w", err)
 	}
 
-	return []*OutputFile{ifaceFile, cgoFile, implFile}, nil
+	files := []*OutputFile{ifaceFile, cgoFile, implFile}
+
+	if len(ctx.ResolvedTypes) > 0 {
+		typesFile := g.generateTypes(ctx.ResolvedTypes, apiName)
+		files = append(files, typesFile)
+	}
+
+	return files, nil
 }
 
 // generateInterface produces the Go interface type file.
@@ -127,6 +136,47 @@ func (g *GoImplGenerator) generateImpl(api *model.APIDefinition, apiName string)
 
 	filename := apiName + "_impl.go"
 	return &OutputFile{Path: filename, Content: []byte(b.String())}, nil
+}
+
+// generateTypes produces the Go type definitions file from FBS schemas.
+// Emits enum constants. Go accesses C struct types via cgo, so no Go struct definitions needed.
+func (g *GoImplGenerator) generateTypes(resolved resolver.ResolvedTypes, apiName string) *OutputFile {
+	pkgName := goPackageName(apiName)
+	var b strings.Builder
+
+	fmt.Fprintf(&b, "package %s\n\n", pkgName)
+
+	// Collect and sort enum names
+	var enumNames []string
+	for name, info := range resolved {
+		if info.Kind == resolver.TypeKindEnum {
+			enumNames = append(enumNames, name)
+		}
+	}
+	sort.Strings(enumNames)
+
+	// Emit enum constants
+	if len(enumNames) > 0 {
+		b.WriteString("const (\n")
+		for _, name := range enumNames {
+			info := resolved[name]
+			goPrefix := goEnumPrefix(name)
+			for _, val := range info.EnumValues {
+				fmt.Fprintf(&b, "\t%s%s = %d\n", goPrefix, val.Name, val.Value)
+			}
+			b.WriteString("\n")
+		}
+		b.WriteString(")\n")
+	}
+
+	filename := apiName + "_types.go"
+	return &OutputFile{Path: filename, Content: []byte(b.String())}
+}
+
+// goEnumPrefix converts a FlatBuffer enum name to a Go constant prefix.
+// e.g., "Common.ErrorCode" -> "CommonErrorCode"
+func goEnumPrefix(name string) string {
+	return strings.ReplaceAll(name, ".", "")
 }
 
 // writeGoInterfaceMethod writes a single method signature to the interface definition.

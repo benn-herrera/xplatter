@@ -14,8 +14,8 @@ func TestRustImplGenerator_Minimal(t *testing.T) {
 		t.Fatalf("generation failed: %v", err)
 	}
 
-	if len(files) != 3 {
-		t.Fatalf("expected 3 output files, got %d", len(files))
+	if len(files) != 4 {
+		t.Fatalf("expected 4 output files, got %d", len(files))
 	}
 
 	// Verify filenames
@@ -23,6 +23,7 @@ func TestRustImplGenerator_Minimal(t *testing.T) {
 		"test_api_trait.rs",
 		"test_api_ffi.rs",
 		"test_api_impl.rs",
+		"test_api_types.rs",
 	}
 	for i, name := range expectedNames {
 		if files[i].Path != name {
@@ -162,8 +163,8 @@ func TestRustImplGenerator_FullAPI(t *testing.T) {
 		t.Fatalf("generation failed: %v", err)
 	}
 
-	if len(files) != 3 {
-		t.Fatalf("expected 3 output files, got %d", len(files))
+	if len(files) != 4 {
+		t.Fatalf("expected 4 output files, got %d", len(files))
 	}
 
 	trait := string(files[0].Content)

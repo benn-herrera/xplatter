@@ -38,7 +38,7 @@ func minimalAPI() *model.APIDefinition {
 
 func TestValidate_ValidMinimal(t *testing.T) {
 	types := resolver.ResolvedTypes{
-		"Common.ErrorCode": resolver.TypeKindEnum,
+		"Common.ErrorCode": &resolver.TypeInfo{Kind: resolver.TypeKindEnum},
 	}
 	result := Validate(minimalAPI(), types)
 	if !result.IsValid() {
@@ -108,8 +108,8 @@ func TestValidate_BufferReturnType(t *testing.T) {
 func TestValidate_ErrorTypeNotEnum(t *testing.T) {
 	api := minimalAPI()
 	types := resolver.ResolvedTypes{
-		"Common.ErrorCode": resolver.TypeKindEnum,
-		"Common.Result":    resolver.TypeKindTable,
+		"Common.ErrorCode": &resolver.TypeInfo{Kind: resolver.TypeKindEnum},
+		"Common.Result":    &resolver.TypeInfo{Kind: resolver.TypeKindTable},
 	}
 	api.Interfaces[0].Methods[0].Error = "Common.Result"
 
@@ -190,7 +190,7 @@ func TestValidate_UnresolvedFlatBufferType(t *testing.T) {
 	})
 
 	types := resolver.ResolvedTypes{
-		"Common.ErrorCode": resolver.TypeKindEnum,
+		"Common.ErrorCode": &resolver.TypeInfo{Kind: resolver.TypeKindEnum},
 	}
 
 	result := Validate(api, types)

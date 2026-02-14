@@ -1,0 +1,44 @@
+/*
+ * C ABI shim functions for the hello_xplattergy API.
+ *
+ * Follows the pattern from the generated hello_xplattergy_ffi.rs,
+ * with the necessary type imports added.
+ */
+
+use std::ffi::{c_void, CStr};
+use std::os::raw::c_char;
+use crate::hello_xplattergy_types::*;
+use crate::hello_xplattergy_trait::*;
+use crate::hello_xplattergy_impl::*;
+
+// lifecycle
+
+#[no_mangle]
+pub unsafe extern "C" fn hello_xplattergy_lifecycle_create_greeter(out_result: *mut *mut c_void) -> i32 {
+    match Lifecycle::create_greeter(&Impl) {
+        Ok(val) => {
+            *out_result = val;
+            0
+        }
+        Err(e) => e as i32,
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn hello_xplattergy_lifecycle_destroy_greeter(greeter: *mut c_void) {
+    Lifecycle::destroy_greeter(&Impl, greeter);
+}
+
+// greeter
+
+#[no_mangle]
+pub unsafe extern "C" fn hello_xplattergy_greeter_say_hello(greeter: *mut c_void, name: *const c_char, out_result: *mut HelloGreeting) -> i32 {
+    let name = CStr::from_ptr(name).to_str().expect("invalid UTF-8");
+    match Greeter::say_hello(&Impl, greeter, name) {
+        Ok(val) => {
+            *out_result = val;
+            0
+        }
+        Err(e) => e as i32,
+    }
+}

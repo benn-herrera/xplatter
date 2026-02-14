@@ -16,39 +16,60 @@ func TestParseFBSFile_CommonSchema(t *testing.T) {
 	// Check expected types exist
 	expectedEnums := []string{"Common.ErrorCode", "Common.LogLevel", "Rendering.TextureFormat"}
 	for _, name := range expectedEnums {
-		kind, ok := types[name]
+		info, ok := types[name]
 		if !ok {
 			t.Errorf("expected type %q not found", name)
 			continue
 		}
-		if kind != TypeKindEnum {
-			t.Errorf("expected %q to be enum, got %s", name, kind)
+		if info.Kind != TypeKindEnum {
+			t.Errorf("expected %q to be enum, got %s", name, info.Kind)
 		}
 	}
 
 	expectedTables := []string{"Common.EntityId", "Common.EventQueue", "Rendering.RendererConfig",
 		"Input.TouchEvent", "Input.TouchEventBatch", "Scene.EntityDefinition"}
 	for _, name := range expectedTables {
-		kind, ok := types[name]
+		info, ok := types[name]
 		if !ok {
 			t.Errorf("expected type %q not found", name)
 			continue
 		}
-		if kind != TypeKindTable {
-			t.Errorf("expected %q to be table, got %s", name, kind)
+		if info.Kind != TypeKindTable {
+			t.Errorf("expected %q to be table, got %s", name, info.Kind)
 		}
 	}
 
 	expectedStructs := []string{"Geometry.Transform3D"}
 	for _, name := range expectedStructs {
-		kind, ok := types[name]
+		info, ok := types[name]
 		if !ok {
 			t.Errorf("expected type %q not found", name)
 			continue
 		}
-		if kind != TypeKindStruct {
-			t.Errorf("expected %q to be struct, got %s", name, kind)
+		if info.Kind != TypeKindStruct {
+			t.Errorf("expected %q to be struct, got %s", name, info.Kind)
 		}
+	}
+
+	// Verify enum values are parsed
+	ec := types["Common.ErrorCode"]
+	if len(ec.EnumValues) != 5 {
+		t.Errorf("expected 5 ErrorCode values, got %d", len(ec.EnumValues))
+	}
+	if ec.BaseType != "int32" {
+		t.Errorf("expected ErrorCode base type int32, got %s", ec.BaseType)
+	}
+
+	// Verify table fields are parsed
+	rc := types["Rendering.RendererConfig"]
+	if len(rc.Fields) != 3 {
+		t.Errorf("expected 3 RendererConfig fields, got %d", len(rc.Fields))
+	}
+
+	// Verify struct fields are parsed
+	t3d := types["Geometry.Transform3D"]
+	if len(t3d.Fields) != 16 {
+		t.Errorf("expected 16 Transform3D fields, got %d", len(t3d.Fields))
 	}
 }
 

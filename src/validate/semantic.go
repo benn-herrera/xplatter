@@ -104,11 +104,11 @@ func validateMethod(result *ValidationResult, path string, method *model.MethodD
 	if method.Error != "" {
 		errPath := path + ".error"
 		if resolvedTypes != nil {
-			kind, ok := resolvedTypes[method.Error]
+			info, ok := resolvedTypes[method.Error]
 			if !ok {
 				result.addError(errPath, fmt.Sprintf("error type %q not found in FlatBuffers schemas", method.Error))
-			} else if kind != resolver.TypeKindEnum {
-				result.addError(errPath, fmt.Sprintf("error type %q must be an enum, got %s", method.Error, kind))
+			} else if info.Kind != resolver.TypeKindEnum {
+				result.addError(errPath, fmt.Sprintf("error type %q must be an enum, got %s", method.Error, info.Kind))
 			}
 		}
 	}

@@ -14,8 +14,8 @@ func TestGoImplGenerator_Minimal(t *testing.T) {
 		t.Fatalf("generation failed: %v", err)
 	}
 
-	if len(files) != 3 {
-		t.Fatalf("expected 3 output files, got %d", len(files))
+	if len(files) != 4 {
+		t.Fatalf("expected 4 output files, got %d", len(files))
 	}
 
 	// Verify filenames
@@ -23,6 +23,7 @@ func TestGoImplGenerator_Minimal(t *testing.T) {
 		"test_api_interface.go",
 		"test_api_cgo.go",
 		"test_api_impl.go",
+		"test_api_types.go",
 	}
 	for i, name := range expectedNames {
 		if files[i].Path != name {
@@ -169,8 +170,8 @@ func TestGoImplGenerator_Full(t *testing.T) {
 		t.Fatalf("generation failed: %v", err)
 	}
 
-	if len(files) != 3 {
-		t.Fatalf("expected 3 output files, got %d", len(files))
+	if len(files) != 4 {
+		t.Fatalf("expected 4 output files, got %d", len(files))
 	}
 
 	ifaceContent := string(files[0].Content)
