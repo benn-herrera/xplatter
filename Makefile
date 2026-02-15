@@ -102,11 +102,13 @@ test-app-desktop-cpp: build
 
 ## test-app-desktop-swift: Build and test the Swift desktop app (macOS only)
 test-app-desktop-swift: build
-	[[ $(HOST_OS) == Darwin ]] && $(MAKE) -C examples/hello-xplattergy/app-desktop-swift IMPL=$(TEST_APP_BOUND_IMPL) test
+	[[ $(HOST_OS) != Darwin ]] || $(MAKE) -C examples/hello-xplattergy/app-desktop-swift IMPL=$(TEST_APP_BOUND_IMPL) test
+	@[[ $(HOST_OS) == Darwin ]] || echo $@ skipped on $(HOST_OS)
 
-## test-app-ios: Build and test the iOS app (simulator)
+## test-app-ios: Build and test the iOS app (simulator, macOS only)
 test-app-ios: build
-	[[ $(HOST_OS) == Darwin ]] && $(MAKE) -C examples/hello-xplattergy/app-ios IMPL=$(TEST_APP_BOUND_IMPL) test
+	@[[ $(HOST_OS) != Darwin ]] || $(MAKE) -C examples/hello-xplattergy/app-ios IMPL=$(TEST_APP_BOUND_IMPL) test
+	@[[ $(HOST_OS) == Darwin ]] || echo $@ skipped on $(HOST_OS)
 
 ## test-app-android: Build and test the Android app
 test-app-android: build
