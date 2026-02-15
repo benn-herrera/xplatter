@@ -1,0 +1,11 @@
+namespace Hello;
+
+enum ErrorCode : int32 {
+    Ok = 0,
+    InvalidArgument = 1,
+    InternalError = 2
+}
+
+struct Greeting {
+    message: uint64;
+}

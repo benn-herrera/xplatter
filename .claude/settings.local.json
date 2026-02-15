@@ -38,7 +38,9 @@
       "Bash(nm:*)",
       "Bash(cargo build:*)",
       "Bash(bin/xplattergy generate:*)",
-      "Bash(../bin/xplattergy:*)"
+      "Bash(../bin/xplattergy:*)",
+      "Bash(file:*)",
+      "Bash(otool:*)"
     ]
   }
 }

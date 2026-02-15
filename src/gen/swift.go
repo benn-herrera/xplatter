@@ -415,26 +415,42 @@ func swiftParamAndCallArg(p *model.ParameterDef, resolved resolver.ResolvedTypes
 func writeSwiftCCall(b *strings.Builder, funcName string, callArgs []string, params []model.ParameterDef, outVar string, hasError bool, errEnumName string, handleClass string, resolved resolver.ResolvedTypes) {
 	// Check if we need withCString wrappers
 	stringParams := collectStringParams(params)
+	bufferParams := collectBufferParams(params)
+	hasClosures := len(stringParams)+len(bufferParams) > 0
 
 	indent := "        "
 	closingBraces := ""
+	firstClosure := true
+
+	// closurePrefix returns "return try " or "return " for the first closure line,
+	// empty string for subsequent closures.
+	closurePrefix := func() string {
+		if !firstClosure {
+			return ""
+		}
+		firstClosure = false
+		if hasError {
+			return "return try "
+		}
+		return "return "
+	}
 
 	// Wrap string params in withCString
 	for _, sp := range stringParams {
 		paramName := ToCamelCase(sp.Name)
-		fmt.Fprintf(b, "%s%s.withCString { %sPtr in\n", indent, paramName, paramName)
+		fmt.Fprintf(b, "%s%s%s.withCString { %sPtr in\n", indent, closurePrefix(), paramName, paramName)
 		indent += "    "
 		closingBraces += indent[:len(indent)-4] + "}\n"
 	}
 
 	// Wrap buffer params
-	bufferParams := collectBufferParams(params)
 	for _, bp := range bufferParams {
 		paramName := ToCamelCase(bp.Name)
+		prefix := closurePrefix()
 		if bp.Transfer == "ref_mut" {
-			fmt.Fprintf(b, "%s%s.withUnsafeMutableBufferPointer { %sPtr in\n", indent, paramName, paramName)
+			fmt.Fprintf(b, "%s%s%s.withUnsafeMutableBufferPointer { %sPtr in\n", indent, prefix, paramName, paramName)
 		} else {
-			fmt.Fprintf(b, "%s%s.withUnsafeBytes { %sPtr in\n", indent, paramName, paramName)
+			fmt.Fprintf(b, "%s%s%s.withUnsafeBytes { %sPtr in\n", indent, prefix, paramName, paramName)
 		}
 		indent += "    "
 		closingBraces += indent[:len(indent)-4] + "}\n"
@@ -450,35 +466,57 @@ func writeSwiftCCall(b *strings.Builder, funcName string, callArgs []string, par
 		fmt.Fprintf(b, "%sguard code == 0, let ptr = %s else {\n", indent, outVar)
 		fmt.Fprintf(b, "%s    throw %s(rawValue: code) ?? %s.internalError\n", indent, errEnumName, errEnumName)
 		fmt.Fprintf(b, "%s}\n", indent)
-		fmt.Fprintf(b, "%sreturn %s(handle: ptr)\n", indent, handleClass)
+		if hasClosures {
+			fmt.Fprintf(b, "%sreturn %s(handle: ptr)\n", indent, handleClass)
+		} else {
+			fmt.Fprintf(b, "%sreturn %s(handle: ptr)\n", indent, handleClass)
+		}
 	} else {
 		fmt.Fprintf(b, "%s_ = %s\n", indent, callStr)
-		fmt.Fprintf(b, "%sreturn %s(handle: %s!)\n", indent, handleClass, outVar)
+		if hasClosures {
+			fmt.Fprintf(b, "%sreturn %s(handle: %s!)\n", indent, handleClass, outVar)
+		} else {
+			fmt.Fprintf(b, "%sreturn %s(handle: %s!)\n", indent, handleClass, outVar)
+		}
 	}
 
 	b.WriteString(closingBraces)
 }
 
-// writeSwiftCCallPrimitive writes a C call with a primitive out-parameter.
+// writeSwiftCCallPrimitive writes a C call with a primitive or FlatBuffer out-parameter.
 func writeSwiftCCallPrimitive(b *strings.Builder, funcName string, callArgs []string, params []model.ParameterDef, outVar string, hasError bool, errEnumName string, resolved resolver.ResolvedTypes) {
+	stringParams := collectStringParams(params)
+	bufferParams := collectBufferParams(params)
+
 	indent := "        "
 	closingBraces := ""
+	firstClosure := true
 
-	stringParams := collectStringParams(params)
+	closurePrefix := func() string {
+		if !firstClosure {
+			return ""
+		}
+		firstClosure = false
+		if hasError {
+			return "return try "
+		}
+		return "return "
+	}
+
 	for _, sp := range stringParams {
 		paramName := ToCamelCase(sp.Name)
-		fmt.Fprintf(b, "%s%s.withCString { %sPtr in\n", indent, paramName, paramName)
+		fmt.Fprintf(b, "%s%s%s.withCString { %sPtr in\n", indent, closurePrefix(), paramName, paramName)
 		indent += "    "
 		closingBraces += indent[:len(indent)-4] + "}\n"
 	}
 
-	bufferParams := collectBufferParams(params)
 	for _, bp := range bufferParams {
 		paramName := ToCamelCase(bp.Name)
+		prefix := closurePrefix()
 		if bp.Transfer == "ref_mut" {
-			fmt.Fprintf(b, "%s%s.withUnsafeMutableBufferPointer { %sPtr in\n", indent, paramName, paramName)
+			fmt.Fprintf(b, "%s%s%s.withUnsafeMutableBufferPointer { %sPtr in\n", indent, prefix, paramName, paramName)
 		} else {
-			fmt.Fprintf(b, "%s%s.withUnsafeBytes { %sPtr in\n", indent, paramName, paramName)
+			fmt.Fprintf(b, "%s%s%s.withUnsafeBytes { %sPtr in\n", indent, prefix, paramName, paramName)
 		}
 		indent += "    "
 		closingBraces += indent[:len(indent)-4] + "}\n"
@@ -504,24 +542,39 @@ func writeSwiftCCallPrimitive(b *strings.Builder, funcName string, callArgs []st
 
 // writeSwiftCCallVoid writes a C call with no return value.
 func writeSwiftCCallVoid(b *strings.Builder, funcName string, callArgs []string, params []model.ParameterDef, hasError bool, errEnumName string, resolved resolver.ResolvedTypes) {
+	stringParams := collectStringParams(params)
+	bufferParams := collectBufferParams(params)
+
 	indent := "        "
 	closingBraces := ""
+	firstClosure := true
 
-	stringParams := collectStringParams(params)
+	// Void methods don't return, but throwing closures need `try`
+	closurePrefix := func() string {
+		if !firstClosure {
+			return ""
+		}
+		firstClosure = false
+		if hasError {
+			return "try "
+		}
+		return ""
+	}
+
 	for _, sp := range stringParams {
 		paramName := ToCamelCase(sp.Name)
-		fmt.Fprintf(b, "%s%s.withCString { %sPtr in\n", indent, paramName, paramName)
+		fmt.Fprintf(b, "%s%s%s.withCString { %sPtr in\n", indent, closurePrefix(), paramName, paramName)
 		indent += "    "
 		closingBraces += indent[:len(indent)-4] + "}\n"
 	}
 
-	bufferParams := collectBufferParams(params)
 	for _, bp := range bufferParams {
 		paramName := ToCamelCase(bp.Name)
+		prefix := closurePrefix()
 		if bp.Transfer == "ref_mut" {
-			fmt.Fprintf(b, "%s%s.withUnsafeMutableBufferPointer { %sPtr in\n", indent, paramName, paramName)
+			fmt.Fprintf(b, "%s%s%s.withUnsafeMutableBufferPointer { %sPtr in\n", indent, prefix, paramName, paramName)
 		} else {
-			fmt.Fprintf(b, "%s%s.withUnsafeBytes { %sPtr in\n", indent, paramName, paramName)
+			fmt.Fprintf(b, "%s%s%s.withUnsafeBytes { %sPtr in\n", indent, prefix, paramName, paramName)
 		}
 		indent += "    "
 		closingBraces += indent[:len(indent)-4] + "}\n"
@@ -544,24 +597,35 @@ func writeSwiftCCallVoid(b *strings.Builder, funcName string, callArgs []string,
 
 // writeSwiftCCallDirect writes a C call that directly returns its value.
 func writeSwiftCCallDirect(b *strings.Builder, funcName string, callArgs []string, params []model.ParameterDef, resolved resolver.ResolvedTypes) {
+	stringParams := collectStringParams(params)
+	bufferParams := collectBufferParams(params)
+
 	indent := "        "
 	closingBraces := ""
+	firstClosure := true
 
-	stringParams := collectStringParams(params)
+	closurePrefix := func() string {
+		if !firstClosure {
+			return ""
+		}
+		firstClosure = false
+		return "return "
+	}
+
 	for _, sp := range stringParams {
 		paramName := ToCamelCase(sp.Name)
-		fmt.Fprintf(b, "%s%s.withCString { %sPtr in\n", indent, paramName, paramName)
+		fmt.Fprintf(b, "%s%s%s.withCString { %sPtr in\n", indent, closurePrefix(), paramName, paramName)
 		indent += "    "
 		closingBraces += indent[:len(indent)-4] + "}\n"
 	}
 
-	bufferParams := collectBufferParams(params)
 	for _, bp := range bufferParams {
 		paramName := ToCamelCase(bp.Name)
+		prefix := closurePrefix()
 		if bp.Transfer == "ref_mut" {
-			fmt.Fprintf(b, "%s%s.withUnsafeMutableBufferPointer { %sPtr in\n", indent, paramName, paramName)
+			fmt.Fprintf(b, "%s%s%s.withUnsafeMutableBufferPointer { %sPtr in\n", indent, prefix, paramName, paramName)
 		} else {
-			fmt.Fprintf(b, "%s%s.withUnsafeBytes { %sPtr in\n", indent, paramName, paramName)
+			fmt.Fprintf(b, "%s%s%s.withUnsafeBytes { %sPtr in\n", indent, prefix, paramName, paramName)
 		}
 		indent += "    "
 		closingBraces += indent[:len(indent)-4] + "}\n"
@@ -662,8 +726,8 @@ func swiftType(t string, resolved resolver.ResolvedTypes) string {
 	if model.IsPrimitive(t) {
 		return swiftPrimitiveType(t)
 	}
-	// FlatBuffer type — use OpaquePointer for now
-	return "OpaquePointer"
+	// FlatBuffer type — use the C struct name
+	return model.FlatBufferCType(t)
 }
 
 // swiftPrimitiveType converts an API primitive to its Swift equivalent.
@@ -704,7 +768,8 @@ func swiftCBridgeType(t string, resolved resolver.ResolvedTypes) string {
 	if model.IsPrimitive(t) {
 		return swiftPrimitiveType(t)
 	}
-	return "OpaquePointer"
+	// FlatBuffer type — use the C struct name
+	return model.FlatBufferCType(t)
 }
 
 // swiftDefaultValue returns the default zero value for a type.
@@ -712,14 +777,18 @@ func swiftDefaultValue(t string) string {
 	if _, ok := model.IsHandle(t); ok {
 		return "nil"
 	}
-	switch t {
-	case "bool":
-		return "false"
-	case "float32", "float64":
-		return "0.0"
-	default:
-		return "0"
+	if model.IsPrimitive(t) {
+		switch t {
+		case "bool":
+			return "false"
+		case "float32", "float64":
+			return "0.0"
+		default:
+			return "0"
+		}
 	}
+	// FlatBuffer type — zero-initialize the C struct
+	return model.FlatBufferCType(t) + "()"
 }
 
 // swiftFlatBufferParamType returns the Swift parameter type for a FlatBuffer parameter.

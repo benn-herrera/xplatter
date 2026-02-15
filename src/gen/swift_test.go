@@ -305,6 +305,38 @@ func TestSwiftGenerator_InfallibleVoidMethod(t *testing.T) {
 	}
 }
 
+func TestSwiftGenerator_FlatBufferReturn(t *testing.T) {
+	ctx := loadTestAPI(t, "fb_return.yaml")
+	gen := &SwiftGenerator{}
+
+	files, err := gen.Generate(ctx)
+	if err != nil {
+		t.Fatalf("generation failed: %v", err)
+	}
+
+	content := string(files[0].Content)
+
+	// Return type should use the C struct name, not OpaquePointer
+	if !strings.Contains(content, "throws -> Hello_Greeting {") {
+		t.Error("missing Hello_Greeting return type for sayHello")
+	}
+
+	// Variable declaration should use C struct type with () initializer
+	if !strings.Contains(content, "var result: Hello_Greeting = Hello_Greeting()") {
+		t.Error("missing Hello_Greeting() default value for result variable")
+	}
+
+	// The withCString closure must be prefixed with `return try`
+	if !strings.Contains(content, "return try name.withCString { namePtr in") {
+		t.Error("missing 'return try' prefix on withCString closure")
+	}
+
+	// The inner return should return the result variable
+	if !strings.Contains(content, "return result") {
+		t.Error("missing 'return result' inside closure")
+	}
+}
+
 func TestSwiftGenerator_Name(t *testing.T) {
 	gen := &SwiftGenerator{}
 	if gen.Name() != "swift" {

@@ -13,7 +13,8 @@ DIST_DIR    := dist
 PLATFORMS   := windows/amd64 windows/arm64 darwin/arm64 linux/amd64
 
 .PHONY: build test clean validate fmt vet lint dist help \
-       test-example-c test-example-cpp test-example-rust test-example-go test-examples
+       test-example-c test-example-cpp test-example-rust test-example-go test-examples \
+       test-app-desktop-cpp test-app-desktop-swift test-apps
 
 ## build: Build for the current platform (default)
 build: $(BINARY)
@@ -89,6 +90,17 @@ test-example-go: build
 
 ## test-examples: Run all examples
 test-examples: test-example-c test-example-cpp test-example-rust test-example-go
+
+## test-app-desktop-cpp: Build and test the C++ desktop app
+test-app-desktop-cpp: build
+	$(MAKE) -C examples/hello-xplattergy/app-desktop-cpp test
+
+## test-app-desktop-swift: Build and test the Swift desktop app (macOS only)
+test-app-desktop-swift: build
+	$(MAKE) -C examples/hello-xplattergy/app-desktop-swift test
+
+## test-apps: Run all desktop app tests
+test-apps: test-app-desktop-cpp test-app-desktop-swift
 
 ## help: Show this help
 help:
