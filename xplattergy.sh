@@ -5,35 +5,42 @@ set -e
 SCRIPT_DIR=$(dirname "$0")
 SCRIPT_DIR=$(cd "${SCRIPT_DIR}" && pwd)
 
-# Dev build: prefer bin/xplattergy (built by `make build`)
-if [ -x "$SCRIPT_DIR/bin/xplattergy" ]; then
-    exec "$SCRIPT_DIR/bin/xplattergy" "$@"
-fi
-
-# Dist package: detect OS and ARCH, find bin/xplattergy-OS-ARCH
-case "$(uname -s)" in
+OS=$(uname -s)
+ARCH=$(uname -m)
+EXE=
+case "$OS" in
     Darwin)  OS=darwin  ;;
     Linux)   OS=linux   ;;
-    MINGW*|MSYS*|CYGWIN*) OS=windows ;;
-    *) echo "xplattergy: unsupported OS: $(uname -s)" >&2; exit 1 ;;
+    MINGW*|MSYS*|CYGWIN*) OS=windows; EXE=.exe ;;
+    *) echo "xplattergy: unsupported OS: $OS" >&2; exit 1 ;;
 esac
-
-case "$(uname -m)" in
+case "$ARCH" in
     x86_64)        ARCH=amd64 ;;
     aarch64|arm64) ARCH=arm64 ;;
-    *) echo "xplattergy: unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+    *) echo "xplattergy: unsupported architecture: $ARCH" >&2; exit 1 ;;
 esac
 
-BIN="$SCRIPT_DIR/bin/xplattergy-${OS}-${ARCH}"
-if [ "$OS" = "windows" ]; then
-    BIN="${BIN}.exe"
+is_valid() {
+    local bin="$1"
+    # silently run version to get an exit code.
+    # if there's some weird os version incompatibility
+    # with the prebuilt executable this will catch it.
+    [[ -x "$bin" ]] && ("$bin" version 1>&2) 2> /dev/null
+}
+
+BIN="$SCRIPT_DIR/bin/xplattergy${EXE}"
+# Dev build: prefer bin/xplattergy (built by `make build`)
+if ! is_valid "$BIN"; then
+    # Dist package: use OS and ARCH to construct name xplattergy-OS-ARCH
+    BIN="$SCRIPT_DIR/bin/xplattergy-${OS}-${ARCH}${EXE}"    
 fi
 
-if [ -x "$BIN" ]; then
-    exec "$BIN" "$@"
+if ! is_valid "$BIN"; then
+    echo "xplattergy: no usable binary found." >&2
+    echo "  If you've downloaded a dist package, 'build_codegen.sh' to build from source." >&2
+    echo "  If you're a developer 'make build'" >&2
+    exit 1
 fi
 
-echo "xplattergy: no binary found." >&2
-echo "  If you've downloaded a dist package, run build_codegen.sh to build from source." >&2
-echo "  If you're a developer 'make build'" >&2
-exit 1
+exec "$BIN" "$@"
+
