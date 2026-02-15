@@ -14,7 +14,7 @@ The Pure C ABI is the universal contract at the center of the system. Any implem
 
 This is the product. Given an API definition and FlatBuffers schemas as input, the code gen system produces:
 
-- **Pure C API header** — the contract any implementation must satisfy
+- **Pure C API header** — the contract any implementation must satisfy. Includes handle typedefs, full C type definitions (enums, structs, tables) resolved from the FlatBuffers schemas using dot-to-underscore naming (`Common.ErrorCode` → `Common_ErrorCode`), platform service declarations, and export-annotated API function declarations.
 - **Kotlin public API + JNI bridge** — calls the C API (Android)
 - **Swift public API + C bridge** — calls the C API (iOS, macOS)
 - **JavaScript public API + WASM bindings** — calls C ABI exports from the WASM module (Web, desktop via embedded browser/runtime)
@@ -39,6 +39,20 @@ Code gen that produces the complete implementation-side stack for the chosen lan
 With `c`, only the C API header is generated. This is the option for pure C implementations or any language not in the front-door path — the consumer implements the exported C functions directly.
 
 For supported languages, the consumer never writes C. They implement the abstract interface in their language, build, and the generated shim handles all C ABI compliance. Adding a new implementation language target never touches Layer 1.
+
+#### C++ specifics
+
+The interface is an abstract class (`{PascalCase(api_name)}Interface`) with pure virtual methods. Strings become `std::string_view`, buffers become `std::span<const T>`, and handles are `void*` in the interface (the shim does the `reinterpret_cast`). A factory function (`create_{api_name}_instance()`) returns the concrete implementation. The shim detects create methods (returns handle + fallible + no handle input) and destroy methods (name starts with `"destroy"` + takes handle + void return) to generate appropriate factory/teardown bodies.
+
+#### Rust specifics
+
+Each interface becomes a trait. A zero-sized type `pub struct Impl;` implements all traits, enabling compile-time dispatch via UFCS (`Lifecycle::create_greeter(&Impl, ...)`). All trait methods take `&self`. The FFI layer uses `#[no_mangle] pub unsafe extern "C" fn` with `Result<T, ErrorType>` in trait methods mapped to integer error codes in the shim.
+
+#### Go specifics
+
+Each interface becomes a Go interface type. Handles use a `sync.Map` integer handle map because cgo prohibits passing Go pointers to C. A critical cgo constraint: the generated C header must **not** be `#include`d in files containing `//export` functions (conflicting prototypes); instead, local C type definitions are declared in the cgo preamble. Package name is the API name with underscores removed.
+
+See [CODEGEN_SPEC.md](./docs/CODEGEN_SPEC.md) for complete output file manifests, type mapping tables, and detection heuristics for each generator.
 
 ## Data Flow
 
@@ -133,6 +147,12 @@ Implementation-managed objects are represented as opaque handles — typed `void
 
 Methods that can fail declare an error enum type. The C ABI function returns the error code. If the method also produces a return value, that value is delivered through a final out-parameter pointer.
 
+### Symbol Visibility
+
+The generated C header includes a per-API export macro (`<UPPER_API_NAME>_EXPORT`) that expands to `__declspec(dllexport/dllimport)` on Windows and `__attribute__((visibility("default")))` on gcc/clang, with an empty fallback for other compilers. API method declarations in the C header and API method definitions in the C++ shim are prefixed with this macro. Platform service functions are **not** annotated — they are provided by the consumer at link time, not exported by the library.
+
+When building a shared library with `-fvisibility=hidden`, only the annotated API functions are exported. Rust and Go handle symbol export natively through `#[no_mangle]` + `cdylib` and `//export` + `c-shared` respectively — no export macro needed in those paths.
+
 ### No Callbacks
 
 The C ABI boundary is strictly unidirectional — the bound language calls into the implementation, never the reverse. Callbacks (function pointers crossing the FFI from implementation back to caller) are intentionally excluded because:
@@ -200,6 +220,7 @@ For the full specification, see:
 
 - [API Definition YAML Specification](./docs/api_definition_spec.md)
 - [API Definition JSON Schema](./docs/api_definition_schema.json)
+- [Code Generation Specification](./docs/CODEGEN_SPEC.md) — complete spec covering all generators, type mappings, output files, and code generation rules
 
 ## Distribution
 
@@ -244,3 +265,4 @@ These serve as both practical utilities and end-to-end integration test cases fo
 | Link-time platform services (logging, resources) | Fixed, narrow interfaces that the code gen always produces; link-time resolution avoids callback machinery while giving the implementation access to platform-native capabilities. |
 | Metrics via event queue, not logging | Metrics are structured data suited to batching and aggregation; routing them through a text log sink would mean unnecessary serialize/parse overhead. |
 | `string` as parameter-only type | Input strings are straightforward (`const char*`, UTF-8, borrowed). Returning strings creates ownership ambiguity; FlatBuffer result types handle that cleanly. |
+| Per-API export macro for symbol visibility | Ensures shared libraries export only API-defined symbols; platform services remain link-time provided. Windows `dllexport`/`dllimport`, gcc/clang visibility attributes, with graceful fallback. |
