@@ -13,12 +13,7 @@ DIST_DIR    := dist
 PLATFORMS   := windows/amd64 windows/arm64 darwin/arm64 linux/amd64
 HOST_OS     := $(shell uname -s)
 
-# the API implementation to bind when building test app (c, cpp, rust, or go)
-TEST_APP_BOUND_IMPL ?= cpp
-
-.PHONY: build test clean validate fmt vet lint dist help \
-       test-impl-c test-impl-cpp test-impl-rust test-impl-go test-impls \
-       test-app-desktop-cpp test-app-desktop-swift test-app-ios test-app-android test-app-web test-apps
+.PHONY: build test clean validate fmt vet lint dist help
 
 ## build: Build for the current platform (default)
 build: $(BINARY)
@@ -76,50 +71,6 @@ dist:
 	@cp USER_README.md $(DIST_PKG)/README.md
 	@tar -czf $(DIST_PKG).tar.gz -C $(DIST_DIR) $(DIST_NAME)
 	@echo "SDK archive ready: $(DIST_PKG).tar.gz"
-
-## test-impl-c: Build and run the C example
-test-impl-c: build
-	$(MAKE) -C examples/hello-xplattergy/c run
-
-## test-impl-cpp: Build and run the C++ example
-test-impl-cpp: build
-	$(MAKE) -C examples/hello-xplattergy/cpp run
-
-## test-impl-rust: Build and run the Rust example
-test-impl-rust: build
-	cd examples/hello-xplattergy/rust && cargo test
-
-## test-impl-go: Build and run the Go example
-test-impl-go: build
-	$(MAKE) -C examples/hello-xplattergy/go run
-
-## test-impls: Run all examples
-test-impls: test-impl-c test-impl-cpp test-impl-rust test-impl-go
-
-## test-app-desktop-cpp: Build and test the C++ desktop app
-test-app-desktop-cpp: build
-	$(MAKE) -C examples/hello-xplattergy/app-desktop-cpp IMPL=$(TEST_APP_BOUND_IMPL) test
-
-## test-app-desktop-swift: Build and test the Swift desktop app (macOS only)
-test-app-desktop-swift: build
-	[[ $(HOST_OS) != Darwin ]] || $(MAKE) -C examples/hello-xplattergy/app-desktop-swift IMPL=$(TEST_APP_BOUND_IMPL) test
-	@[[ $(HOST_OS) == Darwin ]] || echo $@ skipped on $(HOST_OS)
-
-## test-app-ios: Build and test the iOS app (simulator, macOS only)
-test-app-ios: build
-	@[[ $(HOST_OS) != Darwin ]] || $(MAKE) -C examples/hello-xplattergy/app-ios IMPL=$(TEST_APP_BOUND_IMPL) test
-	@[[ $(HOST_OS) == Darwin ]] || echo $@ skipped on $(HOST_OS)
-
-## test-app-android: Build and test the Android app
-test-app-android: build
-	$(MAKE) -C examples/hello-xplattergy/app-android IMPL=$(TEST_APP_BOUND_IMPL) test
-
-## test-app-web: Build and test the Web/WASM app (requires emcc)
-test-app-web: build
-	$(MAKE) -C examples/hello-xplattergy/app-web IMPL=$(TEST_APP_BOUND_IMPL) test
-
-## test-apps: Run all app tests
-test-apps: test-app-desktop-cpp test-app-desktop-swift test-app-ios test-app-android test-app-web
 
 ## help: Show this help
 help:
