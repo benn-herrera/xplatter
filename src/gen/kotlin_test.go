@@ -317,3 +317,60 @@ func TestKotlinGenerator_Registration(t *testing.T) {
 		t.Errorf("expected name 'kotlin', got %q", gen.Name())
 	}
 }
+
+func TestKotlinGenerator_FlatBufferReturn(t *testing.T) {
+	ctx := loadTestAPI(t, "fb_return.yaml")
+	gen := &KotlinGenerator{}
+
+	files, err := gen.Generate(ctx)
+	if err != nil {
+		t.Fatalf("generation failed: %v", err)
+	}
+
+	kt := string(files[0].Content)
+	jni := string(files[1].Content)
+
+	// Data class should be generated for Hello.Greeting (struct with message: uint64)
+	if !strings.Contains(kt, "data class HelloGreeting(val message: Long)") {
+		t.Error("missing HelloGreeting data class with message: Long field")
+	}
+
+	// Instance method sayHello should return HelloGreeting (not Long)
+	if !strings.Contains(kt, "fun sayHello(name: String): HelloGreeting") {
+		t.Error("sayHello should return HelloGreeting")
+	}
+
+	// Native declaration should return HelloGreeting (not LongArray) for fallible+FlatBuffer
+	if !strings.Contains(kt, "external fun nativeGreeterSayHello(greeter: Long, name: String): HelloGreeting") {
+		t.Error("native sayHello should return HelloGreeting, not LongArray")
+	}
+
+	// sayHello method body should directly return from native call (no LongArray unpacking)
+	// Verify by checking that sayHello body is a simple return
+	if !strings.Contains(kt, "return HelloTest.nativeGreeterSayHello(handle, name)") {
+		t.Error("sayHello should directly return from native call")
+	}
+
+	// JNI should return jobject (not jlongArray) for FlatBuffer return
+	if !strings.Contains(jni, "JNIEXPORT jobject JNICALL") {
+		t.Error("JNI sayHello should return jobject for FlatBuffer return")
+	}
+
+	// JNI should throw exception via Throw (not return error code in array)
+	if !strings.Contains(jni, "(*env)->Throw(env,") {
+		t.Error("JNI should throw exception for FlatBuffer return errors")
+	}
+
+	// JNI should construct data class via FindClass/NewObject
+	if !strings.Contains(jni, "FindClass(env, \"hello/test/HelloGreeting\")") {
+		t.Error("JNI should FindClass HelloGreeting")
+	}
+	if !strings.Contains(jni, "NewObject(env, cls, ctor,") {
+		t.Error("JNI should construct HelloGreeting via NewObject")
+	}
+
+	// Handle-returning methods should still use jlongArray (not affected)
+	if !strings.Contains(jni, "jlongArray") {
+		t.Error("handle-returning JNI functions should still use jlongArray")
+	}
+}

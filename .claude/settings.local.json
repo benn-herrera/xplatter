@@ -44,7 +44,16 @@
       "Bash(xcrun:*)",
       "Bash(xcodebuild:*)",
       "Bash(lipo:*)",
-      "Bash(lipo -info:*)"
+      "Bash(lipo -info:*)",
+      "Bash(env:*)",
+      "Bash(command -v gradle:*)",
+      "Bash(xargs:*)",
+      "Bash(gradle:*)",
+      "Bash(cmake:*)",
+      "Bash(./gradlew :app:assembleDebug:*)",
+      "Bash(java:*)",
+      "Bash(/usr/libexec/java_home:*)",
+      "Bash($JAVA_HOME/bin/java:*)"
     ]
   }
 }

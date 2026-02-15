@@ -53,6 +53,9 @@ func generateKotlinFile(api *model.APIDefinition, resolved resolver.ResolvedType
 		writeKotlinException(&b, errType)
 	}
 
+	// Data classes for FlatBuffer return types
+	writeKotlinFBSDataClasses(&b, resolved, api)
+
 	// Handle wrapper classes
 	for _, h := range api.Handles {
 		writeKotlinHandleClass(&b, h, api, pascalName)
@@ -161,15 +164,20 @@ func writeKotlinInstanceMethod(b *strings.Builder, apiName, ifaceName string, me
 	callArgs := strings.Join(nativeCallArgs, ", ")
 	if hasError {
 		if hasReturn {
-			// Fallible with return: native method returns a Long array [errorCode, result]
-			fmt.Fprintf(b, "        val result = %s.%s(%s)\n", pascalName, nativeName, callArgs)
-			fmt.Fprintf(b, "        if (result[0] != 0L) throw %s(result[0].toInt())\n",
-				kotlinErrorExceptionName(method.Error))
 			retType := method.Returns.Type
-			if _, ok := model.IsHandle(retType); ok {
-				fmt.Fprintf(b, "        return %s(result[1])\n", kotlinHandleReturnType(retType))
+			if model.IsFlatBufferType(retType) {
+				// FlatBuffer return: JNI throws exception, native returns data class directly
+				fmt.Fprintf(b, "        return %s.%s(%s)\n", pascalName, nativeName, callArgs)
 			} else {
-				fmt.Fprintf(b, "        return result[1]\n")
+				// Handle or primitive: LongArray pattern [errorCode, result]
+				fmt.Fprintf(b, "        val result = %s.%s(%s)\n", pascalName, nativeName, callArgs)
+				fmt.Fprintf(b, "        if (result[0] != 0L) throw %s(result[0].toInt())\n",
+					kotlinErrorExceptionName(method.Error))
+				if _, ok := model.IsHandle(retType); ok {
+					fmt.Fprintf(b, "        return %s(result[1])\n", kotlinHandleReturnType(retType))
+				} else {
+					fmt.Fprintf(b, "        return result[1]\n")
+				}
 			}
 		} else {
 			// Fallible without return
@@ -265,14 +273,20 @@ func writeKotlinFactoryMethod(b *strings.Builder, apiName, ifaceName string, met
 	callArgs := strings.Join(nativeCallArgs, ", ")
 	if hasError {
 		if hasReturn {
-			fmt.Fprintf(b, "        val result = %s(%s)\n", nativeName, callArgs)
-			fmt.Fprintf(b, "        if (result[0] != 0L) throw %s(result[0].toInt())\n",
-				kotlinErrorExceptionName(method.Error))
 			retType := method.Returns.Type
-			if _, ok := model.IsHandle(retType); ok {
-				fmt.Fprintf(b, "        return %s(result[1])\n", kotlinHandleReturnType(retType))
+			if model.IsFlatBufferType(retType) {
+				// FlatBuffer return: JNI throws exception, native returns data class directly
+				fmt.Fprintf(b, "        return %s(%s)\n", nativeName, callArgs)
 			} else {
-				fmt.Fprintf(b, "        return result[1]\n")
+				// Handle or primitive: LongArray pattern
+				fmt.Fprintf(b, "        val result = %s(%s)\n", nativeName, callArgs)
+				fmt.Fprintf(b, "        if (result[0] != 0L) throw %s(result[0].toInt())\n",
+					kotlinErrorExceptionName(method.Error))
+				if _, ok := model.IsHandle(retType); ok {
+					fmt.Fprintf(b, "        return %s(result[1])\n", kotlinHandleReturnType(retType))
+				} else {
+					fmt.Fprintf(b, "        return result[1]\n")
+				}
 			}
 		} else {
 			fmt.Fprintf(b, "        val rc = %s(%s)\n", nativeName, callArgs)
@@ -310,7 +324,11 @@ func writeKotlinNativeDecl(b *strings.Builder, ifaceName string, method *model.M
 	var returnType string
 	switch {
 	case hasError && hasReturn:
-		returnType = "LongArray"
+		if model.IsFlatBufferType(method.Returns.Type) {
+			returnType = kotlinFBSDataClassName(method.Returns.Type)
+		} else {
+			returnType = "LongArray"
+		}
 	case hasError && !hasReturn:
 		returnType = "Int"
 	case !hasError && hasReturn:
@@ -348,7 +366,7 @@ func generateJNIFile(api *model.APIDefinition, resolved resolver.ResolvedTypes, 
 	for _, iface := range api.Interfaces {
 		fmt.Fprintf(&b, "/* %s */\n", iface.Name)
 		for _, method := range iface.Methods {
-			writeJNIFunction(&b, apiName, iface.Name, &method, jniClassPath)
+			writeJNIFunction(&b, apiName, iface.Name, &method, jniClassPath, resolved, packageName)
 		}
 		b.WriteString("\n")
 	}
@@ -356,21 +374,30 @@ func generateJNIFile(api *model.APIDefinition, resolved resolver.ResolvedTypes, 
 	return b.String(), nil
 }
 
-func writeJNIFunction(b *strings.Builder, apiName, ifaceName string, method *model.MethodDef, jniClassPath string) {
+func writeJNIFunction(b *strings.Builder, apiName, ifaceName string, method *model.MethodDef, jniClassPath string, resolved resolver.ResolvedTypes, packageName string) {
 	cabiFunc := CABIFunctionName(apiName, ifaceName, method.Name)
 	jniMethodName := jniNativeMethodName(ifaceName, method.Name)
 	hasError := method.Error != ""
 	hasReturn := method.Returns != nil
+	fbReturn := isFlatBufferReturn(method)
 
 	// JNI return type
 	var jniRetType string
 	switch {
 	case hasError && hasReturn:
-		jniRetType = "jlongArray"
+		if fbReturn {
+			jniRetType = "jobject"
+		} else {
+			jniRetType = "jlongArray"
+		}
 	case hasError && !hasReturn:
 		jniRetType = "jint"
 	case !hasError && hasReturn:
-		jniRetType = jniCReturnType(method.Returns.Type)
+		if fbReturn {
+			jniRetType = "jobject"
+		} else {
+			jniRetType = jniCReturnType(method.Returns.Type)
+		}
 	default:
 		jniRetType = "void"
 	}
@@ -407,23 +434,34 @@ func writeJNIFunction(b *strings.Builder, apiName, ifaceName string, method *mod
 		callArgs = append(callArgs, jniToCArg(&p)...)
 	}
 
-	// Call the C ABI function
-	switch {
-	case hasError && hasReturn:
-		// Fallible with return: C function returns int32_t, result via out-param
-		retCType := CReturnType(method.Returns.Type)
-		fmt.Fprintf(b, "    %s out_result;\n", retCType)
-		callArgs = append(callArgs, "&out_result")
-		fmt.Fprintf(b, "    int32_t rc = %s(%s);\n", cabiFunc, strings.Join(callArgs, ", "))
-
-		// Release strings before returning
+	// Helper to release string params
+	releaseStrings := func() {
 		for _, sp := range stringParams {
 			jniVarName := ToCamelCase(sp.Name)
 			fmt.Fprintf(b, "    (*env)->ReleaseStringUTFChars(env, %s, c_%s);\n",
 				jniVarName, sp.Name)
 		}
+	}
 
-		// Return [errorCode, result] as jlongArray
+	// Call the C ABI function
+	switch {
+	case hasError && hasReturn && fbReturn:
+		// Fallible with FlatBuffer return: throw JNI exception on error, return data class
+		retCType := CReturnType(method.Returns.Type)
+		fmt.Fprintf(b, "    %s out_result;\n", retCType)
+		callArgs = append(callArgs, "&out_result")
+		fmt.Fprintf(b, "    int32_t rc = %s(%s);\n", cabiFunc, strings.Join(callArgs, ", "))
+		releaseStrings()
+		writeJNIExceptionThrow(b, method.Error, packageName)
+		writeJNIFBSObjectReturn(b, method.Returns.Type, resolved, packageName)
+
+	case hasError && hasReturn:
+		// Fallible with handle/primitive return: LongArray pattern
+		retCType := CReturnType(method.Returns.Type)
+		fmt.Fprintf(b, "    %s out_result;\n", retCType)
+		callArgs = append(callArgs, "&out_result")
+		fmt.Fprintf(b, "    int32_t rc = %s(%s);\n", cabiFunc, strings.Join(callArgs, ", "))
+		releaseStrings()
 		fmt.Fprintf(b, "    jlongArray arr = (*env)->NewLongArray(env, 2);\n")
 		fmt.Fprintf(b, "    jlong values[2] = { (jlong)rc, (jlong)out_result };\n")
 		fmt.Fprintf(b, "    (*env)->SetLongArrayRegion(env, arr, 0, 2, values);\n")
@@ -432,40 +470,27 @@ func writeJNIFunction(b *strings.Builder, apiName, ifaceName string, method *mod
 	case hasError && !hasReturn:
 		// Fallible without return
 		fmt.Fprintf(b, "    int32_t rc = %s(%s);\n", cabiFunc, strings.Join(callArgs, ", "))
-
-		// Release strings before returning
-		for _, sp := range stringParams {
-			jniVarName := ToCamelCase(sp.Name)
-			fmt.Fprintf(b, "    (*env)->ReleaseStringUTFChars(env, %s, c_%s);\n",
-				jniVarName, sp.Name)
-		}
-
+		releaseStrings()
 		fmt.Fprintf(b, "    return (jint)rc;\n")
 
+	case !hasError && hasReturn && fbReturn:
+		// Infallible with FlatBuffer return: call and construct data class
+		retCType := CReturnType(method.Returns.Type)
+		fmt.Fprintf(b, "    %s out_result = %s(%s);\n", retCType, cabiFunc, strings.Join(callArgs, ", "))
+		releaseStrings()
+		writeJNIFBSObjectReturn(b, method.Returns.Type, resolved, packageName)
+
 	case !hasError && hasReturn:
-		// Infallible with return
+		// Infallible with handle/primitive return
 		fmt.Fprintf(b, "    %s result = %s(%s);\n",
 			CReturnType(method.Returns.Type), cabiFunc, strings.Join(callArgs, ", "))
-
-		// Release strings before returning
-		for _, sp := range stringParams {
-			jniVarName := ToCamelCase(sp.Name)
-			fmt.Fprintf(b, "    (*env)->ReleaseStringUTFChars(env, %s, c_%s);\n",
-				jniVarName, sp.Name)
-		}
-
+		releaseStrings()
 		fmt.Fprintf(b, "    return (%s)result;\n", jniRetType)
 
 	default:
 		// Infallible void
 		fmt.Fprintf(b, "    %s(%s);\n", cabiFunc, strings.Join(callArgs, ", "))
-
-		// Release strings before returning
-		for _, sp := range stringParams {
-			jniVarName := ToCamelCase(sp.Name)
-			fmt.Fprintf(b, "    (*env)->ReleaseStringUTFChars(env, %s, c_%s);\n",
-				jniVarName, sp.Name)
-		}
+		releaseStrings()
 	}
 
 	fmt.Fprintf(b, "}\n\n")
@@ -499,6 +524,9 @@ func kotlinReturnType(t string) string {
 	if model.IsPrimitive(t) {
 		return kotlinPrimitiveType(t)
 	}
+	if model.IsFlatBufferType(t) {
+		return kotlinFBSDataClassName(t)
+	}
 	return "Long"
 }
 
@@ -517,6 +545,9 @@ func kotlinNativeReturnType(t string) string {
 	}
 	if model.IsPrimitive(t) {
 		return kotlinPrimitiveType(t)
+	}
+	if model.IsFlatBufferType(t) {
+		return kotlinFBSDataClassName(t)
 	}
 	return "Long"
 }
@@ -697,4 +728,144 @@ func jniArrayCType(elemType string) string {
 	default:
 		return "jbyteArray"
 	}
+}
+
+// ---------- FlatBuffer return type helpers ----------
+
+// isFlatBufferReturn returns true if the method returns a FlatBuffer type.
+func isFlatBufferReturn(method *model.MethodDef) bool {
+	return method.Returns != nil && model.IsFlatBufferType(method.Returns.Type)
+}
+
+// kotlinFBSDataClassName converts a FBS type name to a Kotlin data class name.
+// e.g., "Hello.Greeting" → "HelloGreeting"
+func kotlinFBSDataClassName(typeName string) string {
+	return strings.ReplaceAll(typeName, ".", "")
+}
+
+// kotlinFBSFieldType maps a FBS field type to a Kotlin type.
+func kotlinFBSFieldType(fieldType string) string {
+	switch fieldType {
+	case "string":
+		return "String?"
+	case "bool":
+		return "Boolean"
+	case "int8", "uint8":
+		return "Byte"
+	case "int16", "uint16":
+		return "Short"
+	case "int32", "uint32":
+		return "Int"
+	case "int64", "uint64":
+		return "Long"
+	case "float32":
+		return "Float"
+	case "float64":
+		return "Double"
+	default:
+		return fieldType
+	}
+}
+
+// jniFBSFieldDescriptor maps a FBS field type to a JNI type descriptor for constructor signatures.
+func jniFBSFieldDescriptor(fieldType string) string {
+	switch fieldType {
+	case "string":
+		return "Ljava/lang/String;"
+	case "bool":
+		return "Z"
+	case "int8", "uint8":
+		return "B"
+	case "int16", "uint16":
+		return "S"
+	case "int32", "uint32":
+		return "I"
+	case "int64", "uint64":
+		return "J"
+	case "float32":
+		return "F"
+	case "float64":
+		return "D"
+	default:
+		return "I"
+	}
+}
+
+// writeKotlinFBSDataClasses generates Kotlin data classes for all FlatBuffer types
+// used as method return values.
+func writeKotlinFBSDataClasses(b *strings.Builder, resolved resolver.ResolvedTypes, api *model.APIDefinition) {
+	seen := map[string]bool{}
+	var fbTypes []string
+	for _, iface := range api.Interfaces {
+		for _, method := range iface.Methods {
+			if isFlatBufferReturn(&method) {
+				t := method.Returns.Type
+				if !seen[t] {
+					seen[t] = true
+					fbTypes = append(fbTypes, t)
+				}
+			}
+		}
+	}
+
+	for _, t := range fbTypes {
+		className := kotlinFBSDataClassName(t)
+		typeInfo, ok := resolved[t]
+		if !ok {
+			continue
+		}
+		var fields []string
+		for _, f := range typeInfo.Fields {
+			fields = append(fields, fmt.Sprintf("val %s: %s", ToCamelCase(f.Name), kotlinFBSFieldType(f.Type)))
+		}
+		fmt.Fprintf(b, "data class %s(%s)\n\n", className, strings.Join(fields, ", "))
+	}
+}
+
+// writeJNIExceptionThrow emits JNI code to throw a Kotlin exception when rc != 0.
+func writeJNIExceptionThrow(b *strings.Builder, errorType, packageName string) {
+	exClassName := kotlinErrorExceptionName(errorType)
+	jniClassPath := strings.ReplaceAll(packageName, ".", "/") + "/" + exClassName
+	fmt.Fprintf(b, "    if (rc != 0) {\n")
+	fmt.Fprintf(b, "        jclass ex_cls = (*env)->FindClass(env, \"%s\");\n", jniClassPath)
+	fmt.Fprintf(b, "        jmethodID ex_ctor = (*env)->GetMethodID(env, ex_cls, \"<init>\", \"(I)V\");\n")
+	fmt.Fprintf(b, "        (*env)->Throw(env, (jthrowable)(*env)->NewObject(env, ex_cls, ex_ctor, (jint)rc));\n")
+	fmt.Fprintf(b, "        return NULL;\n")
+	fmt.Fprintf(b, "    }\n")
+}
+
+// writeJNIFBSObjectReturn emits JNI code to construct a Kotlin data class from the C struct out_result.
+func writeJNIFBSObjectReturn(b *strings.Builder, retType string, resolved resolver.ResolvedTypes, packageName string) {
+	className := kotlinFBSDataClassName(retType)
+	jniClassPath := strings.ReplaceAll(packageName, ".", "/") + "/" + className
+
+	typeInfo, ok := resolved[retType]
+	if !ok {
+		fmt.Fprintf(b, "    return NULL; /* unresolved type %s */\n", retType)
+		return
+	}
+
+	// Convert string fields to jstring first
+	for _, f := range typeInfo.Fields {
+		if f.Type == "string" {
+			fmt.Fprintf(b, "    jstring j_%s = (*env)->NewStringUTF(env, out_result.%s);\n", f.Name, f.Name)
+		}
+	}
+
+	// Build constructor signature and arguments
+	var sigParts []string
+	var args []string
+	for _, f := range typeInfo.Fields {
+		sigParts = append(sigParts, jniFBSFieldDescriptor(f.Type))
+		if f.Type == "string" {
+			args = append(args, "j_"+f.Name)
+		} else {
+			args = append(args, fmt.Sprintf("(%s)out_result.%s", jniPrimitiveCType(f.Type), f.Name))
+		}
+	}
+
+	sig := "(" + strings.Join(sigParts, "") + ")V"
+	fmt.Fprintf(b, "    jclass cls = (*env)->FindClass(env, \"%s\");\n", jniClassPath)
+	fmt.Fprintf(b, "    jmethodID ctor = (*env)->GetMethodID(env, cls, \"<init>\", \"%s\");\n", sig)
+	fmt.Fprintf(b, "    return (*env)->NewObject(env, cls, ctor, %s);\n", strings.Join(args, ", "))
 }

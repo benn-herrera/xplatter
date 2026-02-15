@@ -7,10 +7,10 @@ xplattergy *(splat-er-jee)* is a code generation tool that produces cross-platfo
 ### Prerequisites
 
 - **Go 1.25+** (to build the code gen tool)
-- **C compiler** (cc/gcc/clang — needed for C and Go examples)
-- **C++ compiler** with C++20 support (for C++ examples)
-- **Rust toolchain** (for Rust examples)
 - **flatc** (FlatBuffers compiler — required for per-language struct codegen)
+- **make** (GNU Make)
+
+Only the tools for your selected target platforms are required — see [Platform Tooling](#platform-tooling) below.
 
 ### Build
 
@@ -38,7 +38,7 @@ bin/xplattergy init --name my_api --impl-lang cpp
 Working examples in C, C++, Rust, and Go live under `examples/hello-xplattergy/`. Each defines a simple greeter API, generates bindings, implements them, and runs tests.
 
 ```bash
-# Run all examples
+# Run all implementation examples
 make test-examples
 
 # Run individually
@@ -46,6 +46,12 @@ make test-example-c
 make test-example-cpp
 make test-example-rust
 make test-example-go
+
+# Run app examples (consumer-side binding usage)
+make test-app-desktop-cpp
+make test-app-desktop-swift     # macOS only
+make test-app-ios               # macOS only (builds for simulator)
+make test-app-android           # requires Android SDK + NDK
 ```
 
 ### Run the Tests
@@ -98,6 +104,40 @@ schemas/                FlatBuffers schema files
 - [Example API Definition](./docs/example_api_definition.yaml) — working example demonstrating the YAML format
 - [API Definition JSON Schema](./docs/api_definition_schema.json) — machine-readable schema for validation and editor support
 
+## Platform Tooling
+
+Not all targets can be built on every host OS. Only the tools for your selected `targets` are required.
+
+### Implementation Examples
+
+These build and test the API implementation in each supported language. They run on any host OS with the appropriate compiler.
+
+| Example | Required Tools |
+|---------|---------------|
+| C (`test-example-c`) | C11 compiler (cc/gcc/clang) |
+| C++ (`test-example-cpp`) | C++20 compiler (c++/g++/clang++), C11 compiler |
+| Rust (`test-example-rust`) | Rust toolchain (rustc + cargo) |
+| Go (`test-example-go`) | Go 1.25+, cgo-compatible C compiler |
+
+### App Examples
+
+These build consumer-facing apps that use the generated bindings. Platform availability depends on the host OS.
+
+| App | Host OS | Required Tools |
+|-----|---------|---------------|
+| Desktop C++ (`test-app-desktop-cpp`) | macOS, Linux | C++20 compiler, shared library from any impl backend |
+| Desktop Swift (`test-app-desktop-swift`) | macOS | Swift compiler (`swiftc`), shared library from any impl backend |
+| iOS (`test-app-ios`) | macOS | Xcode (provides `xcrun`, `xcodebuild`, `lipo`, `ar`, `swiftc`) |
+| Android (`test-app-android`) | macOS, Linux, Windows | Android SDK, NDK r29+, JDK 17+ |
+
+### Host OS / Target Matrix
+
+| Host OS | Buildable Targets |
+|---------|-------------------|
+| macOS | Desktop (C++ and Swift), iOS, Android, Web |
+| Linux | Desktop (C++ only), Android, Web, Linux native |
+| Windows | Android, Web, Windows native |
+
 ## Make Targets
 
 | Target | Description |
@@ -105,11 +145,16 @@ schemas/                FlatBuffers schema files
 | `build` | Build `bin/xplattergy` for the current platform |
 | `test` | Run all Go unit tests |
 | `test-v` | Run tests with verbose output |
-| `test-examples` | Build and run all hello-world examples |
+| `test-examples` | Build and run all implementation examples (C, C++, Rust, Go) |
 | `test-example-c` | Run the C example only |
 | `test-example-cpp` | Run the C++ example only |
 | `test-example-rust` | Run the Rust example only |
 | `test-example-go` | Run the Go example only |
+| `test-apps` | Build and test all app examples |
+| `test-app-desktop-cpp` | Build and test the C++ desktop app |
+| `test-app-desktop-swift` | Build and test the Swift desktop app (macOS only) |
+| `test-app-ios` | Build the iOS app for simulator (macOS only) |
+| `test-app-android` | Build the Android app (requires Android SDK + NDK) |
 | `validate` | Validate the example API definition |
 | `dist` | Build cross-platform SDK archive |
 | `fmt` | Format all Go source |

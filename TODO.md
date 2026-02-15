@@ -10,7 +10,7 @@ The current examples skip several major requirements:
   * DONE - for iOS build a target platform swift package that consumes the API implementation and presents the idiomatic Swift interface.
     * DONE - must have configs that support both iOS device and simulator
   * DONE - for macOS also build a swift package that can be consumed by a macOS desktop swift app
-  * for Android - build an AAR that consumes the API implementation and presents an idiomatic Kotlin interface
+  * DONE - for Android - build an AAR that consumes the API implementation and presents an idiomatic Kotlin interface
   * for linux and windows building the API shared library is sufficient
   * as we are currently working on macOS we can build for both mobile platforms, wasm, and macos. windows development will happen in a session on another machine.
 * The target language bindings are not getting used - a minimal app is necessary

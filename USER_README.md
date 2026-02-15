@@ -8,6 +8,9 @@ xplattergy *(splat-er-jee)* generates cross-platform API bindings from a single 
 
 - A prebuilt `xplattergy` binary (included in the SDK) or Go 1.25+ to build from source
 - FlatBuffers compiler (`flatc`) for per-language struct codegen (required)
+- make (GNU Make)
+
+Additional tools are required depending on which target platforms you select — see [Platform Tooling Requirements](#platform-tooling-requirements) below.
 
 ### Build from Source (if no prebuilt binary for your platform)
 
@@ -500,6 +503,63 @@ EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_renderer_end_frame(
 
 #endif
 ```
+
+## Platform Tooling Requirements
+
+Only the tools for your selected target platforms are required. The `targets` field in the API definition controls which bindings are generated. Not all targets can be built on every host OS.
+
+### Implementation Language
+
+The `impl_lang` field determines what implementation scaffolding is generated. Each language requires its own compiler/toolchain:
+
+| `impl_lang` | Required Tools |
+|-------------|---------------|
+| `c` | C11 compiler (cc/gcc/clang) |
+| `cpp` | C++20 compiler (c++/g++/clang++), C11 compiler |
+| `rust` | Rust toolchain (rustc + cargo) |
+| `go` | Go 1.25+, cgo-compatible C compiler |
+
+### Target Platforms
+
+| Target | Required Tools | Host OS |
+|--------|---------------|---------|
+| `android` | Android SDK, NDK r29+, JDK 17+ | macOS, Linux, Windows |
+| `ios` | Xcode (provides `xcrun`, `xcodebuild`, `lipo`, `ar`, `swiftc`) | macOS only |
+| `macos` | Swift compiler (`swiftc`), C++20 compiler | macOS only |
+| `web` | Emscripten (emcc) or wasm-compatible toolchain | macOS, Linux, Windows |
+| `windows` | MSVC or MinGW (cl/gcc) | Windows (cross-compile possible with MinGW) |
+| `linux` | GCC or Clang | Linux (cross-compile possible) |
+
+### Android-Specific Setup
+
+Building for Android requires:
+
+1. **Android SDK** with platform API 35 (or your `compileSdk` target)
+2. **Android NDK r29+** — provides cross-compilation toolchains for ARM64, ARMv7, x86_64, x86
+3. **JDK 17+** — for Gradle and the Kotlin compiler (JDK 21 recommended for Android Studio compatibility)
+4. **Gradle** — a wrapper (`gradlew`) is typically included in the project
+
+The NDK is expected at `$HOME/Library/Android/sdk/ndk/<version>` (macOS) or `$ANDROID_HOME/ndk/<version>`. Install it via Android Studio's SDK Manager or `sdkmanager --install "ndk;<version>"`.
+
+### iOS-Specific Setup
+
+Building for iOS requires macOS with Xcode installed. The Xcode command-line tools provide all necessary compilers and utilities:
+
+- `xcrun` — SDK-aware tool dispatch
+- `xcodebuild` — project/workspace builds and XCFramework creation
+- `lipo` — universal binary creation
+- `ar` — static library archival
+- `swiftc` — Swift compiler
+
+Install Xcode from the Mac App Store, then run `xcode-select --install` to ensure command-line tools are available.
+
+### Host OS / Target Availability
+
+| Host OS | Buildable Targets |
+|---------|-------------------|
+| macOS | android, ios, macos, web |
+| Linux | android, linux, web |
+| Windows | android, windows, web |
 
 ## Design Principles
 
