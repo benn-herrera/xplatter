@@ -25,9 +25,9 @@ $(TARGET): main.cpp $(HEADER) $(IMPL_DIR)/build/libhello_xplattergy.dylib
 		-Wl,-rpath,@executable_path/../../$(IMPL)/build \
 		-o $@ main.cpp
 
-$(BUILD_DIR)/generated/hello_xplattergy.h: $(IMPL_DIR)/hello_xplattergy.yaml
+$(BUILD_DIR)/generated/hello_xplattergy.h: ../shared_schemas/hello_xplattergy.yaml
 	@mkdir -p $(BUILD_DIR)/generated
-	$(XPLATTERGY) generate -o $(BUILD_DIR)/generated $<
+	$(XPLATTERGY) generate --impl-lang $(IMPL) -o $(BUILD_DIR)/generated $<
 
 $(IMPL_DIR)/build/libhello_xplattergy.dylib:
 	$(MAKE) -C $(IMPL_DIR) shared-lib

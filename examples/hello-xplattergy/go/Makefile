@@ -22,9 +22,9 @@ $(SHARED_LIB): $(STAMP)
 	go build -buildmode=c-shared -ldflags='-extldflags "-Wl,-install_name,@rpath/libhello_xplattergy.$(DYLIB_EXT)"' -o $(SHARED_LIB) .
 
 # Generate and copy C header locally (cgo needs headers in the package directory)
-$(STAMP): hello_xplattergy.yaml
+$(STAMP): ../shared_schemas/hello_xplattergy.yaml
 	@mkdir -p $(BUILD_DIR)
-	$(XPLATTERGY) generate --clean -o generated $<
+	$(XPLATTERGY) generate --impl-lang go --clean -o generated $<
 	cp generated/hello_xplattergy.h .
 	@touch $@
 

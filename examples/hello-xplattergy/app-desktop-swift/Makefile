@@ -25,9 +25,9 @@ $(TARGET): main.swift $(SWIFT_BINDING) $(IMPL_DIR)/build/libhello_xplattergy.dyl
 		-Xlinker -rpath -Xlinker @executable_path/../../$(IMPL)/build \
 		-o $@ main.swift $(SWIFT_BINDING)
 
-$(BUILD_DIR)/generated/hello_xplattergy.h $(BUILD_DIR)/generated/HelloXplattergy.swift: $(IMPL_DIR)/hello_xplattergy.yaml
+$(BUILD_DIR)/generated/hello_xplattergy.h $(BUILD_DIR)/generated/HelloXplattergy.swift: ../shared_schemas/hello_xplattergy.yaml
 	@mkdir -p $(BUILD_DIR)/generated
-	$(XPLATTERGY) generate -o $(BUILD_DIR)/generated $<
+	$(XPLATTERGY) generate --impl-lang $(IMPL) -o $(BUILD_DIR)/generated $<
 
 $(IMPL_DIR)/build/libhello_xplattergy.dylib:
 	$(MAKE) -C $(IMPL_DIR) shared-lib

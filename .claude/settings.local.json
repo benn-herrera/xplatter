@@ -53,7 +53,8 @@
       "Bash(./gradlew :app:assembleDebug:*)",
       "Bash(java:*)",
       "Bash(/usr/libexec/java_home:*)",
-      "Bash($JAVA_HOME/bin/java:*)"
+      "Bash($JAVA_HOME/bin/java:*)",
+      "Bash(grep:*)"
     ]
   }
 }

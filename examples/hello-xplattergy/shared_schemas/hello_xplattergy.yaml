@@ -1,10 +1,11 @@
 api:
   name: hello_xplattergy
   version: 0.1.0
-  impl_lang: cpp
+  # impl_lang is overridden via --impl-lang on the command line in language-specific example makefiles
+  impl_lang: c
 
 flatbuffers:
-  - ../shared_schemas/hello_types.fbs
+  - hello_types.fbs
 
 handles:
   - name: Greeter

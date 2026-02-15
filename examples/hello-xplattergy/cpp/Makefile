@@ -70,9 +70,9 @@ $(BUILD_DIR)/%.o: %.c $(STAMP)
 	@mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(STAMP): hello_xplattergy.yaml
+$(STAMP): ../shared_schemas/hello_xplattergy.yaml
 	@mkdir -p $(BUILD_DIR)
-	$(XPLATTERGY) generate --clean -o generated $<
+	$(XPLATTERGY) generate --impl-lang cpp --clean -o generated $<
 	@touch $@
 
 clean:

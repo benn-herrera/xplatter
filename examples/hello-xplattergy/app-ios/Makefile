@@ -99,9 +99,9 @@ build-app: xcframework package
 
 # --- Codegen fallback (if impl dir has no generated files) ---
 
-$(BUILD_DIR)/generated/hello_xplattergy.h $(BUILD_DIR)/generated/HelloXplattergy.swift: $(IMPL_DIR)/hello_xplattergy.yaml
+$(BUILD_DIR)/generated/hello_xplattergy.h $(BUILD_DIR)/generated/HelloXplattergy.swift: ../shared_schemas/hello_xplattergy.yaml
 	@mkdir -p $(BUILD_DIR)/generated
-	$(XPLATTERGY) generate --clean -o $(BUILD_DIR)/generated $<
+	$(XPLATTERGY) generate --impl-lang $(IMPL) --clean -o $(BUILD_DIR)/generated $<
 
 # --- Clean ---
 
