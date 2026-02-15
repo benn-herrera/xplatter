@@ -1,4 +1,4 @@
-XPLATTERGY ?= ../../../bin/xplattergy
+XPLATTERGY ?= ../../../xplattergy.sh
 CC         ?= cc
 CFLAGS     := -Wall -Wextra -std=c11 -I. -Igenerated
 

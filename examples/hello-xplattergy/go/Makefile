@@ -1,4 +1,4 @@
-XPLATTERGY ?= ../../../bin/xplattergy
+XPLATTERGY ?= ../../../xplattergy.sh
 BUILD_DIR  := build
 STAMP      := $(BUILD_DIR)/.generated
 

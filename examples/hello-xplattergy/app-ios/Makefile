@@ -1,4 +1,4 @@
-XPLATTERGY ?= ../../../bin/xplattergy
+XPLATTERGY ?= ../../../xplattergy.sh
 IMPL       ?= cpp
 IMPL_DIR   := ../$(IMPL)
 BUILD_DIR  := build

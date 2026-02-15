@@ -1,4 +1,4 @@
-XPLATTERGY ?= ../../../bin/xplattergy
+XPLATTERGY ?= ../../../xplattergy.sh
 CXX        ?= c++
 CC         ?= cc
 CXXFLAGS   := -Wall -Wextra -std=c++20 -I. -Igenerated
