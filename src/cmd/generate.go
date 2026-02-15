@@ -89,33 +89,31 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	if !genSkipFlatc && len(def.FlatBuffers) > 0 {
 		flatcPath, err := resolver.ResolveFlatc(genFlatc)
 		if err != nil {
-			if !quiet {
-				fmt.Fprintf(os.Stderr, "Warning: %v (skipping flatc)\n", err)
-			}
-		} else {
-			// Resolve absolute paths for .fbs files
-			fbsFiles := make([]string, len(def.FlatBuffers))
-			for i, p := range def.FlatBuffers {
-				if filepath.IsAbs(p) {
-					fbsFiles[i] = p
-				} else {
-					fbsFiles[i] = filepath.Join(baseDir, p)
-				}
-			}
+			return fmt.Errorf("flatc is required but not found: %w\n\nProvide flatc via --flatc flag, XPLATTERGY_FLATC_PATH env var, or ensure it is in PATH.\nUse --skip-flatc to skip FlatBuffers codegen (generated bindings will be incomplete).", err)
+		}
 
-			flatcCount, err = gen.RunFlatc(&gen.FlatcConfig{
-				FlatcPath: flatcPath,
-				FBSFiles:  fbsFiles,
-				OutputDir: genOutput,
-				Targets:   def.EffectiveTargets(),
-				ImplLang:  def.API.ImplLang,
-				DryRun:    genDryRun,
-				Verbose:   verbose,
-				Quiet:     quiet,
-			})
-			if err != nil {
-				return fmt.Errorf("flatc: %w", err)
+		// Resolve absolute paths for .fbs files
+		fbsFiles := make([]string, len(def.FlatBuffers))
+		for i, p := range def.FlatBuffers {
+			if filepath.IsAbs(p) {
+				fbsFiles[i] = p
+			} else {
+				fbsFiles[i] = filepath.Join(baseDir, p)
 			}
+		}
+
+		flatcCount, err = gen.RunFlatc(&gen.FlatcConfig{
+			FlatcPath: flatcPath,
+			FBSFiles:  fbsFiles,
+			OutputDir: genOutput,
+			Targets:   def.EffectiveTargets(),
+			ImplLang:  def.API.ImplLang,
+			DryRun:    genDryRun,
+			Verbose:   verbose,
+			Quiet:     quiet,
+		})
+		if err != nil {
+			return fmt.Errorf("flatc: %w", err)
 		}
 	}
 

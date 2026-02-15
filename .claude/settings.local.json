@@ -36,7 +36,9 @@
       "Bash(c++:*)",
       "Bash(cc:*)",
       "Bash(nm:*)",
-      "Bash(cargo build:*)"
+      "Bash(cargo build:*)",
+      "Bash(bin/xplattergy generate:*)",
+      "Bash(../bin/xplattergy:*)"
     ]
   }
 }

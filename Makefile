@@ -67,7 +67,7 @@ dist:
 	@cp -r schemas $(DIST_PKG)/schemas
 	@cp -r docs $(DIST_PKG)/docs
 	@cp LICENSE.md $(DIST_PKG)/
-	@cp README.md $(DIST_PKG)/
+	@cp USER_README.md $(DIST_PKG)/README.md
 	@tar -czf $(DIST_PKG).tar.gz -C $(DIST_DIR) $(DIST_NAME)
 	@echo "SDK archive ready: $(DIST_PKG).tar.gz"
 
