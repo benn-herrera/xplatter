@@ -11,9 +11,13 @@ LDFLAGS     := -s -w -X $(MODULE_PATH)/cmd.Version=$(VERSION)
 # Cross-compilation targets (for future `make dist`)
 DIST_DIR    := dist
 PLATFORMS   := windows/amd64 windows/arm64 darwin/arm64 linux/amd64
+HOST_OS     := $(shell uname -s)
+
+# the API implementation to bind when building test app (c, cpp, rust, or go)
+TEST_APP_BOUND_IMPL ?= cpp
 
 .PHONY: build test clean validate fmt vet lint dist help \
-       test-example-c test-example-cpp test-example-rust test-example-go test-examples \
+       test-impl-c test-impl-cpp test-impl-rust test-impl-go test-impls \
        test-app-desktop-cpp test-app-desktop-swift test-app-ios test-app-android test-app-web test-apps
 
 ## build: Build for the current platform (default)
@@ -73,44 +77,44 @@ dist:
 	@tar -czf $(DIST_PKG).tar.gz -C $(DIST_DIR) $(DIST_NAME)
 	@echo "SDK archive ready: $(DIST_PKG).tar.gz"
 
-## test-example-c: Build and run the C example
-test-example-c: build
+## test-impl-c: Build and run the C example
+test-impl-c: build
 	$(MAKE) -C examples/hello-xplattergy/c run
 
-## test-example-cpp: Build and run the C++ example
-test-example-cpp: build
+## test-impl-cpp: Build and run the C++ example
+test-impl-cpp: build
 	$(MAKE) -C examples/hello-xplattergy/cpp run
 
-## test-example-rust: Build and run the Rust example
-test-example-rust: build
+## test-impl-rust: Build and run the Rust example
+test-impl-rust: build
 	cd examples/hello-xplattergy/rust && cargo test
 
-## test-example-go: Build and run the Go example
-test-example-go: build
+## test-impl-go: Build and run the Go example
+test-impl-go: build
 	$(MAKE) -C examples/hello-xplattergy/go run
 
-## test-examples: Run all examples
-test-examples: test-example-c test-example-cpp test-example-rust test-example-go
+## test-impls: Run all examples
+test-impls: test-impl-c test-impl-cpp test-impl-rust test-impl-go
 
 ## test-app-desktop-cpp: Build and test the C++ desktop app
 test-app-desktop-cpp: build
-	$(MAKE) -C examples/hello-xplattergy/app-desktop-cpp test
+	$(MAKE) -C examples/hello-xplattergy/app-desktop-cpp IMPL=$(TEST_APP_BOUND_IMPL) test
 
 ## test-app-desktop-swift: Build and test the Swift desktop app (macOS only)
 test-app-desktop-swift: build
-	$(MAKE) -C examples/hello-xplattergy/app-desktop-swift test
+	[[ $(HOST_OS) == Darwin ]] && $(MAKE) -C examples/hello-xplattergy/app-desktop-swift IMPL=$(TEST_APP_BOUND_IMPL) test
 
 ## test-app-ios: Build and test the iOS app (simulator)
 test-app-ios: build
-	$(MAKE) -C examples/hello-xplattergy/app-ios test
+	[[ $(HOST_OS) == Darwin ]] && $(MAKE) -C examples/hello-xplattergy/app-ios IMPL=$(TEST_APP_BOUND_IMPL) test
 
 ## test-app-android: Build and test the Android app
 test-app-android: build
-	$(MAKE) -C examples/hello-xplattergy/app-android test
+	$(MAKE) -C examples/hello-xplattergy/app-android IMPL=$(TEST_APP_BOUND_IMPL) test
 
 ## test-app-web: Build and test the Web/WASM app (requires emcc)
 test-app-web: build
-	$(MAKE) -C examples/hello-xplattergy/app-web test
+	$(MAKE) -C examples/hello-xplattergy/app-web IMPL=$(TEST_APP_BOUND_IMPL) test
 
 ## test-apps: Run all app tests
 test-apps: test-app-desktop-cpp test-app-desktop-swift test-app-ios test-app-android test-app-web
