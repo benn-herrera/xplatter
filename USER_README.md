@@ -18,10 +18,26 @@ Additional tools are required depending on which target platforms you select —
 ./build_codegen.sh
 ```
 
-Or manually:
+### Try the Examples
+
+Working examples with API implementations in C, C++, Rust, and Go with front end consumer apps targeting mobile, desktop, and web live under `examples/`. hello-xplattergy defines a simple greeter API. All examples generate bindings, implement them, and run tests.
 
 ```bash
-cd src && go build -o ../bin/xplattergy .
+# Run all implementation examples
+cd examples
+make test-hello-examples
+
+# Run individually
+make test-hello-impl-c
+make test-hello-impl-cpp
+make test-hello-impl-rust
+make test-hello-impl-go
+
+# Run app examples (consumer-side binding usage)
+make test-hello-app-desktop-cpp
+make test-hello-app-desktop-swift     # macOS only
+make test-hello-app-ios               # macOS only (builds for simulator)
+make test-hello-app-android           # requires Android SDK + NDK
 ```
 
 ### Usage
@@ -50,6 +66,7 @@ xplattergy generate my_api.yaml --dry-run
 3. Run `xplattergy generate your_api.yaml -o generated`
 4. Implement the generated abstract interface in your language (C++, Rust, Go, or plain C)
 5. Build your implementation against the generated C header and shim
+  * xplattergy should be integrated into your project build system as a code gen dependency
 
 ## CLI Reference
 

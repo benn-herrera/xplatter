@@ -12,6 +12,10 @@ xplattergy *(splat-er-jee)* is a code generation tool that produces cross-platfo
   - On Windows
     - ```winget install -e --id GnuWin32.Make```
     - OR if Android NDK installed, add ${ANDROID_NDK}/prebuilt/windows-x86_64/bin to PATH
+- npm or python3
+  - just used for running/testing WASM example
+  - examples/app-web/serve.sh will use either to start a CLI one-liner local http server to serve up JS and WASM files
+  - no virtual env or language-specific project setup needed
 
 Only the tools for your selected target platforms are required — see [Platform Tooling](#platform-tooling) below.
 
@@ -38,23 +42,24 @@ bin/xplattergy init --name my_api --impl-lang cpp
 
 ### Run the Examples
 
-Working examples in C, C++, Rust, and Go live under `examples/hello-xplattergy/`. Each defines a simple greeter API, generates bindings, implements them, and runs tests.
+Working examples with API implementations in C, C++, Rust, and Go with front end consumer apps targeting mobile, desktop, and web live under `examples/`. hello-xplattergy defines a simple greeter API. All examples generate bindings, implement them, and run tests.
 
 ```bash
 # Run all implementation examples
-make test-examples
+cd examples
+make test-hello-examples
 
 # Run individually
-make test-example-c
-make test-example-cpp
-make test-example-rust
-make test-example-go
+make test-hello-impl-c
+make test-hello-impl-cpp
+make test-hello-impl-rust
+make test-hello-impl-go
 
 # Run app examples (consumer-side binding usage)
-make test-app-desktop-cpp
-make test-app-desktop-swift     # macOS only
-make test-app-ios               # macOS only (builds for simulator)
-make test-app-android           # requires Android SDK + NDK
+make test-hello-app-desktop-cpp
+make test-hello-app-desktop-swift     # macOS only
+make test-hello-app-ios               # macOS only (builds for simulator)
+make test-hello-app-android           # requires Android SDK + NDK
 ```
 
 ### Run the Tests

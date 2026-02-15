@@ -7,57 +7,57 @@ HOST_OS  := $(shell uname -s)
 IMPL ?= cpp
 
 .PHONY: build \
-       test-impl-c test-impl-cpp test-impl-rust test-impl-go test-impls \
-       test-app-desktop-cpp test-app-desktop-swift test-app-ios test-app-android test-app-web test-apps \
+       test-hello-impl-c test-hello-impl-cpp test-hello-impl-rust test-hello-impl-go test-hello-impls \
+       test-hello-app-desktop-cpp test-hello-app-desktop-swift test-hello-app-ios test-hello-app-android test-hello-app-web test-hello-apps \
        help
 
 ## build: Ensure the xplattergy binary is built
 build:
 	$(MAKE) -C $(ROOT_DIR) build
 
-## test-impl-c: Build and run the C example
-test-impl-c: build
+## test-hello-impl-c: Build and run the hello example C implementation
+test-hello-impl-c: build
 	$(MAKE) -C hello-xplattergy/c run
 
-## test-impl-cpp: Build and run the C++ example
-test-impl-cpp: build
+## test-hello-impl-cpp: Build and run the hello example C++ implementation
+test-hello-impl-cpp: build
 	$(MAKE) -C hello-xplattergy/cpp run
 
-## test-impl-rust: Build and run the Rust example
-test-impl-rust: build
+## test-hello-impl-rust: Build and run the hello example Rust implementation
+test-hello-impl-rust: build
 	cd hello-xplattergy/rust && cargo test
 
-## test-impl-go: Build and run the Go example
-test-impl-go: build
+## test-hello-impl-go: Build and run the hello example Go implementation
+test-hello-impl-go: build
 	$(MAKE) -C hello-xplattergy/go run
 
-## test-impls: Run all implementation examples
-test-impls: test-impl-c test-impl-cpp test-impl-rust test-impl-go
+## test-hello-impls: Run all hello example implementations
+test-hello-impls: test-hello-impl-c test-hello-impl-cpp test-hello-impl-rust test-hello-impl-go
 
-## test-app-desktop-cpp: Build and test the C++ desktop app
-test-app-desktop-cpp: build
+## test-hello-app-desktop-cpp: Build and test the hello C++ desktop app
+test-hello-app-desktop-cpp: build
 	$(MAKE) -C hello-xplattergy/app-desktop-cpp IMPL=$(IMPL) test
 
-## test-app-desktop-swift: Build and test the Swift desktop app (macOS only)
-test-app-desktop-swift: build
+## test-hello-app-desktop-swift: Build and test the hello Swift desktop app (macOS only)
+test-hello-app-desktop-swift: build
 	[[ $(HOST_OS) != Darwin ]] || $(MAKE) -C hello-xplattergy/app-desktop-swift IMPL=$(IMPL) test
 	@[[ $(HOST_OS) == Darwin ]] || echo $@ skipped on $(HOST_OS)
 
-## test-app-ios: Build and test the iOS app (simulator, macOS only)
-test-app-ios: build
+## test-hello-app-ios: Build and test the hello iOS app (simulator, macOS only)
+test-hello-app-ios: build
 	@[[ $(HOST_OS) != Darwin ]] || $(MAKE) -C hello-xplattergy/app-ios IMPL=$(IMPL) test
 	@[[ $(HOST_OS) == Darwin ]] || echo $@ skipped on $(HOST_OS)
 
-## test-app-android: Build and test the Android app
-test-app-android: build
+## test-hello-app-android: Build and test the hello Android app
+test-hello-app-android: build
 	$(MAKE) -C hello-xplattergy/app-android IMPL=$(IMPL) test
 
-## test-app-web: Build and test the Web/WASM app (requires emcc)
-test-app-web: build
+## test-hello-app-web: Build and test the hello Web/WASM app (requires emcc)
+test-hello-app-web: build
 	$(MAKE) -C hello-xplattergy/app-web IMPL=$(IMPL) test
 
-## test-apps: Run all app tests
-test-apps: test-app-desktop-cpp test-app-desktop-swift test-app-ios test-app-android test-app-web
+## test-hello-apps: Run all app tests
+test-hello-apps: test-hello-app-desktop-cpp test-hello-app-desktop-swift test-hello-app-ios test-hello-app-android test-hello-app-web
 
 ## help: Show available targets
 help:
