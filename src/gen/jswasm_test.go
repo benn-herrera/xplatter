@@ -353,6 +353,48 @@ func TestJSWASMGenerator_WASMLoaderAcceptsMultipleSources(t *testing.T) {
 	}
 }
 
+func TestJSWASMGenerator_FlatBufferReturn(t *testing.T) {
+	ctx := loadTestAPI(t, "fb_return.yaml")
+	gen := &JSWASMGenerator{}
+
+	files, err := gen.Generate(ctx)
+	if err != nil {
+		t.Fatalf("generation failed: %v", err)
+	}
+
+	content := string(files[0].Content)
+
+	// sayHello (fallible + FB return): should return JS object, not raw getUint32
+	if !strings.Contains(content, "{ message:") {
+		t.Error("sayHello should return JS object with message field")
+	}
+
+	// sayHello should allocate correct size for Hello.Greeting (uint64 = 8 bytes in test schema)
+	if !strings.Contains(content, "_malloc(8)") {
+		t.Error("should allocate 8 bytes for Hello.Greeting (uint64 field)")
+	}
+
+	// sayHello should use getBigUint64 for the uint64 field
+	if !strings.Contains(content, "getBigUint64") {
+		t.Error("should use getBigUint64 for uint64 field")
+	}
+
+	// getDefaultGreeting (infallible + FB return): sret pattern with _outPtr as first arg
+	if !strings.Contains(content, "_wasm.exports.hello_test_greeter_get_default_greeting(_outPtr, greeter._ptr)") {
+		t.Error("getDefaultGreeting should use sret pattern with _outPtr as first arg")
+	}
+
+	// getDefaultGreeting should call as void (no const _result = ...)
+	if strings.Contains(content, "const _result = _wasm.exports.hello_test_greeter_get_default_greeting") {
+		t.Error("getDefaultGreeting should not capture return value (sret returns void)")
+	}
+
+	// createGreeter should still wrap in Greeter handle
+	if !strings.Contains(content, "new Greeter(") {
+		t.Error("createGreeter should still return handle wrapped in Greeter class")
+	}
+}
+
 func TestJSWASMGenerator_GeneratedHeader(t *testing.T) {
 	ctx := loadTestAPI(t, "minimal.yaml")
 	gen := &JSWASMGenerator{}

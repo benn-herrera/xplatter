@@ -9,6 +9,9 @@ xplattergy *(splat-er-jee)* is a code generation tool that produces cross-platfo
 - **Go 1.25+** (to build the code gen tool)
 - **flatc** (FlatBuffers compiler — required for per-language struct codegen)
 - **make** (GNU Make)
+  - On Windows
+    - ```winget install -e --id GnuWin32.Make```
+    - OR if Android NDK installed, add ${ANDROID_NDK}/prebuilt/windows-x86_64/bin to PATH
 
 Only the tools for your selected target platforms are required — see [Platform Tooling](#platform-tooling) below.
 
@@ -129,6 +132,7 @@ These build consumer-facing apps that use the generated bindings. Platform avail
 | Desktop Swift (`test-app-desktop-swift`) | macOS | Swift compiler (`swiftc`), shared library from any impl backend |
 | iOS (`test-app-ios`) | macOS | Xcode (provides `xcrun`, `xcodebuild`, `lipo`, `ar`, `swiftc`) |
 | Android (`test-app-android`) | macOS, Linux, Windows | Android SDK, NDK r29+, JDK 17+ |
+| Web/WASM (`test-app-web`) | macOS, Linux, Windows | [Emscripten](https://emscripten.org/docs/getting_started/downloads.html) (`emcc`) |
 
 ### Host OS / Target Matrix
 
@@ -155,6 +159,7 @@ These build consumer-facing apps that use the generated bindings. Platform avail
 | `test-app-desktop-swift` | Build and test the Swift desktop app (macOS only) |
 | `test-app-ios` | Build the iOS app for simulator (macOS only) |
 | `test-app-android` | Build the Android app (requires Android SDK + NDK) |
+| `test-app-web` | Build the Web/WASM app (requires Emscripten) |
 | `validate` | Validate the example API definition |
 | `dist` | Build cross-platform SDK archive |
 | `fmt` | Format all Go source |

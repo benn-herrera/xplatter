@@ -32,3 +32,9 @@ interfaces:
         returns:
           type: Hello.Greeting
         error: Hello.ErrorCode
+      - name: get_default_greeting
+        parameters:
+          - name: greeter
+            type: handle:Greeter
+        returns:
+          type: Hello.Greeting

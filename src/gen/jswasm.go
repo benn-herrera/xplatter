@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/benn-herrera/xplattergy/model"
+	"github.com/benn-herrera/xplattergy/resolver"
 )
 
 func init() {
@@ -31,7 +32,7 @@ func (g *JSWASMGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	writeHandleClasses(&b, api)
 	writePlatformServiceImports(&b, apiName)
 	writeWASMLoader(&b, apiName, api)
-	writeInterfaceWrappers(&b, apiName, api)
+	writeInterfaceWrappers(&b, apiName, api, ctx.ResolvedTypes)
 	writeModuleExports(&b, apiName, api)
 
 	filename := apiName + ".js"
@@ -253,7 +254,7 @@ func writeWASMLoader(b *strings.Builder, apiName string, api *model.APIDefinitio
 
 // writeInterfaceWrappers writes a factory function for each interface that returns
 // an object with all methods properly wrapped.
-func writeInterfaceWrappers(b *strings.Builder, apiName string, api *model.APIDefinition) {
+func writeInterfaceWrappers(b *strings.Builder, apiName string, api *model.APIDefinition, resolved resolver.ResolvedTypes) {
 	for _, iface := range api.Interfaces {
 		factoryName := "_create" + ToPascalCase(iface.Name)
 		fmt.Fprintf(b, "// %s interface\n", iface.Name)
@@ -261,7 +262,7 @@ func writeInterfaceWrappers(b *strings.Builder, apiName string, api *model.APIDe
 		b.WriteString("  return {\n")
 
 		for i, method := range iface.Methods {
-			writeMethodWrapper(b, apiName, iface.Name, &method)
+			writeMethodWrapper(b, apiName, iface.Name, &method, resolved)
 			if i < len(iface.Methods)-1 {
 				b.WriteString("\n")
 			}
@@ -273,11 +274,12 @@ func writeInterfaceWrappers(b *strings.Builder, apiName string, api *model.APIDe
 }
 
 // writeMethodWrapper writes a single method wrapper inside an interface object.
-func writeMethodWrapper(b *strings.Builder, apiName, ifaceName string, method *model.MethodDef) {
+func writeMethodWrapper(b *strings.Builder, apiName, ifaceName string, method *model.MethodDef, resolved resolver.ResolvedTypes) {
 	funcName := CABIFunctionName(apiName, ifaceName, method.Name)
 	jsMethodName := ToCamelCase(method.Name)
 	hasError := method.Error != ""
 	hasReturn := method.Returns != nil
+	isFBReturn := hasReturn && model.IsFlatBufferType(method.Returns.Type)
 
 	// Build JS parameter list
 	var jsParams []string
@@ -306,16 +308,28 @@ func writeMethodWrapper(b *strings.Builder, apiName, ifaceName string, method *m
 
 	// For fallible + return, allocate out-parameter space
 	if hasError && hasReturn {
-		outSize := wasmOutParamSize(method.Returns.Type)
+		outSize := wasmOutParamSize(method.Returns.Type, resolved)
+		fmt.Fprintf(b, "      const _outPtr = _malloc(%d);\n", outSize)
+		cleanupPtrs = append(cleanupPtrs, "_outPtr")
+	}
+
+	// For infallible + FlatBuffer return (sret convention on WASM32)
+	if !hasError && isFBReturn {
+		outSize := wasmOutParamSize(method.Returns.Type, resolved)
 		fmt.Fprintf(b, "      const _outPtr = _malloc(%d);\n", outSize)
 		cleanupPtrs = append(cleanupPtrs, "_outPtr")
 	}
 
 	// Build WASM call arguments
 	var wasmArgs []string
+	// Sret: prepend _outPtr as first argument
+	if !hasError && isFBReturn {
+		wasmArgs = append(wasmArgs, "_outPtr")
+	}
 	for _, mp := range marshalledParams {
 		wasmArgs = append(wasmArgs, mp.wasmArgs...)
 	}
+	// Fallible out-parameter: append _outPtr as last argument
 	if hasError && hasReturn {
 		wasmArgs = append(wasmArgs, "_outPtr")
 	}
@@ -340,7 +354,7 @@ func writeMethodWrapper(b *strings.Builder, apiName, ifaceName string, method *m
 		fmt.Fprintf(b, "%sif (_rc !== 0) {\n", indent)
 		fmt.Fprintf(b, "%s  throw new Error(`%s failed with error code ${_rc}`);\n", indent, jsMethodName)
 		fmt.Fprintf(b, "%s}\n", indent)
-		writeReturnRead(b, indent, method.Returns.Type)
+		writeReturnRead(b, indent, method.Returns.Type, resolved)
 
 	case hasError && !hasReturn:
 		fmt.Fprintf(b, "%sconst _rc = _wasm.exports.%s(%s);\n", indent, funcName, wasmArgStr)
@@ -349,8 +363,14 @@ func writeMethodWrapper(b *strings.Builder, apiName, ifaceName string, method *m
 		fmt.Fprintf(b, "%s}\n", indent)
 
 	case !hasError && hasReturn:
-		fmt.Fprintf(b, "%sconst _result = _wasm.exports.%s(%s);\n", indent, funcName, wasmArgStr)
-		writeDirectReturn(b, indent, method.Returns.Type)
+		if isFBReturn {
+			// Sret: call as void, read struct fields from _outPtr
+			fmt.Fprintf(b, "%s_wasm.exports.%s(%s);\n", indent, funcName, wasmArgStr)
+			writeJSFBSObjectReturn(b, indent, method.Returns.Type, resolved)
+		} else {
+			fmt.Fprintf(b, "%sconst _result = _wasm.exports.%s(%s);\n", indent, funcName, wasmArgStr)
+			writeDirectReturn(b, indent, method.Returns.Type)
+		}
 
 	default:
 		fmt.Fprintf(b, "%s_wasm.exports.%s(%s);\n", indent, funcName, wasmArgStr)
@@ -417,7 +437,7 @@ func marshalParam(p model.ParameterDef) marshalledParam {
 }
 
 // writeReturnRead writes code to read the out-parameter result after a successful fallible call.
-func writeReturnRead(b *strings.Builder, indent string, retType string) {
+func writeReturnRead(b *strings.Builder, indent string, retType string, resolved resolver.ResolvedTypes) {
 	if handleName, ok := model.IsHandle(retType); ok {
 		fmt.Fprintf(b, "%sconst _view = new DataView(_memoryBuffer());\n", indent)
 		fmt.Fprintf(b, "%sconst _handleVal = _view.getUint32(_outPtr, true);\n", indent)
@@ -432,9 +452,8 @@ func writeReturnRead(b *strings.Builder, indent string, retType string) {
 		return
 	}
 
-	// FlatBuffer types: return the raw bytes (caller decodes)
-	fmt.Fprintf(b, "%sconst _view = new DataView(_memoryBuffer());\n", indent)
-	fmt.Fprintf(b, "%sreturn _view.getUint32(_outPtr, true);\n", indent)
+	// FlatBuffer types: decode struct fields and return JS object
+	writeJSFBSObjectReturn(b, indent, retType, resolved)
 }
 
 // writeDirectReturn writes code to return a direct (non-out-param) return value.
@@ -461,7 +480,7 @@ func writeModuleExports(b *strings.Builder, apiName string, api *model.APIDefini
 }
 
 // wasmOutParamSize returns the byte size needed for an out-parameter of the given type.
-func wasmOutParamSize(retType string) int {
+func wasmOutParamSize(retType string, resolved resolver.ResolvedTypes) int {
 	if _, ok := model.IsHandle(retType); ok {
 		return 4 // handle is a 32-bit pointer
 	}
@@ -475,7 +494,9 @@ func wasmOutParamSize(retType string) int {
 	case "int64", "uint64", "float64":
 		return 8
 	default:
-		return 4 // FlatBuffer types — pointer-sized
+		// FlatBuffer types: compute actual struct size
+		totalSize, _ := wasmStructLayout(retType, resolved)
+		return totalSize
 	}
 }
 
@@ -498,9 +519,113 @@ func wasmDataViewGetter(t string) string {
 		return "getFloat32"
 	case "float64":
 		return "getFloat64"
+	case "int64":
+		return "getBigInt64"
+	case "uint64":
+		return "getBigUint64"
 	case "bool":
 		return "getUint8"
 	default:
 		return "getUint32"
 	}
+}
+
+// wasmFieldInfo describes a single field in a WASM32 struct layout.
+type wasmFieldInfo struct {
+	Name   string
+	Type   string
+	Offset int
+	Size   int
+}
+
+// wasmFieldSize returns the byte size and alignment for a field type on WASM32.
+func wasmFieldSize(fieldType string) (size, align int) {
+	switch fieldType {
+	case "string":
+		return 4, 4 // const char* on wasm32
+	case "bool":
+		return 1, 1
+	case "int8", "uint8":
+		return 1, 1
+	case "int16", "uint16":
+		return 2, 2
+	case "int32", "uint32", "float32":
+		return 4, 4
+	case "int64", "uint64", "float64":
+		return 8, 8
+	default:
+		return 4, 4 // unknown — assume pointer-sized
+	}
+}
+
+// wasmStructLayout computes the WASM32 struct layout with C alignment rules.
+func wasmStructLayout(typeName string, resolved resolver.ResolvedTypes) (totalSize int, fields []wasmFieldInfo) {
+	typeInfo, ok := resolved[typeName]
+	if !ok {
+		return 4, nil // unresolved — fallback to pointer size
+	}
+
+	offset := 0
+	maxAlign := 1
+	for _, f := range typeInfo.Fields {
+		size, align := wasmFieldSize(f.Type)
+		if align > maxAlign {
+			maxAlign = align
+		}
+		// Align offset to field's natural alignment
+		if rem := offset % align; rem != 0 {
+			offset += align - rem
+		}
+		fields = append(fields, wasmFieldInfo{
+			Name:   f.Name,
+			Type:   f.Type,
+			Offset: offset,
+			Size:   size,
+		})
+		offset += size
+	}
+
+	// Pad total size to maximum alignment
+	if rem := offset % maxAlign; rem != 0 {
+		offset += maxAlign - rem
+	}
+	if offset == 0 {
+		return 4, fields // empty struct — use pointer size
+	}
+	return offset, fields
+}
+
+// writeJSFBSObjectReturn emits JS code to read struct fields from _outPtr
+// and return a plain JS object.
+func writeJSFBSObjectReturn(b *strings.Builder, indent, retType string, resolved resolver.ResolvedTypes) {
+	_, fields := wasmStructLayout(retType, resolved)
+	if len(fields) == 0 {
+		// Unresolved type — fallback to raw pointer
+		fmt.Fprintf(b, "%sconst _view = new DataView(_memoryBuffer());\n", indent)
+		fmt.Fprintf(b, "%sreturn _view.getUint32(_outPtr, true);\n", indent)
+		return
+	}
+
+	fmt.Fprintf(b, "%sconst _view = new DataView(_memoryBuffer());\n", indent)
+	var fieldExprs []string
+	for _, f := range fields {
+		jsFieldName := ToCamelCase(f.Name)
+		var expr string
+		switch f.Type {
+		case "string":
+			expr = fmt.Sprintf("_decodeString(_view.getUint32(_outPtr + %d, true))", f.Offset)
+		case "bool":
+			expr = fmt.Sprintf("_view.getUint8(_outPtr + %d) !== 0", f.Offset)
+		case "int64":
+			expr = fmt.Sprintf("_view.getBigInt64(_outPtr + %d, true)", f.Offset)
+		case "uint64":
+			expr = fmt.Sprintf("_view.getBigUint64(_outPtr + %d, true)", f.Offset)
+		default:
+			getter := wasmDataViewGetter(f.Type)
+			expr = fmt.Sprintf("_view.%s(_outPtr + %d, true)", getter, f.Offset)
+		}
+		fieldExprs = append(fieldExprs, fmt.Sprintf("%s: %s", jsFieldName, expr))
+	}
+
+	fmt.Fprintf(b, "%sreturn { %s };\n", indent, strings.Join(fieldExprs, ", "))
 }
