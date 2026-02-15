@@ -1,11 +1,5 @@
-The examples all currently rely on ../../../bin/xplattergy as the xplattergy tool executable.
-This works for a developer of xplattergy but not for a consumer of this package because in the distro the binaries are named in the pattern ../../../bin/xplattergy-OS-ARCH
+add a test-dist Makefile target that manually runs the example make targets in the context of the built distro to verify the distro is set up properly.
 
-add an executable shell script xplattergy.sh that lives as the top level of the repo.
-it checks first for bin/xplattergy (which will be a dev build or built via a call to build_codegen.sh by a xplattergy user). if there is no bin/xplattergy it should determine the OS & ARCH for the local host and construct the correct name for the executable and verify that it exists. on windows don't forget to append .exe to the executable file name.
+the examples directory in the distro needs a top level Makefile with targets that build all the available target apps
 
-when an appropriate executable is verified to exist it should be invoked via exec, passing through all command line arguments via "${@}"
-
-if no xplattergy binary exists error out with a message indicating that it needs to be built.
-
-once this is done all of the example makefile targets can be updated to use ../../../xplattergy.sh as the tool executable path. this will make developer and consumer behavior identical.
+do complete dive over everything and make sure it's not being inconceivable.
