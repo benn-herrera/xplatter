@@ -40,7 +40,11 @@
       "Bash(bin/xplattergy generate:*)",
       "Bash(../bin/xplattergy:*)",
       "Bash(file:*)",
-      "Bash(otool:*)"
+      "Bash(otool:*)",
+      "Bash(xcrun:*)",
+      "Bash(xcodebuild:*)",
+      "Bash(lipo:*)",
+      "Bash(lipo -info:*)"
     ]
   }
 }

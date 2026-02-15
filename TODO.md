@@ -7,8 +7,8 @@ The current examples skip several major requirements:
   * DONE - in all cases the only symbols that should be exported from the shared library are those declared as part of the API. For clang/gcc compilers that means explicitly setting default symbol exporting off and explicitly specifying the API defined symbols for export. For msvc (cl) compilers that will mean explicitly labeling dllexport/dllimport symbols.
   * DONE - this will require changes to the generated C code to label the symbols for export appropriately. even though we're on macOS right now don't forget about windows. we won't be able to test that behavior, but set up for it and we'll continue work on a windows machine when ready.
 * The target language bindings that hide the origin of the API implementation are not getting built
-  * for iOS build a target platform swift package that consumes the APIimplementation and presents the idiomatic Swift interface.
-    * must have configs that support both iOS device and simulator
+  * DONE - for iOS build a target platform swift package that consumes the API implementation and presents the idiomatic Swift interface.
+    * DONE - must have configs that support both iOS device and simulator
   * DONE - for macOS also build a swift package that can be consumed by a macOS desktop swift app
   * for Android - build an AAR that consumes the API implementation and presents an idiomatic Kotlin interface
   * for linux and windows building the API shared library is sufficient

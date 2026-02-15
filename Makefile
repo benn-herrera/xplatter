@@ -14,7 +14,7 @@ PLATFORMS   := windows/amd64 windows/arm64 darwin/arm64 linux/amd64
 
 .PHONY: build test clean validate fmt vet lint dist help \
        test-example-c test-example-cpp test-example-rust test-example-go test-examples \
-       test-app-desktop-cpp test-app-desktop-swift test-apps
+       test-app-desktop-cpp test-app-desktop-swift test-app-ios test-apps
 
 ## build: Build for the current platform (default)
 build: $(BINARY)
@@ -99,8 +99,12 @@ test-app-desktop-cpp: build
 test-app-desktop-swift: build
 	$(MAKE) -C examples/hello-xplattergy/app-desktop-swift test
 
-## test-apps: Run all desktop app tests
-test-apps: test-app-desktop-cpp test-app-desktop-swift
+## test-app-ios: Build and test the iOS app (simulator)
+test-app-ios: build
+	$(MAKE) -C examples/hello-xplattergy/app-ios test
+
+## test-apps: Run all app tests
+test-apps: test-app-desktop-cpp test-app-desktop-swift test-app-ios
 
 ## help: Show this help
 help:
