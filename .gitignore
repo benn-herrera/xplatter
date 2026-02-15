@@ -4,3 +4,11 @@ dist/
 bin/
 generated/
 DerivedData/
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+*.o
+*.obj
