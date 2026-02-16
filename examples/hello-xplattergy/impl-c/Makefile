@@ -38,4 +38,32 @@ $(STAMP): ../shared_schemas/hello_xplattergy.yaml
 	@touch $@
 
 clean:
-	rm -rf generated $(BUILD_DIR)
+	rm -rf generated $(BUILD_DIR) dist
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Cross-platform packaging
+# ══════════════════════════════════════════════════════════════════════════════
+
+API_NAME          := hello_xplattergy
+DIST_DIR          := dist
+PLATFORM_SERVICES := ../platform_services
+
+# Variables consumed by cross-compile-cc.mk
+COMPILER       := clang
+COMPILER_FLAGS := -std=c11 -Wall -Wextra
+IMPL_SOURCES   := greeter_impl.c
+SHIM_SOURCE    :=
+JNI_SOURCE     := generated/hello_xplattergy_jni.c
+IMPL_INCLUDES  := -I. -Igenerated
+GEN_INCLUDES   := -Igenerated
+GEN_HEADER     := generated/hello_xplattergy.h
+
+# Generated binding files (produced by codegen)
+GEN_SWIFT_BINDING  := generated/HelloXplattergy.swift
+GEN_KOTLIN_BINDING := generated/HelloXplattergy.kt
+GEN_JS_BINDING     := generated/hello_xplattergy.js
+
+# Ensure codegen runs before any cross-compile target needs generated files
+generated/hello_xplattergy.h: $(STAMP)
+
+include ../cross-compile-cc.mk

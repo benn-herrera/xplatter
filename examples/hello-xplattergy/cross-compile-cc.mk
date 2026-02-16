@@ -3,7 +3,7 @@
 # Each impl Makefile sets these variables then includes this file:
 #   API_NAME          — e.g. hello_xplattergy
 #   IMPL_SOURCES      — impl .cpp/.c files (not shim/platform)
-#   SHIM_SOURCE       — generated shim .cpp file
+#   SHIM_SOURCE       — generated shim .cpp file (empty if no shim, e.g. C impl)
 #   JNI_SOURCE        — generated JNI .c file (set by includer or empty)
 #   IMPL_INCLUDES     — -I flags for impl sources
 #   GEN_INCLUDES      — -I flags for generated headers
@@ -71,17 +71,19 @@ $(DIST_DIR)/ios/obj/$(1)/impl.o: $(IMPL_SOURCES) $(GEN_HEADER)
 	xcrun --sdk $(3) $(COMPILER) $(COMPILER_FLAGS) $(LIB_VISIBILITY_FLAGS) \
 		-target $(2) $(IMPL_INCLUDES) $(GEN_INCLUDES) -c -o $$@ $$<
 
+$(if $(SHIM_SOURCE),
 $(DIST_DIR)/ios/obj/$(1)/shim.o: $(SHIM_SOURCE) $(GEN_HEADER)
 	@mkdir -p $$(dir $$@)
 	xcrun --sdk $(3) $(COMPILER) $(COMPILER_FLAGS) $(LIB_VISIBILITY_FLAGS) \
 		-target $(2) $(GEN_INCLUDES) -c -o $$@ $$<
+)
 
 $(DIST_DIR)/ios/obj/$(1)/platform.o: $(PLATFORM_SERVICES)/ios.c $(GEN_HEADER)
 	@mkdir -p $$(dir $$@)
 	xcrun --sdk $(3) clang $(LIB_C_FLAGS) \
 		-target $(2) $(GEN_INCLUDES) -c -o $$@ $$<
 
-$(DIST_DIR)/ios/obj/$(1)/$(LIB_NAME).a: $(DIST_DIR)/ios/obj/$(1)/impl.o $(DIST_DIR)/ios/obj/$(1)/shim.o $(DIST_DIR)/ios/obj/$(1)/platform.o
+$(DIST_DIR)/ios/obj/$(1)/$(LIB_NAME).a: $(DIST_DIR)/ios/obj/$(1)/impl.o $(if $(SHIM_SOURCE),$(DIST_DIR)/ios/obj/$(1)/shim.o) $(DIST_DIR)/ios/obj/$(1)/platform.o
 	ar rcs $$@ $$^
 
 endef
@@ -99,9 +101,9 @@ $(DIST_DIR)/android/jniLibs/$(1)/$(LIB_NAME).so: $(IMPL_SOURCES) $(SHIM_SOURCE) 
 	$(NDK_BIN)/$(2)-$(COMPILER) $(COMPILER_FLAGS) -fPIC $(LIB_VISIBILITY_FLAGS) \
 		$(IMPL_INCLUDES) $(GEN_INCLUDES) \
 		-c -o $(DIST_DIR)/android/obj/$(1)/impl.o $(IMPL_SOURCES)
-	$(NDK_BIN)/$(2)-$(COMPILER) $(COMPILER_FLAGS) -fPIC $(LIB_VISIBILITY_FLAGS) \
+	$(if $(SHIM_SOURCE),$(NDK_BIN)/$(2)-$(COMPILER) $(COMPILER_FLAGS) -fPIC $(LIB_VISIBILITY_FLAGS) \
 		$(GEN_INCLUDES) \
-		-c -o $(DIST_DIR)/android/obj/$(1)/shim.o $(SHIM_SOURCE)
+		-c -o $(DIST_DIR)/android/obj/$(1)/shim.o $(SHIM_SOURCE))
 	$(NDK_BIN)/$(2)-clang $(LIB_C_FLAGS) -fPIC \
 		$(GEN_INCLUDES) \
 		-c -o $(DIST_DIR)/android/obj/$(1)/jni.o $(JNI_SOURCE)
@@ -110,7 +112,7 @@ $(DIST_DIR)/android/jniLibs/$(1)/$(LIB_NAME).so: $(IMPL_SOURCES) $(SHIM_SOURCE) 
 		-c -o $(DIST_DIR)/android/obj/$(1)/platform.o $(PLATFORM_SERVICES)/android.c
 	$(NDK_BIN)/$(2)-$(COMPILER) -shared -llog \
 		$(DIST_DIR)/android/obj/$(1)/impl.o \
-		$(DIST_DIR)/android/obj/$(1)/shim.o \
+		$(if $(SHIM_SOURCE),$(DIST_DIR)/android/obj/$(1)/shim.o) \
 		$(DIST_DIR)/android/obj/$(1)/jni.o \
 		$(DIST_DIR)/android/obj/$(1)/platform.o \
 		-o $$@
@@ -128,16 +130,18 @@ $(DIST_DIR)/web/obj/impl.o: $(IMPL_SOURCES) $(GEN_HEADER)
 	$(EMCC) $(COMPILER_FLAGS) -O2 $(LIB_VISIBILITY_FLAGS) \
 		$(IMPL_INCLUDES) $(GEN_INCLUDES) -c -o $$@ $$<
 
+$(if $(SHIM_SOURCE),
 $(DIST_DIR)/web/obj/shim.o: $(SHIM_SOURCE) $(GEN_HEADER)
 	@mkdir -p $$(dir $$@)
 	$(EMCC) $(COMPILER_FLAGS) -O2 $(LIB_VISIBILITY_FLAGS) \
 		$(GEN_INCLUDES) -c -o $$@ $$<
+)
 
 $(DIST_DIR)/web/obj/platform.o: $(PLATFORM_SERVICES)/web.c
 	@mkdir -p $$(dir $$@)
 	$(EMCC) $(LIB_C_FLAGS) -O2 -c -o $$@ $$<
 
-$(DIST_DIR)/web/$(API_NAME).wasm: $(DIST_DIR)/web/obj/impl.o $(DIST_DIR)/web/obj/shim.o $(DIST_DIR)/web/obj/platform.o
+$(DIST_DIR)/web/$(API_NAME).wasm: $(DIST_DIR)/web/obj/impl.o $(if $(SHIM_SOURCE),$(DIST_DIR)/web/obj/shim.o) $(DIST_DIR)/web/obj/platform.o
 	$(EMCC) -o $$@ $$^ \
 		--no-entry \
 		-s 'EXPORTED_FUNCTIONS=$(WASM_EXPORTS)' \
