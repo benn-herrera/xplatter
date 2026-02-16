@@ -2,17 +2,19 @@
 
 ## What It Is
 
-xplattergy is a code generation system that produces cross-platform API bindings from a single API definition. It targets six platforms — Android, iOS, Web, Windows, macOS, and Linux — and is agnostic to the language used to implement the underlying library.
+xplattergy is a code generation system that produces complete, ready-to-use API packages for a set of target platforms from a single API definition and implementation. It targets six platforms — Android, iOS, Web, Windows, macOS, and Linux — and is agnostic to the language used to implement the underlying library.
 
-## Core Principle
+## Core Principles
 
-The Pure C ABI is the universal contract at the center of the system. Any implementation language that can export C-compatible functions and compile to WASM with C ABI exports is a valid choice. The code generation system neither knows nor cares what language is on the other side of that boundary.
+* The Pure C ABI is the universal contract at the center of the system. Any implementation language that can export C-compatible functions and compile to WASM with C ABI exports is a valid choice. The code generation system neither knows nor cares what language is on the other side of that boundary.
+
+* The app project consuming the API does not have to know or care about the implementation language. They get an idiomatic API in the natural language for the app without compromises to performance.
 
 ## System Layers
 
 ### Layer 1 — Core (Language-Agnostic)
 
-This is the product. Given an API definition and FlatBuffers schemas as input, the code gen system produces:
+This is the the first half of the delivered value. Given an API definition and FlatBuffers schemas as input, the code gen system produces:
 
 - **Pure C API header** — the contract any implementation must satisfy. Includes handle typedefs, full C type definitions (enums, structs, tables) resolved from the FlatBuffers schemas using dot-to-underscore naming (`Common.ErrorCode` → `Common_ErrorCode`), platform service declarations, and export-annotated API function declarations.
 - **Kotlin public API + JNI bridge** — calls the C API (Android)
@@ -23,7 +25,8 @@ All generated bindings route through the C ABI. The WASM/JS path uses C ABI expo
 
 ### Layer 2 — Implementation Interface & Scaffolding
 
-Code gen that produces the complete implementation-side stack for the chosen language, as specified by the `impl_lang` field in the API definition. For each supported language, three things are generated:
+This is the second half of the delivered value. The combination of these layers provides the "one implementation -> mulitply consumable API" that addresses the multiplatform performance-critical application pain point.
+Code gen produces the complete implementation-side stack for the chosen language, as specified by the `impl_lang` field in the API definition. For each supported language, three things are generated:
 
 1. **Abstract interface** — the API contract expressed in the implementation language's idioms
 2. **C ABI shim** — generated bridge code that implements the exported C functions by delegating to the abstract interface, handling all marshalling between C types and language-native types

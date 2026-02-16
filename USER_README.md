@@ -1,6 +1,8 @@
 # <img src="docs/logo.png" alt="drawing" width="32"/> xplattergy
 
-xplattergy *(splat-er-jee)* generates cross-platform API bindings from a single YAML definition. Define your API once, define your data types in FlatBuffers, and get idiomatic bindings for Android (Kotlin), iOS/macOS (Swift), Web (JS/WASM), Windows, macOS, and Linux. It is intended to execute as part of a code gen dependency in your project as opposed to a manual tool.
+xplattergy *(splat-er-jee)* generates cross-platform API bindings from a single YAML definition. 
+
+Define your API and implement it once in the cross-platform system language of your choice and get a set of ready-to-use, idiomatic target language API packages for mobile, web, and desktop.
 
 ## Quick Start
 
