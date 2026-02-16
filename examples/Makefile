@@ -2,18 +2,24 @@
 
 ROOT_DIR := ..
 HOST_OS  := $(shell uname -s)
+BUILD_TARGET  := $(shell [[ -d $(ROOT_DIR)/.git ]] && echo build_for_dev || echo build_in_dist)
 
 # the API implementation to bind when building test apps (c, cpp, rust, or go)
 IMPL ?= cpp
 
-.PHONY: build \
+.PHONY: build build_in_dist build_for_dev \
        test-hello-impl-c test-hello-impl-cpp test-hello-impl-rust test-hello-impl-go test-hello-impls \
        test-hello-app-desktop-cpp test-hello-app-desktop-swift test-hello-app-ios test-hello-app-android test-hello-app-web test-hello-apps \
        help
 
-## build: Ensure the xplattergy binary is built
-build:
+## build: Ensure a valid xplattergy binary is available
+build_in_dist:
+	($(ROOT_DIR)/xplattergy.sh version 1>&2) 2> /dev/null || $(ROOT_DIR)/build_codegen.sh
+
+build_for_dev:
 	$(MAKE) -C $(ROOT_DIR) build
+
+build: $(BUILD_TARGET)
 
 ## test-hello-impl-c: Build and run the hello example C implementation
 test-hello-impl-c: build
