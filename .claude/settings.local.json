@@ -55,7 +55,8 @@
       "Bash(/usr/libexec/java_home:*)",
       "Bash($JAVA_HOME/bin/java:*)",
       "Bash(grep:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(source:*)"
     ]
   }
 }

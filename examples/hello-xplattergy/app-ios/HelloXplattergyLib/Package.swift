@@ -8,7 +8,7 @@ let package = Package(
         .library(name: "HelloXplattergyLib", targets: ["HelloXplattergyBinding"]),
     ],
     targets: [
-        .binaryTarget(name: "CHelloXplattergy", path: "../build/HelloXplattergy.xcframework"),
+        .binaryTarget(name: "CHelloXplattergy", path: "../../cpp/dist/ios/HelloXplattergy.xcframework"),
         .target(
             name: "HelloXplattergyBinding",
             dependencies: ["CHelloXplattergy"],

@@ -2,8 +2,8 @@ XPLATTERGY ?= ../../../xplattergy.sh
 CC         ?= cc
 CFLAGS     := -Wall -Wextra -std=c11 -I. -Igenerated
 
-SRCS      := greeter_impl.c platform_services.c main.c
-LIB_SRCS  := greeter_impl.c platform_services.c
+SRCS      := greeter_impl.c ../platform_services/desktop.c main.c
+LIB_SRCS  := greeter_impl.c ../platform_services/desktop.c
 BUILD_DIR := build
 STAMP     := $(BUILD_DIR)/.generated
 TARGET    := $(BUILD_DIR)/hello_xplattergy
