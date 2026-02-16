@@ -10,7 +10,7 @@ IMPL ?= cpp
 .PHONY: build build_in_dist build_for_dev \
        test-hello-impl-c test-hello-impl-cpp test-hello-impl-rust test-hello-impl-go test-hello-impls \
        test-hello-app-desktop-cpp test-hello-app-desktop-swift test-hello-app-ios test-hello-app-android test-hello-app-web test-hello-apps \
-       package-hello-cpp package-hello-all \
+       package-hello-cpp package-hello-rust package-hello-all \
        help
 
 ## build: Ensure a valid xplattergy binary is available
@@ -76,8 +76,12 @@ clean-hello-apps:
 package-hello-cpp: build
 	$(MAKE) -C hello-xplattergy/impl-cpp packages
 
+## package-hello-rust: Build cross-platform packages for Rust impl
+package-hello-rust: build
+	$(MAKE) -C hello-xplattergy/impl-rust packages
+
 ## package-hello-all: Build packages for all implementations
-package-hello-all: package-hello-cpp
+package-hello-all: package-hello-cpp package-hello-rust
 
 ## help: Show available targets
 help:
