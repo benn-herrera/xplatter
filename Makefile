@@ -64,7 +64,7 @@ dist:
 	@cp -r $(SRC_DIR) $(DIST_PKG)/$(SRC_DIR)
 	@cp build_codegen.sh $(DIST_PKG)/
 	@cp xplattergy.sh $(DIST_PKG)/
-	@rsync -a --exclude='build/' --exclude='generated/' --exclude='target/' --exclude='hello_xplattergy.h' --exclude='Cargo.lock' examples $(DIST_PKG)/
+	@rsync -a --exclude='build/' --exclude='generated/' --exclude='dist/' --exclude='target/' --exclude='hello_xplattergy.h' --exclude='Cargo.lock' examples $(DIST_PKG)/
 	@cp -r schemas $(DIST_PKG)/schemas
 	@cp -r docs $(DIST_PKG)/docs
 	@cp LICENSE.md $(DIST_PKG)/
