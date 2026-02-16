@@ -7,7 +7,7 @@ DerivedData/
 .idea/
 local.properties
 .gradle/
-.claude/
+.claude/settings.local.json
 *.a
 *.lib
 *.so
