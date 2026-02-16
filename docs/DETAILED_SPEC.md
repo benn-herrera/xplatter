@@ -1,16 +1,14 @@
 # xplattergy Code Generation Specification
 
-This document is a self-contained specification for implementing the xplattergy code generation tool. It captures all design decisions, rules, and constraints needed to build the tool from scratch.
+Self-contained specification for implementing the xplattergy code generation tool.
 
 ## 1. Project Overview
 
-xplattergy ("splat-er-jee") is a code generation tool that produces cross-platform API bindings from a single YAML API definition. It targets six platforms: Android, iOS, Web, Windows, macOS, and Linux.
-
-The tool is **implementation language agnostic** — any language that can export a Pure C ABI and compile to WASM with C ABI exports is a valid implementation choice. The generated bindings work the same regardless of what language is behind the C ABI boundary.
+xplattergy generates cross-platform API bindings from a single YAML API definition, targeting Android, iOS, Web, Windows, macOS, and Linux. **Implementation language agnostic** — any language with C ABI + WASM exports works.
 
 ## 2. Tool Implementation
 
-The code gen tool is written in **Go**. This produces a single static binary with trivial cross-compilation, eliminating runtime bootstrapping for end users.
+Written in **Go** — single static binary, trivial cross-compilation.
 
 ### 2.1 Distribution
 
@@ -19,7 +17,7 @@ Prebuilt binaries for:
 - arm64 macOS
 - x86_64 Linux (statically linked, `CGO_ENABLED=0`)
 
-Fallback: a `build_codegen.sh` script that handles Go detection/installation, plus a Makefile. Dependencies resolve automatically via `go build` (Go modules).
+Fallback: `build_codegen.sh` script + Makefile. Dependencies resolve via Go modules.
 
 ### 2.2 CLI Interface
 
@@ -76,11 +74,9 @@ xplattergy <command> [flags]
 
 ## 3. Inputs
 
-The tool consumes two types of input files:
-
 ### 3.1 API Definition YAML
 
-Defines the API surface — handles, interfaces, and methods. Validated against a JSON Schema (see Section 13).
+Defines the API surface — handles, interfaces, and methods. Validated against a JSON Schema (Section 13).
 
 **Top-level keys:**
 
@@ -105,18 +101,16 @@ No additional top-level keys are permitted.
 
 #### `flatbuffers` — Schema Includes
 
-Array of file paths (relative to the API definition file). All must end in `.fbs`. At least one required.
-
-Types from these files are referenced by fully-qualified FlatBuffers namespace (e.g., `Common.ErrorCode`).
+Array of `.fbs` file paths (relative to YAML file). At least one required. Types referenced by fully-qualified namespace (e.g., `Common.ErrorCode`).
 
 #### `handles` — Opaque Handle Types
 
 | Field | Required | Type | Constraint |
 |-------|----------|------|------------|
 | `name` | yes | string | `PascalCase`: `^[A-Z][a-zA-Z0-9]*$` |
-| `description` | no | string | Human-readable description |
+| `description` | no | string | |
 
-Referenced in method signatures as `handle:Name`.
+Referenced as `handle:Name` in method signatures.
 
 #### `interfaces` — Method Groups
 
@@ -147,17 +141,11 @@ Referenced in method signatures as `handle:Name`.
 
 ### 3.2 FlatBuffers Schema Files (`.fbs`)
 
-All data types (structs, enums, unions, tables, constants) are defined here. The xplattergy YAML never defines data types — clean separation between API surface (YAML) and data types (FlatBuffers).
-
-The code gen tool:
-1. Parses `.fbs` files to resolve type references from the YAML
-2. Invokes the FlatBuffers compiler (`flatc`) to generate per-language struct code
+All data types (structs, enums, unions, tables, constants) are defined in `.fbs` files — the YAML never defines data types. The tool parses `.fbs` files to resolve type references and invokes `flatc` for per-language struct codegen.
 
 ## 4. Type System
 
-### 4.1 Primitive Types
-
-Following FlatBuffers naming conventions:
+### 4.1 Primitive Types (FlatBuffers naming)
 
 | Type | C ABI | Size |
 |------|-------|------|
@@ -195,19 +183,15 @@ Transfer: `ref` produces `const T*`, `ref_mut` produces `T*`.
 
 ### 4.4 `handle:Name`
 
-Reference to an opaque handle defined in the `handles` section. C ABI: the handle typedef (e.g., `engine_handle`). Always passed by value (pointer copy). `transfer` field not applicable.
-
-Valid as both parameter and return types.
+Opaque handle from the `handles` section. C ABI: the handle typedef (e.g., `engine_handle`). Passed by value (pointer copy). `transfer` not applicable. Valid as both parameter and return types.
 
 ### 4.5 FlatBuffer Types
 
-Referenced by fully-qualified FlatBuffers namespace (e.g., `Common.ErrorCode`, `Geometry.Transform3D`). Must resolve to a type in one of the included `.fbs` files.
+Fully-qualified namespace references (e.g., `Common.ErrorCode`). Must resolve in the included `.fbs` files. Valid as both parameter and return types; typically use `transfer: ref` as parameters.
 
-Valid as both parameter and return types. Should typically use `transfer: ref` as parameters.
+**C type name mapping:** Dots → underscores (`Common.ErrorCode` → `Common_ErrorCode`). Used consistently across all generators.
 
-**C type name mapping:** Dots become underscores. `Common.ErrorCode` → `Common_ErrorCode`, `Geometry.Transform3D` → `Geometry_Transform3D`. This mapping is used consistently across all generators.
-
-**C header type emission:** The generated C header includes full `typedef enum`, `typedef struct` definitions for all FlatBuffer types referenced by the API. These are emitted after handle typedefs and before platform services. Enums are emitted first, then structs, then tables. Within each category, types are sorted alphabetically for deterministic output.
+**C header type emission:** Full `typedef enum`/`typedef struct` definitions for all referenced FlatBuffer types, emitted after handle typedefs and before platform services. Order: enums, then structs, then tables, alphabetically within each category.
 
 ### 4.6 Parameter vs Return Type Matrix
 
@@ -223,7 +207,7 @@ Valid as both parameter and return types. Should typically use `transfer: ref` a
 
 ### 5.1 Borrowing-Only Boundary
 
-The side that allocates is the side that deallocates. No ownership transfer across the FFI. No release callbacks, no ref-counting.
+The side that allocates deallocates. No ownership transfer, release callbacks, or ref-counting across the FFI.
 
 ### 5.2 Transfer Semantics
 
@@ -235,13 +219,11 @@ The side that allocates is the side that deallocates. No ownership transfer acro
 
 ### 5.3 No Callbacks
 
-The C ABI is strictly unidirectional — the bound language calls into the implementation, never the reverse. No function pointers cross the boundary.
-
-The implementation communicates back via a shared ring buffer with platform-native signaling (see Section 8).
+Strictly unidirectional — bound language calls implementation, never the reverse. No function pointers cross the boundary. Reverse communication via shared ring buffer (Section 8).
 
 ### 5.4 No Singletons
 
-All state is per-handle. Multiple engine instances can coexist. No architectural barriers to concurrent instances.
+All state is per-handle. Multiple instances can coexist.
 
 ## 6. C ABI Code Generation Rules
 
@@ -260,17 +242,7 @@ The generated C header (`{api_name}.h`) has a fixed section ordering:
 9. Closing C++ guard: `#ifdef __cplusplus` / `}` / `#endif`
 10. Closing include guard: `#endif`
 
-**Formatting rules:**
-
-- Function signatures exceeding **80 characters** wrap to multi-line format with 4-space indented parameters, one per line
-- Single-line: `EXPORT int32_t api_iface_method(type param);`
-- Multi-line:
-  ```c
-  EXPORT int32_t api_iface_method(
-      type param1,
-      type param2);
-  ```
-- The 80-character check is on the full signature including the export macro prefix
+**Line wrapping:** Signatures exceeding 80 characters (including export macro) wrap to multi-line with 4-space indented parameters, one per line.
 
 ### 6.1 Function Naming
 
@@ -287,18 +259,12 @@ int32_t my_engine_renderer_begin_frame(renderer_handle renderer);
 
 ```c
 typedef struct <lowercase_name>_s* <lowercase_name>_handle;
-```
-
-Example for handle `Renderer`:
-```c
-typedef struct renderer_s* renderer_handle;
+// e.g., typedef struct renderer_s* renderer_handle;
 ```
 
 ### 6.3 Error Convention
 
-Methods with an `error` field return the error enum from the C function. The error enum must be a FlatBuffers enum type. Success is typically value `0`.
-
-**Four method signature patterns:**
+Methods with `error` return the error enum (FlatBuffers enum, success = `0`). Four patterns:
 
 Fallible, no return value:
 ```c
@@ -322,38 +288,15 @@ void myapi_lifecycle_destroy_engine(engine_handle engine);
 
 ### 6.4 `buffer<T>` Expansion
 
-A single `buffer<T>` parameter in the YAML becomes two C parameters:
-
-```yaml
-- name: data
-  type: buffer<uint8>
-  transfer: ref
-```
-
-Generates:
-```c
-const uint8_t* data, uint32_t data_len
-```
-
-The second parameter is named `<param_name>_len` and is element count.
+A `buffer<T>` parameter becomes two C parameters: `const T* <name>, uint32_t <name>_len` (element count). `ref_mut` produces `T*` instead of `const T*`.
 
 ### 6.5 `string` Expansion
 
-```yaml
-- name: path
-  type: string
-```
-
-Generates:
-```c
-const char* path
-```
-
-Always `const char*`, always UTF-8, always null-terminated.
+`string` becomes `const char* <name>` — always UTF-8, null-terminated.
 
 ### 6.6 Symbol Visibility / Export Macro
 
-Generated shared libraries must export only API-defined symbols. The C header emits a per-API export macro that handles platform differences:
+The C header emits a per-API export macro:
 
 ```c
 /* Symbol visibility */
@@ -370,20 +313,17 @@ Generated shared libraries must export only API-defined symbols. The C header em
 #endif
 ```
 
-Where `<UPPER_API_NAME>` is the API name in `UPPER_SNAKE_CASE` (e.g., `HELLO_XPLATTERGY` for API name `hello_xplattergy`).
+`<UPPER_API_NAME>` = API name in `UPPER_SNAKE_CASE` (e.g., `HELLO_XPLATTERGY`).
 
 **Rules:**
 
-- The export macro block is emitted after standard includes and before the `extern "C"` block
-- The `<UPPER_API_NAME>_BUILD` macro is defined by the build system when compiling the shared library; consumers do not define it (getting `dllimport` on Windows)
-- **API method declarations** (C header) and **API method definitions** (C++ shim) are prefixed with `<UPPER_API_NAME>_EXPORT`
-- **Platform services** are NOT prefixed — they are provided by the consumer at link time, not exported by the library
-- The macro appears before the return type: `MACRO return_type function_name(params)`
-- Rust (`#[no_mangle]` + `cdylib`) and Go (`//export` + `c-shared`) handle symbol export natively — no codegen changes needed for those
+- Emitted after standard includes, before `extern "C"` block
+- `_BUILD` macro defined by build system when compiling the shared library; consumers get `dllimport` on Windows
+- API methods prefixed with `_EXPORT`; platform services are NOT (link-time provided)
+- Macro appears before return type: `MACRO return_type function_name(params)`
+- Rust (`#[no_mangle]` + `cdylib`) and Go (`//export` + `c-shared`) handle export natively
 
 ## 7. Platform Binding Generation (Layer 1)
-
-The core output. Language-agnostic, always generated.
 
 ### 7.1 Targets
 
@@ -396,23 +336,11 @@ The core output. Language-agnostic, always generated.
 | `windows` | C API header (consumed directly or via language-specific FFI) |
 | `linux` | C API header (consumed directly or via language-specific FFI) |
 
-The C API header is always generated regardless of `targets`.
+The C API header is always generated regardless of `targets`. All bindings route through the C ABI — WASM/JS uses C ABI exports (not embind/wasm-bindgen).
 
-All platform bindings route through the C ABI. The WASM/JS path uses C ABI exports (not Emscripten embind or wasm-bindgen), ensuring any implementation language that compiles to WASM works.
+### 7.2 Kotlin/JNI Binding Details
 
-### 7.2 Per-Platform String Marshalling
-
-| Platform | Mechanism |
-|----------|-----------|
-| Android/Kotlin | JNI `GetStringUTFChars` / `ReleaseStringUTFChars` |
-| iOS/Swift | `String.withCString` or automatic bridging |
-| Web/JS | `TextEncoder` into WASM linear memory |
-
-### 7.3 Per-Platform Handle Wrapping
-
-Generated platform bindings wrap opaque handles in idiomatic types — Kotlin classes, Swift classes, JS objects — with create/destroy methods mapped to constructor/close or destructor patterns.
-
-### 7.4 Kotlin/JNI Binding Details
+Strings use JNI `GetStringUTFChars`/`ReleaseStringUTFChars`. Handles are wrapped in Kotlin classes with create/destroy mapped to constructor/`close()`.
 
 **Output:** `{PascalCase(api_name)}.kt` + `{api_name}_jni.c`
 
@@ -441,7 +369,9 @@ Generated platform bindings wrap opaque handles in idiomatic types — Kotlin cl
 - Instance methods: called on handle class, skip the handle parameter (it's `this`)
 - Destroy: mapped to `close()` or similar teardown
 
-### 7.5 Swift Binding Details
+### 7.3 Swift Binding Details
+
+Strings use `withCString` or automatic bridging. Handles are wrapped in Swift classes with create/destroy mapped to static factory/`deinit`.
 
 **Output:** `{PascalCase(api_name)}.swift`
 
@@ -462,9 +392,9 @@ Generated platform bindings wrap opaque handles in idiomatic types — Kotlin cl
 | Primitives | `Int32`, `UInt64`, `Bool`, `Float`, `Double` |
 | FlatBuffer | `UnsafePointer<Type>` / `UnsafeMutablePointer<Type>` |
 
-**Handle lifecycle:** Factory methods are static class methods. Destroy methods are called from `deinit`.
+### 7.4 JavaScript/WASM Binding Details
 
-### 7.6 JavaScript/WASM Binding Details
+Strings use `TextEncoder`/`TextDecoder` for WASM linear memory marshalling. Handles are wrapped in JS objects with create/destroy mapped to constructor/`dispose()`.
 
 **Output:** `{api_name}.js` (ES module)
 
@@ -478,18 +408,14 @@ Generated platform bindings wrap opaque handles in idiomatic types — Kotlin cl
 
 **Patterns:**
 - Handle classes use `#ptr` private field, zeroed on `dispose()`
-- Strings: `TextEncoder`/`TextDecoder` for WASM linear memory marshalling
 - Buffers: copied into/out of WASM memory via `TypedArray`
 - Fallible methods with return: allocate out-param space in WASM memory, read result via `DataView`
 - Cleanup via `finally { _free(ptr) }` for temporaries
-
-**Platform service imports:** Passed as a services object to the loader. Functions: `logSink`, `resourceCount`, `resourceName`, `resourceExists`, `resourceSize`, `resourceRead`.
+- Platform services passed as a services object to the loader: `logSink`, `resourceCount`, `resourceName`, `resourceExists`, `resourceSize`, `resourceRead`
 
 ## 8. Platform Services Layer
 
-A small set of **link-time C functions** with fixed signatures that the platform binding layer implements. The implementation calls these as plain C functions. They are not callbacks.
-
-On web, these are WASM imports.
+Link-time C functions with fixed signatures, implemented by the platform binding layer. The implementation calls these as plain C functions (WASM imports on web). Not callbacks.
 
 ### 8.1 Logging
 
@@ -497,14 +423,7 @@ On web, these are WASM imports.
 void <api_name>_log_sink(int32_t level, const char* tag, const char* message);
 ```
 
-| Platform | Implementation |
-|----------|---------------|
-| Android | `android.util.Log` |
-| iOS/macOS | `os_log` |
-| Web | `console.log` / `console.warn` / `console.error` (via WASM import) |
-| Desktop | Platform logging or stderr |
-
-Zero-latency, crash-safe. Log sink is global (not per-handle) — appropriate for logging.
+Global (not per-handle). Per-platform: Android → `android.util.Log`, iOS/macOS → `os_log`, Web → `console.*` via WASM import, Desktop → stderr.
 
 ### 8.2 Resource Access
 
@@ -516,98 +435,48 @@ uint32_t <api_name>_resource_size(const char* name);
 int32_t  <api_name>_resource_read(const char* name, uint8_t* buffer, uint32_t buffer_size);
 ```
 
-| Platform | Implementation |
-|----------|---------------|
-| Android | `AssetManager` via JNI |
-| iOS/macOS | `NSBundle.main` path resolution + file read |
-| Desktop | Filesystem read relative to app/executable directory |
-| Web | Synchronous lookup in pre-loaded in-memory store |
+Per-platform: Android → `AssetManager` via JNI, iOS/macOS → `NSBundle.main`, Desktop → filesystem relative to executable, Web → synchronous lookup in pre-loaded in-memory store.
 
-On web, resources do **not** need to be fully loaded before WASM initialization. `resource_exists` returns false and `resource_read` returns an error for not-yet-available resources. This avoids blocking time-to-first-pixel; web developers control the loading strategy.
+On web, resources need not be fully loaded before WASM initialization — `resource_exists` returns false and `resource_read` returns an error for unavailable resources.
 
 ### 8.3 Metrics
 
-Structured FlatBuffer payloads delivered through the event queue polling mechanism. Decoupled from logging — different routing, batching, and aggregation needs. The app layer polls accumulated metrics and routes them to whatever reporting system they choose.
+Structured FlatBuffer payloads delivered through the event queue polling mechanism, decoupled from logging. The app layer polls and routes to its reporting system.
 
 ### 8.4 Event Communication (Implementation → Bound Language)
 
-Since there are no callbacks, the implementation communicates back via a **shared ring buffer with platform-native signaling**:
-
-| Platform | Signal Mechanism |
-|----------|-----------------|
-| Android/Linux | `eventfd` or `pipe()` integrated with `Looper` |
-| iOS/macOS | Dispatch source integrated with run loop |
-| Windows | `Event` object integrated with message loop |
-| Web (main thread) | Poll in `requestAnimationFrame` |
-| Web (Worker) | `SharedArrayBuffer` + `Atomics.notify` |
+The implementation communicates back via a **shared ring buffer** with platform-native signaling: `eventfd`/`pipe()` + `Looper` on Android/Linux, dispatch source on iOS/macOS, `Event` object on Windows, `requestAnimationFrame` polling on web main thread, `SharedArrayBuffer` + `Atomics.notify` on web Workers.
 
 ## 9. Implementation Interface & Scaffolding (Layer 2)
 
-Controlled by the `impl_lang` field. For each supported language, an abstract interface, a C ABI shim, and a stub implementation are generated.
+Controlled by `impl_lang`. Generates an abstract interface, C ABI shim, and stub implementation per language.
 
 ### 9.1 Generation Matrix
 
 | `impl_lang` | Abstract Interface | C ABI Shim | Stub Implementation |
 |-------------|-------------------|------------|---------------------|
-| `cpp` | Abstract class with pure virtual methods | `.cpp` implementing each C function via virtual dispatch on the handle | Concrete class with stub method bodies |
-| `rust` | Trait definition | `extern "C"` functions delegating to the trait impl | Skeleton `impl` block |
-| `go` | Interface type | `//export` cgo functions delegating to the interface impl | Stub functions |
+| `cpp` | Abstract class (pure virtual) | `.cpp` with virtual dispatch shims | Concrete class with stubs |
+| `rust` | Trait definition | `extern "C"` functions → trait impl | Skeleton `impl` block |
+| `go` | Interface type | `//export` cgo → interface impl | Stub functions |
 | `c` | — | — | — |
 
-With `c`, only the C API header is generated. Use for pure C implementations or any language not in the front-door path.
+With `c`, only the C API header is generated.
 
 ### 9.2 Output File Manifest
 
-Generation produces three categories of output: the C header (always), implementation scaffolding (per `impl_lang`), and platform bindings (per `targets`). Additionally, the tool invokes `flatc` to generate per-language data structure code.
+**Always:** `{api_name}.h` (C ABI header)
 
-#### C header (always generated)
+**`impl_lang: cpp`** — `_interface.h` (abstract class), `_shim.cpp` (extern "C" shim), `_impl.h` + `_impl.cpp` (concrete stubs + factory)
 
-| File | Purpose |
-|------|---------|
-| `{api_name}.h` | C ABI header with types, platform services, and function declarations |
+**`impl_lang: rust`** — `_trait.rs` (traits), `_ffi.rs` (extern "C" shims), `_impl.rs` (stubs), `_types.rs` (if types exist)
 
-#### Implementation scaffolding (per `impl_lang`)
+**`impl_lang: go`** — `_interface.go` (interfaces), `_cgo.go` (//export shims), `_impl.go` (stubs), `_types.go` (if enums exist)
 
-**`impl_lang: cpp`** — 4 files:
-
-| File | Purpose |
-|------|---------|
-| `{api_name}_interface.h` | Abstract class with pure virtual methods |
-| `{api_name}_shim.cpp` | `extern "C"` shim delegating to interface |
-| `{api_name}_impl.h` | Concrete class declaration |
-| `{api_name}_impl.cpp` | Stub method bodies + factory function |
-
-**`impl_lang: rust`** — 3–4 files:
-
-| File | Purpose |
-|------|---------|
-| `{api_name}_trait.rs` | Trait definitions (one per interface) |
-| `{api_name}_ffi.rs` | `#[no_mangle] extern "C"` shim functions |
-| `{api_name}_impl.rs` | Stub `impl` blocks |
-| `{api_name}_types.rs` | FlatBuffer type definitions (emitted if types exist) |
-
-**`impl_lang: go`** — 3–4 files:
-
-| File | Purpose |
-|------|---------|
-| `{api_name}_interface.go` | Go interface type definitions |
-| `{api_name}_cgo.go` | `//export` cgo shim functions |
-| `{api_name}_impl.go` | Stub interface implementation |
-| `{api_name}_types.go` | Go enum constants (emitted if enums exist) |
-
-#### Platform bindings (per `targets`)
-
-| Target | File | Purpose |
-|--------|------|---------|
-| `android` | `{PascalCase(api_name)}.kt` | Kotlin public API |
-| `android` | `{api_name}_jni.c` | JNI C bridge |
-| `ios`, `macos` | `{PascalCase(api_name)}.swift` | Swift public API + C bridge |
-| `web` | `{api_name}.js` | JavaScript/WASM ES module |
-| `windows`, `linux` | — | C header consumed directly |
+**Platform bindings:** `android` → `{PascalCase}.kt` + `_jni.c` | `ios`/`macos` → `{PascalCase}.swift` | `web` → `{api_name}.js` | `windows`/`linux` → C header only
 
 #### FlatBuffer-generated files (via `flatc`)
 
-The tool invokes `flatc` once per required language, writing output into `flatbuffers/<lang>/` subdirectories. Which languages are invoked depends on both `targets` and `impl_lang`:
+`flatc` is invoked once per required language into `flatbuffers/<lang>/` subdirectories, determined by `targets` and `impl_lang`:
 
 | Trigger | flatc flag | Output subdirectory | Example output |
 |---------|-----------|---------------------|----------------|
@@ -618,11 +487,11 @@ The tool invokes `flatc` once per required language, writing output into `flatbu
 | `impl_lang: rust` | `--rust` | `flatbuffers/rust/` | `{schema}_generated.rs` |
 | `impl_lang: go` | `--go` | `flatbuffers/go/` | Go package files |
 
-Duplicate invocations are deduplicated (e.g., if `ios` target already triggered `--swift`, `macos` does not invoke it again). Use `--skip-flatc` to suppress all flatc invocations.
+Duplicates are deduplicated (e.g., `ios` + `macos` → single `--swift`). Use `--skip-flatc` to suppress.
 
 ### 9.3 Create/Destroy Method Detection
 
-The shim generators use heuristics to detect factory and teardown methods, which get special shim bodies:
+The **C++ shim generator** uses heuristics to detect factory and teardown methods, which get special shim bodies:
 
 **Create method** — all of these must be true:
 - Method returns a handle type (`returns.type` is `handle:X`)
@@ -630,12 +499,16 @@ The shim generators use heuristics to detect factory and teardown methods, which
 - Method has **no** handle input parameters (pure factory — no existing handle to delegate through)
 
 **Destroy method** — all of these must be true:
-- Method name starts with `"destroy"`
+- Method name starts with `"destroy"` or `"release"`
 - First parameter is a handle type
 - Method is infallible (no `error` field)
 - Method has no return value
 
 All other methods are "regular" — they find the first handle parameter, cast it to the implementation object, and delegate the call.
+
+**Rust and Go** do not special-case create/destroy. Rust delegates all methods uniformly through trait dispatch (`TraitName::method(&Impl, ...)`); Go delegates through interface lookup and a handle map. Neither needs distinct factory/teardown bodies.
+
+**Swift and Kotlin bindings** use `FindDestroyInfo()` (which matches `destroy_` or `release_` prefix with a single handle parameter) to wire `deinit`/`close()` to the appropriate C function, but do not apply the full infallible/void check.
 
 ### 9.4 C++ Generator Details
 
@@ -649,7 +522,7 @@ All other methods are "regular" — they find the first handle parameter, cast i
 | Interface guard | `{UPPER_SNAKE_CASE(api_name)}_INTERFACE_H` | `HELLO_WORLD_INTERFACE_H` |
 | Impl guard | `{UPPER_SNAKE_CASE(api_name)}_IMPL_H` | `HELLO_WORLD_IMPL_H` |
 
-**Interface type mappings** (C++ interface uses idiomatic types, not raw C):
+**Interface type mappings** (idiomatic C++, not raw C):
 
 | xplattergy Type | C++ Interface Type |
 |-----------------|--------------------|
@@ -661,15 +534,13 @@ All other methods are "regular" — they find the first handle parameter, cast i
 | FlatBuffer (ref) | `const Type*` |
 | FlatBuffer (ref_mut) | `Type*` |
 
-**Interface header includes:** `<stdint.h>`, `<stdbool.h>`, `<cstddef>`, `<string_view>`, `<span>`, and the C header (`"{api_name}.h"`) for FlatBuffer type definitions.
+**Includes:** `<stdint.h>`, `<stdbool.h>`, `<cstddef>`, `<string_view>`, `<span>`, and `"{api_name}.h"` for FlatBuffer types.
 
-**Shim behavior:**
+**Shim behavior:** Includes C header + interface header. All functions in `extern "C" { }`, prefixed with `_EXPORT`.
 
-The shim `#include`s the C header and the interface header. All functions are inside `extern "C" { }`. Each function definition is prefixed with the export macro (`<UPPER_API_NAME>_EXPORT`).
-
-- **Create shim:** Calls `create_{api_name}_instance()`, checks for null, casts to handle via `reinterpret_cast`, stores in `*out_result`, returns 0
-- **Destroy shim:** Casts handle back to interface pointer via `reinterpret_cast`, calls `delete`
-- **Regular shim:** Casts handle param to `{InterfaceClass}*`, wraps string params in `std::string_view()`, wraps buffer params in `std::span()`, calls `self->{method}(args)`. Handle params pass through (the interface takes `void*`).
+- **Create:** Calls `create_{api_name}_instance()`, checks null, `reinterpret_cast` to handle, stores in `*out_result`, returns 0
+- **Destroy:** `reinterpret_cast` handle → interface pointer, `delete`
+- **Regular:** Cast handle → `{InterfaceClass}*`, wrap strings in `string_view()`, buffers in `span()`, call `self->{method}(args)`. Handle params pass through as `void*`.
 
 ### 9.5 Rust Generator Details
 
@@ -681,9 +552,7 @@ The shim `#include`s the C header and the interface header. All functions are in
 | ZST struct | `pub struct Impl;` | (always `Impl`) |
 | Trait impl | `impl {TraitName} for Impl` | `impl Lifecycle for Impl` |
 
-**ZST dispatch pattern:**
-
-All trait methods take `&self`. A zero-sized type `Impl` implements all traits. FFI functions call trait methods via UFCS: `Lifecycle::create_greeter(&Impl, ...)`. This provides compile-time dispatch with zero runtime overhead.
+**ZST dispatch:** All trait methods take `&self`. A ZST `Impl` implements all traits. FFI calls via UFCS: `Lifecycle::create_greeter(&Impl, ...)` — compile-time dispatch, zero overhead.
 
 **Trait type mappings:**
 
@@ -712,7 +581,7 @@ pub unsafe extern "C" fn {cabi_function_name}(params) -> i32 {
 }
 ```
 
-**Error handling:** Trait methods with `error` return `Result<T, ErrorType>`. The FFI shim matches on Ok/Err and converts to integer error code.
+Trait methods with `error` return `Result<T, ErrorType>`. The FFI shim matches Ok/Err → integer error code.
 
 ### 9.6 Go Generator Details
 
@@ -723,7 +592,7 @@ pub unsafe extern "C" fn {cabi_function_name}(params) -> i32 {
 | Package name | `{api_name}` with underscores removed | `helloworld` |
 | Interface name | `{PascalCase(interface_name)}` | `Lifecycle`, `Renderer` |
 
-**Critical cgo rule:** Do NOT `#include` the generated C header in files that contain `//export` functions. This causes conflicting prototype errors between the C header declarations and cgo's auto-generated wrappers. Instead, use local C type definitions in the cgo preamble comment:
+**Critical cgo rule:** Do NOT `#include` the generated C header in `//export` files — conflicting prototypes. Use local typedefs in the cgo preamble:
 
 ```go
 /*
@@ -733,9 +602,7 @@ typedef struct { const char* message; } Hello_Greeting;
 import "C"
 ```
 
-**Handle map pattern:**
-
-Go cannot pass Go pointers to C. Instead, use an integer handle map:
+**Handle map:** Go cannot pass Go pointers to C; uses an integer handle map instead:
 
 ```go
 var (
@@ -780,55 +647,19 @@ func {cabi_function_name}(params) C.int32_t {
 | Primitives | Go types (`int32`, `uint64`, `bool`) | `C.int32_t`, `C.uint64_t`, `C._Bool` |
 | FlatBuffer | `*C.{Type}` | `*C.{Type}` |
 
-### 9.7 Design Rationale
-
-All shim code is mechanically derivable from the API definition — no analysis or domain knowledge required. Each method produces one shim function determined entirely by parameter types, transfer semantics, return type, and error convention. This:
-
-- Eliminates formulaic code from the consumer's responsibility
-- Reduces expensive AI inference on mechanical tasks during agentic coding
-- Keeps the consumer focused solely on implementing business logic in the abstract interface
+All shim code is mechanically derivable from the API definition — each method produces one shim function determined entirely by parameter types, transfer semantics, return type, and error convention.
 
 ## 10. Packaging and Distribution
 
-The code generation tool produces source files. Turning those into deliverable packages that application developers can consume is a build-system concern, not a codegen concern — but the system is designed with a clear separation between the two roles.
+The code gen tool produces source files only. Packaging those into deliverable platform artifacts is a build-system concern handled by Makefiles, Gradle, Xcode projects, etc. See ARCHITECTURE.md for the full provider/consumer model and per-platform package contents.
 
-### 10.1 Provider and Consumer
+The **provider** (library author) runs codegen, implements the interface, and builds platform packages. The **consumer** (app developer) receives pre-built packages and calls the idiomatic binding — no dependency on `xplattergy` or `flatc`.
 
-The **API provider** (library author) runs the code gen tool, implements the generated abstract interface, and builds platform-specific packages. The **API consumer** (application developer) receives an opaque, pre-built package and calls the API through the idiomatic binding for their platform.
-
-The consumer never runs `xplattergy generate`, never sees implementation source or generated shims, and has no dependency on the code gen tool or flatc.
-
-### 10.2 Platform Package Contents
-
-Each platform package bundles the compiled library with the generated language binding:
-
-| Platform | Package contents | Consumer imports via |
-|----------|-----------------|---------------------|
-| iOS | XCFramework (static lib + headers) + SPM package with Swift binding | SPM dependency |
-| Android | `.so` per ABI (arm64-v8a, armeabi-v7a, x86_64, x86) + Kotlin binding | Gradle JNI libs |
-| Web | `.wasm` module + JavaScript ES module | `<script>` or ES import |
-| Desktop (C/C++) | Shared library (`.dylib`/`.so`/`.dll`) + C header | `-I`/`-L` flags |
-| Desktop (Swift) | Shared library + C header + Swift binding | `swiftc -import-objc-header` |
-
-On platforms with higher-level bindings (iOS, Android, web), the consumer never sees the C header — they only interact with the Kotlin, Swift, or JavaScript API.
-
-### 10.3 Build System Integration
-
-The packaging step is implemented in build system rules (Makefiles, Gradle, Xcode projects), not in the code gen tool. A typical provider build pipeline:
-
-1. `xplattergy generate` — produce source files into `generated/`
-2. Compile the implementation + generated shim into a library (static or shared)
-3. Copy the library + the appropriate language binding into a distribution directory
-
-The hello-xplattergy examples demonstrate this with per-platform `package-*` Make targets (`package-ios`, `package-android`, `package-web`, `package-desktop`) that produce self-contained distribution directories under `dist/`.
-
-Consumer app projects use an `ensure-package` pattern: check for the pre-built package, and if absent, trigger the provider's package build. The app itself only references packaged artifacts — never generated source or build intermediates.
+Consumer app projects typically use an `ensure-package` pattern: check for the pre-built package, and if absent, trigger the provider's package build.
 
 ## 11. Validation Rules
 
-The `validate` command checks:
-
-**Structural (via JSON Schema):**
+**Structural (JSON Schema):**
 - YAML structure matches schema
 - All names follow conventions (snake_case, PascalCase)
 - FlatBuffer paths end in `.fbs`
@@ -836,7 +667,7 @@ The `validate` command checks:
 - `impl_lang` is valid enum
 - `targets` values are valid
 
-**Semantic (requires parsing `.fbs` files):**
+**Semantic (requires `.fbs` parsing):**
 - All `handle:Name` references resolve to handles defined in the `handles` section
 - All FlatBuffer type references (e.g., `Common.ErrorCode`) resolve to types in the included `.fbs` files
 - `error` types are FlatBuffer enums
@@ -867,31 +698,23 @@ flatbuffers:
 
 handles:
   - name: Engine
-    description: "Top-level application engine instance"
   - name: Renderer
-    description: "Rendering context bound to a platform surface"
   - name: Scene
-    description: "Scene graph container"
   - name: Texture
-    description: "GPU texture resource"
 
 interfaces:
   - name: lifecycle
-    description: "Engine creation, configuration, and teardown"
     methods:
       - name: create_engine
-        description: "Create and initialize the engine instance"
         returns:
           type: handle:Engine
         error: Common.ErrorCode
       - name: destroy_engine
-        description: "Shut down and release all engine resources"
         parameters:
           - name: engine
             type: handle:Engine
 
   - name: renderer
-    description: "Rendering context and frame management"
     methods:
       - name: create_renderer
         parameters:
@@ -919,7 +742,6 @@ interfaces:
         error: Common.ErrorCode
 
   - name: texture
-    description: "Texture resource loading and management"
     methods:
       - name: load_texture_from_path
         parameters:
@@ -947,10 +769,8 @@ interfaces:
             type: handle:Texture
 
   - name: input
-    description: "Input event processing"
     methods:
       - name: push_touch_events
-        description: "Hot path - minimal marshalling overhead"
         parameters:
           - name: engine
             type: handle:Engine
@@ -960,10 +780,8 @@ interfaces:
         error: Common.ErrorCode
 
   - name: events
-    description: "Poll for events from the implementation"
     methods:
       - name: poll_events
-        description: "Drain pending events. Call once per frame."
         parameters:
           - name: engine
             type: handle:Engine
@@ -1003,6 +821,8 @@ typedef struct engine_s* engine_handle;
 typedef struct renderer_s* renderer_handle;
 typedef struct scene_s* scene_handle;
 typedef struct texture_s* texture_handle;
+
+/* FlatBuffer type definitions (enums, structs, tables) — see Section 6.0 */
 
 /* Platform services — implement these per platform */
 void example_app_engine_log_sink(int32_t level, const char* tag, const char* message);
@@ -1063,7 +883,7 @@ EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_events_poll_events(
 
 ## 13. JSON Schema
 
-The full JSON Schema for validating API definition YAML files is maintained at `docs/api_definition_schema.json`. Key validation rules:
+Full schema at `docs/api_definition_schema.json`. Key rules:
 
 - `api`, `flatbuffers`, `interfaces` are required top-level keys
 - `handles` is optional
@@ -1076,6 +896,6 @@ The full JSON Schema for validating API definition YAML files is maintained at `
 
 ## 14. Future Considerations
 
-These are acknowledged but **not** to be implemented now. Do not design for them, but do not make choices that close the door:
+Not to be implemented now, but do not foreclose:
 
-- **Platform + language pairs for targets** — `targets` may evolve to support pairs like `linux:python` or `windows:lua` for binding to additional languages. Current single platform names would remain valid as shorthand. The C ABI foundation already supports this; the main adaptation needed is that platform services (log sink, resources) would use load-time registration rather than link-time resolution for dynamically loaded languages.
+- **Platform + language pairs** — `targets` may evolve to `linux:python`, `windows:lua`, etc. The C ABI foundation supports this; platform services would need load-time registration for dynamically loaded languages.

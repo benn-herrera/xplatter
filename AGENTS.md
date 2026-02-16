@@ -138,7 +138,7 @@ All generators follow the same pattern: iterate API interfaces, iterate methods,
 ## Key References
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — system layers, design rationale, data flow
-- [docs/CODEGEN_SPEC.md](./docs/CODEGEN_SPEC.md) — complete codegen specification (all generators, type mappings, output files, naming rules)
+- [docs/DETAILED_SPEC.md](./docs/DETAILED_SPEC.md) — complete codegen specification (all generators, type mappings, output files, naming rules)
 - [docs/api_definition_spec.md](./docs/api_definition_spec.md) — YAML API definition format
 - [docs/api_definition_schema.json](./docs/api_definition_schema.json) — JSON Schema for validation
 - [docs/example_api_definition.yaml](./docs/example_api_definition.yaml) — working example API definition

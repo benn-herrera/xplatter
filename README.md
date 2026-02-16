@@ -108,7 +108,7 @@ schemas/                FlatBuffers schema files
 
 - [Agent Guide](./AGENTS.md) — operational guide for AI coding agents
 - [Architecture Overview](./ARCHITECTURE.md) — system layers, C ABI boundary rules, design rationale
-- [Code Generation Specification](./docs/CODEGEN_SPEC.md) — complete reference for all generators, type mappings, output files, naming conventions, symbol visibility
+- [Code Generation Specification](./docs/DETAILED_SPEC.md) — complete reference for all generators, type mappings, output files, naming conventions, symbol visibility
 - [API Definition Specification](./docs/api_definition_spec.md) — full reference for the YAML format
 - [Example API Definition](./docs/example_api_definition.yaml) — working example demonstrating the YAML format
 - [API Definition JSON Schema](./docs/api_definition_schema.json) — machine-readable schema for validation and editor support
