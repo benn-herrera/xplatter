@@ -39,6 +39,9 @@ cd examples && make test-hello-app-desktop-swift   # macOS only
 cd examples && make test-hello-app-ios             # macOS only
 cd examples && make test-hello-app-android         # requires Android SDK + NDK
 cd examples && make test-hello-app-web             # requires Emscripten
+
+# on-shot test of entire hello example impl vs app matrix
+make test-examples-hello-impl-app-matrix
 ```
 
 ## Source Layout

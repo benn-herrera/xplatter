@@ -43,13 +43,13 @@ fmt:
 vet:
 	cd $(SRC_DIR) && go vet ./...
 
-## test-examples-hello-all-impls-apps: build all hello example api impls and test all apps against all api impls
-test-all-examples-all-impls:
+## test-examples-hello-impl-app-matrix: build all hello example api impls and test all apps against all api impls
+test-examples-hello-impl-app-matrix:
 	$(MAKE) -C examples test-hello-impls	
 	$(MAKE) -C examples clean-hello-apps	
 	$(MAKE) -C examples IMPL=c test-hello-apps
 	$(MAKE) -C examples clean-hello-apps
-	$(MAKE) -C examples IMPL=c++ test-hello-apps
+	$(MAKE) -C examples IMPL=cpp test-hello-apps
 	$(MAKE) -C examples clean-hello-apps	
 	$(MAKE) -C examples IMPL=go test-hello-apps
 	$(MAKE) -C examples clean-hello-apps		
