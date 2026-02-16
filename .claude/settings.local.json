@@ -65,7 +65,13 @@
       "Bash(node -e:*)",
       "Bash(node --input-type=module -e:*)",
       "Bash(./bin/xplattergy generate:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "WebFetch(domain:agents.md)",
+      "WebFetch(domain:www.builder.io)",
+      "WebFetch(domain:developers.openai.com)",
+      "WebFetch(domain:layer5.io)",
+      "WebFetch(domain:deepwiki.com)",
+      "WebFetch(domain:www.humanlayer.dev)"
     ]
   }
 }

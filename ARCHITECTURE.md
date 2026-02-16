@@ -43,20 +43,6 @@ With `c`, only the C API header is generated. This is the option for pure C impl
 
 For supported languages, the consumer never writes C. They implement the abstract interface in their language, build, and the generated shim handles all C ABI compliance. Adding a new implementation language target never touches Layer 1.
 
-#### C++ specifics
-
-The interface is an abstract class (`{PascalCase(api_name)}Interface`) with pure virtual methods. Strings become `std::string_view`, buffers become `std::span<const T>`, and handles are `void*` in the interface (the shim does the `reinterpret_cast`). A factory function (`create_{api_name}_instance()`) returns the concrete implementation. The shim detects create methods (returns handle + fallible + no handle input) and destroy methods (name starts with `"destroy"` + takes handle + void return) to generate appropriate factory/teardown bodies.
-
-#### Rust specifics
-
-Each interface becomes a trait. A zero-sized type `pub struct Impl;` implements all traits, enabling compile-time dispatch via UFCS (`Lifecycle::create_greeter(&Impl, ...)`). All trait methods take `&self`. The FFI layer uses `#[no_mangle] pub unsafe extern "C" fn` with `Result<T, ErrorType>` in trait methods mapped to integer error codes in the shim.
-
-#### Go specifics
-
-Each interface becomes a Go interface type. Handles use a `sync.Map` integer handle map because cgo prohibits passing Go pointers to C. A critical cgo constraint: the generated C header must **not** be `#include`d in files containing `//export` functions (conflicting prototypes); instead, local C type definitions are declared in the cgo preamble. Package name is the API name with underscores removed.
-
-See [CODEGEN_SPEC.md](./docs/CODEGEN_SPEC.md) for complete output file manifests, type mapping tables, and detection heuristics for each generator.
-
 ## Data Flow
 
 ```
@@ -159,82 +145,25 @@ Transfer semantics on parameters:
 
 If the callee needs data to outlive the call, it copies explicitly.
 
-### Strings
+**Strings** — `const char*`, null-terminated, UTF-8. Follows `ref` semantics (caller owns, callee borrows). Parameter-only — methods returning string data use a FlatBuffer result type.
 
-`string` is a first-class parameter type: `const char*`, null-terminated, UTF-8 at the C ABI level. It follows `ref` semantics — the caller owns the string memory, the callee borrows it for the call duration. Code gen handles per-platform marshalling (JNI `GetStringUTFChars`, Swift `withCString`, JS `TextEncoder` into WASM linear memory).
+**Buffers** — `buffer<T>` expands to two C parameters: `const T* data, uint32_t data_len` (element count, not byte count). Transfer semantics control const qualification. Parameter-only like strings.
 
-`string` is **parameter-only** — it cannot be used as a return type. Methods that need to return string data do so via a FlatBuffer result type. This preserves the borrowing boundary: no ambiguity about who owns returned string memory.
+**Opaque Handles** — typed `void*` with create/destroy lifecycle pairs. The implementation allocates on create and deallocates on destroy.
 
-### Buffers
+**Error Convention** — fallible methods return an error enum code. If the method also produces a return value, it's delivered through a final out-parameter pointer.
 
-`buffer<T>` is a first-class parameter type for passing contiguous arrays of primitive data (raw bytes, audio samples, vertex data, video frames). T must be a primitive type. At the C ABI level it expands to two parameters:
+**Symbol Visibility** — a per-API export macro (`<UPPER_API_NAME>_EXPORT`) annotates API method declarations and definitions. Platform service functions are not annotated — they are link-time provided, not exported. When building with `-fvisibility=hidden`, only API functions are exported.
 
-```c
-const T* data, uint32_t data_len  // data_len is element count, not byte count
-```
+**No Callbacks** — the boundary is strictly unidirectional (bound language → implementation). The implementation communicates back via a shared ring buffer with platform-native signaling (`eventfd`/`pipe()` on Linux/Android, dispatch sources on iOS/macOS, `Event` objects on Windows, `SharedArrayBuffer` + `Atomics.notify` on web).
 
-Transfer semantics apply: `ref` produces `const T*`, `ref_mut` produces `T*`. Like `string`, `buffer<T>` is **parameter-only** — methods that need to return buffer data do so via a FlatBuffer result type. Element count (not byte count) eliminates a class of sizing errors when T is wider than one byte.
+### Platform Services
 
-### Opaque Handles
+While API methods flow from the bound language into the implementation, a small set of **link-time platform service functions** flow in the reverse direction — the implementation calls into platform-provided functionality. These are plain C functions with fixed signatures, resolved at link time (or via WASM imports on web). They are not callbacks — they are always available, not dynamically registered.
 
-Implementation-managed objects are represented as opaque handles — typed `void*` at the C level. They follow create/destroy lifecycle pairs. The implementation allocates on create and deallocates on destroy.
-
-### Error Convention
-
-Methods that can fail declare an error enum type. The C ABI function returns the error code. If the method also produces a return value, that value is delivered through a final out-parameter pointer.
-
-### Symbol Visibility
-
-The generated C header includes a per-API export macro (`<UPPER_API_NAME>_EXPORT`) that expands to `__declspec(dllexport/dllimport)` on Windows and `__attribute__((visibility("default")))` on gcc/clang, with an empty fallback for other compilers. API method declarations in the C header and API method definitions in the C++ shim are prefixed with this macro. Platform service functions are **not** annotated — they are provided by the consumer at link time, not exported by the library.
-
-When building a shared library with `-fvisibility=hidden`, only the annotated API functions are exported. Rust and Go handle symbol export natively through `#[no_mangle]` + `cdylib` and `//export` + `c-shared` respectively — no export macro needed in those paths.
-
-### No Callbacks
-
-The C ABI boundary is strictly unidirectional — the bound language calls into the implementation, never the reverse. Callbacks (function pointers crossing the FFI from implementation back to caller) are intentionally excluded because:
-
-- They introduce threading hazards: the implementation may fire callbacks from background threads, requiring JNI thread attachment, main-thread dispatch on iOS/Swift, and conflicting with JS single-threaded execution.
-- On the web, WASM and JS on the main thread cannot run concurrently. A "callback" from WASM into JS is really just a synchronous call within an already-initiated request — no different from returning data as an out-parameter.
-- They roughly double the code gen surface area (function pointer wrapping, user_data management, platform-specific idioms).
-
-Instead, the implementation communicates back to the bound language via a **shared ring buffer with platform-native signaling**: `eventfd`/`pipe()` on Android/Linux, dispatch sources on iOS/macOS, `Event` objects on Windows, and `SharedArrayBuffer` + `Atomics.notify` (via Web Workers) or `requestAnimationFrame` polling on the web. This pattern integrates with each platform's native event loop without crossing the FFI in the reverse direction.
-
-### Platform Services Layer
-
-While the API methods flow from the bound language into the implementation, a small set of **link-time platform service functions** flow in the reverse direction — the implementation calls into platform-provided functionality. These are not callbacks: they are plain C functions with fixed signatures, resolved at link time (or via WASM imports on web). The code gen always produces them as part of the platform bindings.
-
-#### Logging
-
-```c
-void <api_name>_log_sink(int32_t level, const char* tag, const char* message);
-```
-
-The generated platform bindings provide the implementation: `android.util.Log` on Android, `os_log` on iOS/macOS, `console.log/warn/error` on web (via WASM import). Zero-latency, crash-safe, platform-native log output.
-
-#### Resource Access
-
-```c
-uint32_t <api_name>_resource_count(void);
-int32_t  <api_name>_resource_name(uint32_t index, char* buffer, uint32_t buffer_size);
-int32_t  <api_name>_resource_exists(const char* name);
-uint32_t <api_name>_resource_size(const char* name);
-int32_t  <api_name>_resource_read(const char* name, uint8_t* buffer, uint32_t buffer_size);
-```
-
-Provides the implementation with uniform access to read-only resources bundled with the application. The generated platform bindings map to the native mechanism:
-
-| Platform | Implementation |
-|----------|---------------|
-| Android | `AssetManager` via JNI |
-| iOS/macOS | `NSBundle.main` path resolution + file read |
-| Desktop | Filesystem read relative to app/executable directory |
-| Web | Synchronous lookup in a pre-loaded in-memory store |
-
-On web, the JS layer populates an in-memory resource store. Resources do not need to be fully loaded before WASM initialization — `resource_exists` returns false and `resource_read` returns an error for not-yet-available resources, allowing the implementation to handle deferred availability gracefully. This avoids blocking time-to-first-pixel on a full resource pre-load; web developers control the loading strategy (pre-load critical resources, lazy-load the rest) to suit their performance requirements.
-
-#### Metrics
-
-Metrics are decoupled from both logging and resource access. Metrics are **structured FlatBuffer payloads** (names, values, dimensions, timestamps) delivered through the event queue polling mechanism. This allows the app layer to aggregate, batch, and route metrics to whatever reporting system they choose, independent of the logging pipeline.
+- **Logging** — routes to the platform-native log sink (`android.util.Log`, `os_log`, `console.log`). Zero-latency, crash-safe.
+- **Resource Access** — uniform read-only access to bundled application resources. Maps to `AssetManager` (Android), `NSBundle` (iOS/macOS), filesystem (desktop), or a pre-loaded in-memory store (web).
+- **Metrics** — structured FlatBuffer payloads delivered through the event queue, decoupled from logging. The app layer aggregates and routes metrics independently.
 
 ## FlatBuffers
 
@@ -250,35 +179,7 @@ Types defined in FlatBuffers schemas are referenced in the API definition by the
 
 ## API Definition Format
 
-The API is defined in YAML, validated by a JSON Schema.
-
-For the full specification, see:
-
-- [API Definition YAML Specification](./docs/api_definition_spec.md)
-- [API Definition JSON Schema](./docs/api_definition_schema.json)
-- [Code Generation Specification](./docs/CODEGEN_SPEC.md) — complete spec covering all generators, type mappings, output files, and code generation rules
-
-## Distribution
-
-The code gen tool is distributed as prebuilt binaries:
-
-- **x86_64 and arm64 Windows 10+**
-- **arm64 macOS**
-- **x86_64 Linux** (statically linked, `CGO_ENABLED=0`)
-
-For platforms not covered by prebuilt binaries (e.g. uncommon Linux configurations), a `build_codegen.sh` script handles Go detection/installation and builds the binary from source via a Makefile.
-
-## First-Party Contrib
-
-Shipped alongside the core tool but not baked into the code gen:
-
-- **Hello-xplattergy examples** — a simple greeter API implemented in four languages (C, C++, Rust, Go), each building platform packages and running consumer-side app tests. The impl directories are the provider side (code gen, implementation, cross-compilation, packaging). The app directories are the consumer side (import a pre-built package, call the API, run).
-
-  | Provider (impl) | Consumer (app) |
-  |-----------------|----------------|
-  | `c/`, `cpp/`, `rust/`, `go/` | `app-desktop-cpp/`, `app-desktop-swift/`, `app-ios/`, `app-android/`, `app-web/` |
-
-- **Platform service implementations** — reference implementations of the link-time platform service functions (logging, resource access) for each target environment: iOS, Android, web, and desktop.
+The API is defined in YAML, validated by a [JSON Schema](./docs/api_definition_schema.json). See the [API Definition Specification](./docs/api_definition_spec.md) for the full reference and the [example definition](./docs/example_api_definition.yaml) for a working sample.
 
 ## Technical Decisions
 

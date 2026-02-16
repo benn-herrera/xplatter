@@ -4,6 +4,8 @@ dist/
 bin/
 generated/
 DerivedData/
+.idea/
+local.properties
 .gradle/
 *.a
 *.lib
