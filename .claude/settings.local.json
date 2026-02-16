@@ -59,7 +59,8 @@
       "Bash(source:*)",
       "Bash(xplattergy generate:*)",
       "Bash(/Users/benn/projects/xplattergy/bin/xplattergy generate:*)",
-      "Bash(/Users/benn/projects/xplattergy/bin/xplattergy:*)"
+      "Bash(/Users/benn/projects/xplattergy/bin/xplattergy:*)",
+      "Bash(wasm-objdump:*)"
     ]
   }
 }

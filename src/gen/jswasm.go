@@ -240,6 +240,10 @@ func writeWASMLoader(b *strings.Builder, apiName string, api *model.APIDefinitio
 	b.WriteString("  } else {\n")
 	b.WriteString("    throw new Error('wasmSource must be a URL string, Response, WebAssembly.Module, or ArrayBuffer');\n")
 	b.WriteString("  }\n")
+	b.WriteString("  // Initialize WASM runtime (static constructors, allocator setup, etc.)\n")
+	b.WriteString("  if (_wasm.exports._initialize) {\n")
+	b.WriteString("    _wasm.exports._initialize();\n")
+	b.WriteString("  }\n")
 	b.WriteString("  return {\n")
 
 	// Return an object with all interface namespaces
