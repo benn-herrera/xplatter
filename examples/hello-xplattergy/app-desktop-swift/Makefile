@@ -1,5 +1,5 @@
 IMPL       ?= cpp
-IMPL_DIR   := ../$(IMPL)
+IMPL_DIR   := ../impl-$(IMPL)
 BUILD_DIR  := build
 TARGET     := $(BUILD_DIR)/hello_app
 
@@ -22,7 +22,7 @@ $(TARGET): main.swift ensure-package
 	@mkdir -p $(BUILD_DIR)
 	swiftc -import-objc-header $(BRIDGING_HDR) \
 		-L$(LIB_DIR) -lhello_xplattergy \
-		-Xlinker -rpath -Xlinker @executable_path/../../$(IMPL)/dist/desktop/lib \
+		-Xlinker -rpath -Xlinker @executable_path/../../impl-$(IMPL)/dist/desktop/lib \
 		-o $@ main.swift $(SWIFT_BINDING)
 
 clean:

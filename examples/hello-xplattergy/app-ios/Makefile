@@ -1,6 +1,6 @@
 XPLATTERGY ?= ../../../xplattergy.sh
 IMPL       ?= cpp
-IMPL_DIR   := ../$(IMPL)
+IMPL_DIR   := ../impl-$(IMPL)
 BUILD_DIR  := build
 
 .PHONY: test build-app clean
@@ -24,7 +24,7 @@ HelloXplattergyLib/Package.swift: ensure-package
 	cp $(IMPL_DIR)/dist/ios/HelloXplattergyLib/Sources/HelloXplattergyBinding/HelloXplattergy.swift \
 		HelloXplattergyLib/Sources/HelloXplattergyBinding/HelloXplattergy.swift
 	@# Rewrite the binaryTarget path to point at the impl's dist
-	@sed -i '' 's|path: "../HelloXplattergy.xcframework"|path: "../../$(IMPL)/dist/ios/HelloXplattergy.xcframework"|' HelloXplattergyLib/Package.swift
+	@sed -i '' 's|path: "../HelloXplattergy.xcframework"|path: "../../impl-$(IMPL)/dist/ios/HelloXplattergy.xcframework"|' HelloXplattergyLib/Package.swift
 
 # --- Build iOS app for simulator ---
 

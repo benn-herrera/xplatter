@@ -1,5 +1,5 @@
 IMPL       ?= cpp
-IMPL_DIR   := ../$(IMPL)
+IMPL_DIR   := ../impl-$(IMPL)
 BUILD_DIR  := build
 
 .PHONY: test stage serve clean

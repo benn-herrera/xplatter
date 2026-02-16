@@ -19,10 +19,10 @@ No separate flatc step is required.
 
 | Directory | impl_lang | Description |
 |-----------|-----------|-------------|
-| `c/`      | c         | Direct C ABI implementation |
-| `cpp/`    | cpp       | C++ interface/shim pattern |
-| `rust/`   | rust      | Rust trait/FFI pattern |
-| `go/`     | go        | Go interface/cgo pattern |
+| `impl-c/`      | c         | Direct C ABI implementation |
+| `impl-cpp/`    | cpp       | C++ interface/shim pattern |
+| `impl-rust/`   | rust      | Rust trait/FFI pattern |
+| `impl-go/`     | go        | Go interface/cgo pattern |
 
 ## Prerequisites
 
@@ -51,16 +51,16 @@ Or from each example directory:
 
 ```bash
 # C
-cd c && make run
+cd impl-c && make run
 
 # C++
-cd cpp && make run
+cd impl-cpp && make run
 
 # Rust
-cd rust && cargo test
+cd impl-rust && cargo test
 
 # Go
-cd go && make run
+cd impl-go && make run
 ```
 
 ## What Gets Generated vs. Hand-Written

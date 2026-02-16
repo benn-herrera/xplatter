@@ -24,19 +24,19 @@ build: $(BUILD_TARGET)
 
 ## test-hello-impl-c: Build and run the hello example C implementation
 test-hello-impl-c: build
-	$(MAKE) -C hello-xplattergy/c run
+	$(MAKE) -C hello-xplattergy/impl-c run
 
 ## test-hello-impl-cpp: Build and run the hello example C++ implementation
 test-hello-impl-cpp: build
-	$(MAKE) -C hello-xplattergy/cpp run
+	$(MAKE) -C hello-xplattergy/impl-cpp run
 
 ## test-hello-impl-rust: Build and run the hello example Rust implementation
 test-hello-impl-rust: build
-	cd hello-xplattergy/rust && cargo test
+	cd hello-xplattergy/impl-rust && cargo test
 
 ## test-hello-impl-go: Build and run the hello example Go implementation
 test-hello-impl-go: build
-	$(MAKE) -C hello-xplattergy/go run
+	$(MAKE) -C hello-xplattergy/impl-go run
 
 ## test-hello-impls: Run all hello example implementations
 test-hello-impls: test-hello-impl-c test-hello-impl-cpp test-hello-impl-rust test-hello-impl-go
@@ -65,10 +65,16 @@ test-hello-app-web: build
 
 ## test-hello-apps: Run all app tests
 test-hello-apps: test-hello-app-desktop-cpp test-hello-app-desktop-swift test-hello-app-ios test-hello-app-android test-hello-app-web
+clean-hello-apps: 
+	$(MAKE) -C app-desktop-cpp clean
+	$(MAKE) -C app-desktop-swift clean
+	$(MAKE) -C app-ios clean
+	$(MAKE) -C app-android clean
+	$(MAKE) -C app-web
 
 ## package-hello-cpp: Build cross-platform packages for C++ impl
 package-hello-cpp: build
-	$(MAKE) -C hello-xplattergy/cpp packages
+	$(MAKE) -C hello-xplattergy/impl-cpp packages
 
 ## package-hello-all: Build packages for all implementations
 package-hello-all: package-hello-cpp

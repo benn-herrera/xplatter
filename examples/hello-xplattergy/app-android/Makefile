@@ -1,6 +1,6 @@
 XPLATTERGY ?= ../../../xplattergy.sh
 IMPL       ?= cpp
-IMPL_DIR   := ../$(IMPL)
+IMPL_DIR   := ../impl-$(IMPL)
 BUILD_DIR  := build
 
 # Gradle wrapper source

@@ -129,7 +129,7 @@ This mirrors the standard library distribution model: the provider is the shared
 
 ### In the examples
 
-The `examples/hello-xplattergy/` directory demonstrates both roles. The impl directories (`c/`, `cpp/`, `rust/`, `go/`) are provider-side — they run code gen, compile the implementation, and produce platform packages via `make packages`. The app directories (`app-ios/`, `app-android/`, `app-web/`, `app-desktop-cpp/`, `app-desktop-swift/`) are consumer-side — each has an `ensure-package` target that checks for the pre-built package and, if absent, triggers the provider's package build. But the app project itself only references the packaged artifacts. No app project runs code gen or reaches into implementation internals.
+The `examples/hello-xplattergy/` directory demonstrates both roles. The impl directories (`impl-c/`, `impl-cpp/`, `impl-rust/`, `impl-go/`) are provider-side — they run code gen, compile the implementation, and produce platform packages via `make packages`. The app directories (`app-ios/`, `app-android/`, `app-web/`, `app-desktop-cpp/`, `app-desktop-swift/`) are consumer-side — each has an `ensure-package` target that checks for the pre-built package and, if absent, triggers the provider's package build. But the app project itself only references the packaged artifacts. No app project runs code gen or reaches into implementation internals.
 
 ## The C ABI Boundary
 
