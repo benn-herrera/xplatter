@@ -1,7 +1,8 @@
 # TODO
 
-## the app-[platform] API consumer example projects
-their build process reference the cpp implementation files and/or do their own code gen.
-
-* this is wrong.
-* the app example project (Makefile and IDE project) should depend only on the completed, opaquely implemented package presenting the API in their own language
+## examples/hello-xplattergy/app-web
+this example does not work.
+* ```make serve``` does build all the pieces and runs the local http server
+* visiting http://localhost:8080 does show the expected UI
+* hitting the 'greet' button does *not* result in the greeting message showing in the web interface
+* it is not clear if whether this is a failure in the API to be correctly invoked or whether it is a failure to correctly update the DOM with the unboxed response string.
