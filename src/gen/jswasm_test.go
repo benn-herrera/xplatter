@@ -35,8 +35,8 @@ func TestJSWASMGenerator_ESModuleExports(t *testing.T) {
 	content := string(files[0].Content)
 
 	// Should export the loader function
-	if !strings.Contains(content, "export async function loadTestApi(") {
-		t.Error("missing exported async loader function")
+	if !strings.Contains(content, "async function loadTestApi(") {
+		t.Error("missing async loader function")
 	}
 
 	// Should export handle classes

@@ -60,7 +60,12 @@
       "Bash(xplattergy generate:*)",
       "Bash(/Users/benn/projects/xplattergy/bin/xplattergy generate:*)",
       "Bash(/Users/benn/projects/xplattergy/bin/xplattergy:*)",
-      "Bash(wasm-objdump:*)"
+      "Bash(wasm-objdump:*)",
+      "Bash(wasm-dis:*)",
+      "Bash(node -e:*)",
+      "Bash(node --input-type=module -e:*)",
+      "Bash(./bin/xplattergy generate:*)",
+      "Bash(echo:*)"
     ]
   }
 }

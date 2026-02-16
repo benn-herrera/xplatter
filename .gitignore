@@ -4,6 +4,7 @@ dist/
 bin/
 generated/
 DerivedData/
+.gradle/
 *.a
 *.lib
 *.so

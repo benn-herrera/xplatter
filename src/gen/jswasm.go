@@ -223,7 +223,7 @@ func writePlatformServiceImports(b *strings.Builder, apiName string) {
 func writeWASMLoader(b *strings.Builder, apiName string, api *model.APIDefinition) {
 	loaderName := ToCamelCase("load_" + apiName)
 	fmt.Fprintf(b, "// WASM module loader\n")
-	fmt.Fprintf(b, "export async function %s(wasmSource, platformServices) {\n", loaderName)
+	fmt.Fprintf(b, "async function %s(wasmSource, platformServices) {\n", loaderName)
 	b.WriteString("  const imports = _buildPlatformImports(platformServices);\n")
 	b.WriteString("  let result;\n")
 	b.WriteString("  if (wasmSource instanceof WebAssembly.Module) {\n")
