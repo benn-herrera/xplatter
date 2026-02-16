@@ -43,6 +43,18 @@ fmt:
 vet:
 	cd $(SRC_DIR) && go vet ./...
 
+## test-examples-hello-all-impls-apps: build all hello example api impls and test all apps against all api impls
+test-all-examples-all-impls:
+	$(MAKE) -C examples test-hello-impls	
+	$(MAKE) -C examples clean-hello-apps	
+	$(MAKE) -C examples IMPL=c test-hello-apps
+	$(MAKE) -C examples clean-hello-apps
+	$(MAKE) -C examples IMPL=c++ test-hello-apps
+	$(MAKE) -C examples clean-hello-apps	
+	$(MAKE) -C examples IMPL=go test-hello-apps
+	$(MAKE) -C examples clean-hello-apps		
+	$(MAKE) -C examples IMPL=rust test-hello-apps
+
 ## validate: Build and run the validate command against the example API definition
 validate: $(BINARY)
 	$(BINARY) validate docs/example_api_definition.yaml
