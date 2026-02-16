@@ -109,6 +109,39 @@ See [CODEGEN_SPEC.md](./docs/CODEGEN_SPEC.md) for complete output file manifests
         the native lib    the WASM module
 ```
 
+## Provider and Consumer Roles
+
+The system enforces a clean separation between two roles: the **API provider** (library author) and the **API consumer** (application developer).
+
+### Provider — builds and packages
+
+The provider authors the API definition and FlatBuffers schemas, runs `xplattergy generate`, implements the generated abstract interface, and builds platform-specific packages. Each package bundles the compiled library with the idiomatic language binding for that platform:
+
+| Platform | Package contents |
+|----------|-----------------|
+| iOS | XCFramework (static lib + headers) + SPM package with Swift binding |
+| Android | `.so` per ABI (arm64-v8a, armeabi-v7a, x86_64, x86) + Kotlin binding |
+| Web | `.wasm` module + JavaScript binding |
+| Desktop (C/C++) | Shared library (`.dylib`/`.so`/`.dll`) + C header |
+| Desktop (Swift) | Shared library + C header + Swift binding |
+
+The provider owns the code gen tool, the build infrastructure, and the implementation source. None of these are visible to the consumer.
+
+### Consumer — imports and calls
+
+The consumer receives an opaque, pre-built package and imports it using the platform's standard mechanism — SPM dependency for iOS, Gradle JNI libs for Android, ES module or `<script>` tag for web, header + shared library for desktop. The consumer:
+
+- Never runs `xplattergy generate`
+- Never sees the implementation source, the generated shim, or the C header (on platforms with higher-level bindings)
+- Has no dependency on the code gen tool or any of its prerequisites
+- Calls the API through the idiomatic binding in their platform's language
+
+This mirrors the standard library distribution model: the provider is the shared library or framework author; the consumer is the application developer who links against it.
+
+### In the examples
+
+The `examples/hello-xplattergy/` directory demonstrates both roles. The impl directories (`c/`, `cpp/`, `rust/`, `go/`) are provider-side — they run code gen, compile the implementation, and produce platform packages via `make packages`. The app directories (`app-ios/`, `app-android/`, `app-web/`, `app-desktop-cpp/`, `app-desktop-swift/`) are consumer-side — each has an `ensure-package` target that checks for the pre-built package and, if absent, triggers the provider's package build. But the app project itself only references the packaged artifacts. No app project runs code gen or reaches into implementation internals.
+
 ## The C ABI Boundary
 
 The C ABI is a **borrowing boundary**, not an ownership transfer boundary. The side that allocates is the side that deallocates. This eliminates the need for release callbacks or ref-counting across the FFI.
@@ -236,18 +269,13 @@ For platforms not covered by prebuilt binaries (e.g. uncommon Linux configuratio
 
 Shipped alongside the core tool but not baked into the code gen:
 
-- **Input event FlatBuffers schema** (`input_events.fbs`) — standardized touch and keyboard event structures
-- **Platform event translation utilities** — Kotlin (Android), Swift (iOS/macOS), JavaScript (DOM) functions that convert platform-native input events to/from the FlatBuffer representation
-- **Reference examples** — C++ and Rust input event translation as documented examples
+- **Hello-xplattergy examples** — a simple greeter API implemented in four languages (C, C++, Rust, Go), each building platform packages and running consumer-side app tests. The impl directories are the provider side (code gen, implementation, cross-compilation, packaging). The app directories are the consumer side (import a pre-built package, call the API, run).
 
-These serve as both practical utilities and end-to-end integration test cases for validating marshalling throughput (targeting 120+ FPS input processing).
+  | Provider (impl) | Consumer (app) |
+  |-----------------|----------------|
+  | `c/`, `cpp/`, `rust/`, `go/` | `app-desktop-cpp/`, `app-desktop-swift/`, `app-ios/`, `app-android/`, `app-web/` |
 
-- **Build integration examples** — minimal project skeletons showing how to wire xplattergy code gen into standard build systems:
-  - C++: CMake
-  - Rust: `build.rs`
-  - Go: `go generate` + Makefile
-
-  Each example demonstrates invoking the code gen tool as a build step, placing generated files, and compiling the result end-to-end.
+- **Platform service implementations** — reference implementations of the link-time platform service functions (logging, resource access) for each target environment: iOS, Android, web, and desktop.
 
 ## Technical Decisions
 
@@ -266,3 +294,4 @@ These serve as both practical utilities and end-to-end integration test cases fo
 | Metrics via event queue, not logging | Metrics are structured data suited to batching and aggregation; routing them through a text log sink would mean unnecessary serialize/parse overhead. |
 | `string` as parameter-only type | Input strings are straightforward (`const char*`, UTF-8, borrowed). Returning strings creates ownership ambiguity; FlatBuffer result types handle that cleanly. |
 | Per-API export macro for symbol visibility | Ensures shared libraries export only API-defined symbols; platform services remain link-time provided. Windows `dllexport`/`dllimport`, gcc/clang visibility attributes, with graceful fallback. |
+| Opaque platform packages for consumers | Consumers depend on a pre-built package per platform, not on codegen output or implementation internals. Standard distribution model — the provider builds and packages, the consumer imports and calls. |

@@ -226,12 +226,16 @@ $(DIST_DIR)/desktop/include/$(API_NAME).h: $(GEN_HEADER)
 	@mkdir -p $$(dir $$@)
 	cp $(GEN_HEADER) $$@
 
+$(DIST_DIR)/desktop/include/HelloXplattergy.swift: $(GEN_SWIFT_BINDING)
+	@mkdir -p $$(dir $$@)
+	cp $(GEN_SWIFT_BINDING) $$@
+
 $(DIST_DIR)/desktop/lib/$(LIB_NAME).$(DYLIB_EXT): $(SHARED_LIB)
 	@mkdir -p $$(dir $$@)
 	cp $(SHARED_LIB) $$@
 
 .PHONY: package-desktop
-package-desktop: $(DIST_DIR)/desktop/include/$(API_NAME).h $(DIST_DIR)/desktop/lib/$(LIB_NAME).$(DYLIB_EXT)
+package-desktop: $(DIST_DIR)/desktop/include/$(API_NAME).h $(DIST_DIR)/desktop/include/HelloXplattergy.swift $(DIST_DIR)/desktop/lib/$(LIB_NAME).$(DYLIB_EXT)
 	@echo "Packaged Desktop: $(DIST_DIR)/desktop/"
 
 endef

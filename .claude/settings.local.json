@@ -56,7 +56,10 @@
       "Bash($JAVA_HOME/bin/java:*)",
       "Bash(grep:*)",
       "Bash(ls:*)",
-      "Bash(source:*)"
+      "Bash(source:*)",
+      "Bash(xplattergy generate:*)",
+      "Bash(/Users/benn/projects/xplattergy/bin/xplattergy generate:*)",
+      "Bash(/Users/benn/projects/xplattergy/bin/xplattergy:*)"
     ]
   }
 }

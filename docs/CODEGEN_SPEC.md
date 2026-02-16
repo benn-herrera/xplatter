@@ -36,6 +36,13 @@ xplattergy <command> [flags]
 | `init` | Scaffold a new project with starter API definition and FBS files |
 | `version` | Print version and exit |
 
+**Global flags** (apply to all commands):
+
+| Flag | Description |
+|------|-------------|
+| `-v, --verbose` | Verbose output |
+| `-q, --quiet` | Suppress all output except errors |
+
 **`generate` flags:**
 
 | Flag | Description |
@@ -46,15 +53,13 @@ xplattergy <command> [flags]
 | `--targets <list>` | Override targets (comma-separated) |
 | `--dry-run` | Show what would be generated without writing |
 | `--clean` | Remove previously generated files first |
-| `-v, --verbose` | Verbose output |
-| `-q, --quiet` | Suppress all output except errors |
+| `--skip-flatc` | Skip flatc invocation even if flatc is available (generated bindings will be incomplete) |
 
 **`validate` flags:**
 
 | Flag | Description |
 |------|-------------|
 | `-f, --flatc <path>` | Path to FlatBuffers compiler |
-| `-v, --verbose` | Show detailed validation results |
 
 **`init` flags:**
 
@@ -75,7 +80,7 @@ The tool consumes two types of input files:
 
 ### 3.1 API Definition YAML
 
-Defines the API surface — handles, interfaces, and methods. Validated against a JSON Schema (see Section 12).
+Defines the API surface — handles, interfaces, and methods. Validated against a JSON Schema (see Section 13).
 
 **Top-level keys:**
 
@@ -553,7 +558,15 @@ With `c`, only the C API header is generated. Use for pure C implementations or 
 
 ### 9.2 Output File Manifest
 
-The C header (`{api_name}.h`) is always generated regardless of `impl_lang`. Additional files per language:
+Generation produces three categories of output: the C header (always), implementation scaffolding (per `impl_lang`), and platform bindings (per `targets`). Additionally, the tool invokes `flatc` to generate per-language data structure code.
+
+#### C header (always generated)
+
+| File | Purpose |
+|------|---------|
+| `{api_name}.h` | C ABI header with types, platform services, and function declarations |
+
+#### Implementation scaffolding (per `impl_lang`)
 
 **`impl_lang: cpp`** — 4 files:
 
@@ -582,14 +595,30 @@ The C header (`{api_name}.h`) is always generated regardless of `impl_lang`. Add
 | `{api_name}_impl.go` | Stub interface implementation |
 | `{api_name}_types.go` | Go enum constants (emitted if enums exist) |
 
-**Platform bindings** (always generated alongside the above):
+#### Platform bindings (per `targets`)
 
-| File | Purpose |
-|------|---------|
-| `{PascalCase(api_name)}.kt` | Kotlin public API |
-| `{api_name}_jni.c` | JNI C bridge |
-| `{PascalCase(api_name)}.swift` | Swift public API + C bridge |
-| `{api_name}.js` | JavaScript/WASM ES module |
+| Target | File | Purpose |
+|--------|------|---------|
+| `android` | `{PascalCase(api_name)}.kt` | Kotlin public API |
+| `android` | `{api_name}_jni.c` | JNI C bridge |
+| `ios`, `macos` | `{PascalCase(api_name)}.swift` | Swift public API + C bridge |
+| `web` | `{api_name}.js` | JavaScript/WASM ES module |
+| `windows`, `linux` | — | C header consumed directly |
+
+#### FlatBuffer-generated files (via `flatc`)
+
+The tool invokes `flatc` once per required language, writing output into `flatbuffers/<lang>/` subdirectories. Which languages are invoked depends on both `targets` and `impl_lang`:
+
+| Trigger | flatc flag | Output subdirectory | Example output |
+|---------|-----------|---------------------|----------------|
+| `targets` includes `android` | `--kotlin` | `flatbuffers/kotlin/` | `{Namespace}/{Type}.kt` per type |
+| `targets` includes `ios` or `macos` | `--swift` | `flatbuffers/swift/` | `{schema}_generated.swift` |
+| `targets` includes `web` | `--ts` | `flatbuffers/ts/` | `{schema}.ts` + per-type files |
+| `impl_lang: cpp` | `--cpp` | `flatbuffers/cpp/` | `{schema}_generated.h` |
+| `impl_lang: rust` | `--rust` | `flatbuffers/rust/` | `{schema}_generated.rs` |
+| `impl_lang: go` | `--go` | `flatbuffers/go/` | Go package files |
+
+Duplicate invocations are deduplicated (e.g., if `ios` target already triggered `--swift`, `macos` does not invoke it again). Use `--skip-flatc` to suppress all flatc invocations.
 
 ### 9.3 Create/Destroy Method Detection
 
@@ -759,7 +788,43 @@ All shim code is mechanically derivable from the API definition — no analysis 
 - Reduces expensive AI inference on mechanical tasks during agentic coding
 - Keeps the consumer focused solely on implementing business logic in the abstract interface
 
-## 10. Validation Rules
+## 10. Packaging and Distribution
+
+The code generation tool produces source files. Turning those into deliverable packages that application developers can consume is a build-system concern, not a codegen concern — but the system is designed with a clear separation between the two roles.
+
+### 10.1 Provider and Consumer
+
+The **API provider** (library author) runs the code gen tool, implements the generated abstract interface, and builds platform-specific packages. The **API consumer** (application developer) receives an opaque, pre-built package and calls the API through the idiomatic binding for their platform.
+
+The consumer never runs `xplattergy generate`, never sees implementation source or generated shims, and has no dependency on the code gen tool or flatc.
+
+### 10.2 Platform Package Contents
+
+Each platform package bundles the compiled library with the generated language binding:
+
+| Platform | Package contents | Consumer imports via |
+|----------|-----------------|---------------------|
+| iOS | XCFramework (static lib + headers) + SPM package with Swift binding | SPM dependency |
+| Android | `.so` per ABI (arm64-v8a, armeabi-v7a, x86_64, x86) + Kotlin binding | Gradle JNI libs |
+| Web | `.wasm` module + JavaScript ES module | `<script>` or ES import |
+| Desktop (C/C++) | Shared library (`.dylib`/`.so`/`.dll`) + C header | `-I`/`-L` flags |
+| Desktop (Swift) | Shared library + C header + Swift binding | `swiftc -import-objc-header` |
+
+On platforms with higher-level bindings (iOS, Android, web), the consumer never sees the C header — they only interact with the Kotlin, Swift, or JavaScript API.
+
+### 10.3 Build System Integration
+
+The packaging step is implemented in build system rules (Makefiles, Gradle, Xcode projects), not in the code gen tool. A typical provider build pipeline:
+
+1. `xplattergy generate` — produce source files into `generated/`
+2. Compile the implementation + generated shim into a library (static or shared)
+3. Copy the library + the appropriate language binding into a distribution directory
+
+The hello-xplattergy examples demonstrate this with per-platform `package-*` Make targets (`package-ios`, `package-android`, `package-web`, `package-desktop`) that produce self-contained distribution directories under `dist/`.
+
+Consumer app projects use an `ensure-package` pattern: check for the pre-built package, and if absent, trigger the provider's package build. The app itself only references packaged artifacts — never generated source or build intermediates.
+
+## 11. Validation Rules
 
 The `validate` command checks:
 
@@ -778,7 +843,7 @@ The `validate` command checks:
 - `string` and `buffer<T>` are not used as return types
 - `transfer` is not specified on handle parameters
 
-## 11. Complete Example
+## 12. Complete Example
 
 ### API Definition (`api_definition.yaml`)
 
@@ -996,7 +1061,7 @@ EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_events_poll_events(
 #endif
 ```
 
-## 12. JSON Schema
+## 13. JSON Schema
 
 The full JSON Schema for validating API definition YAML files is maintained at `docs/api_definition_schema.json`. Key validation rules:
 
@@ -1009,7 +1074,7 @@ The full JSON Schema for validating API definition YAML files is maintained at `
 - `impl_lang` is one of: `cpp`, `rust`, `go`, `c`
 - `targets` values are from: `android`, `ios`, `web`, `windows`, `macos`, `linux`
 
-## 13. Future Considerations
+## 14. Future Considerations
 
 These are acknowledged but **not** to be implemented now. Do not design for them, but do not make choices that close the door:
 
