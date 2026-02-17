@@ -14,7 +14,7 @@ SHARED_LIB := $(BUILD_DIR)/libhello_xplattergy.$(DYLIB_EXT)
 API_NAME := hello_xplattergy
 LIB_NAME := libhello_xplattergy
 
-.PHONY: run shared-lib package-desktop package-web package-android clean
+.PHONY: run shared-lib package-desktop package-web package-android package-ios clean
 
 run: $(STAMP)
 	go build -o $(BUILD_DIR)/hello_xplattergy .
@@ -57,6 +57,67 @@ $(DIST_DIR)/web/hello_xplattergy.js: $(STAMP)
 
 package-web: $(DIST_DIR)/web/hello_xplattergy.wasm $(DIST_DIR)/web/hello_xplattergy.js
 	@echo "Packaged Web: $(DIST_DIR)/web/"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# iOS: Go c-archive (CGO) per arch → lipo → xcframework + SPM package
+# ══════════════════════════════════════════════════════════════════════════════
+
+IOS_MIN := 15.0
+IOS_SDK := $(shell xcrun --sdk iphoneos --show-sdk-path 2>/dev/null)
+SIM_SDK := $(shell xcrun --sdk iphonesimulator --show-sdk-path 2>/dev/null)
+IOS_CC  := $(shell xcrun --sdk iphoneos --find clang 2>/dev/null)
+SIM_CC  := $(shell xcrun --sdk iphonesimulator --find clang 2>/dev/null)
+
+GEN_SWIFT_BINDING := generated/HelloXplattergy.swift
+
+# $(1) = arch dir  (e.g. ios-arm64)
+# $(2) = GOARCH    (e.g. arm64)
+# $(3) = clang -arch flag  (e.g. arm64)
+# $(4) = clang -target triple  (e.g. arm64-apple-ios15.0)
+# $(5) = CC (IOS_CC or SIM_CC)
+# $(6) = sysroot (IOS_SDK or SIM_SDK)
+define BUILD_IOS_ARCH_GO
+
+$(BUILD_DIR)/ios/$(1)/$(LIB_NAME).a: $(STAMP)
+	@mkdir -p $$(dir $$@)
+	CGO_ENABLED=1 GOOS=ios GOARCH=$(2) \
+	  CC="$(5)" \
+	  CGO_CFLAGS="-arch $(3) -target $(4) -isysroot $(6)" \
+	  CGO_LDFLAGS="-arch $(3) -target $(4) -isysroot $(6)" \
+	  go build -buildmode=c-archive -o $$@ .
+
+endef
+
+$(eval $(call BUILD_IOS_ARCH_GO,ios-arm64,arm64,arm64,arm64-apple-ios$(IOS_MIN),$(IOS_CC),$(IOS_SDK)))
+$(eval $(call BUILD_IOS_ARCH_GO,ios-sim-arm64,arm64,arm64,arm64-apple-ios$(IOS_MIN)-simulator,$(SIM_CC),$(SIM_SDK)))
+$(eval $(call BUILD_IOS_ARCH_GO,ios-sim-x86_64,amd64,x86_64,x86_64-apple-ios$(IOS_MIN)-simulator,$(SIM_CC),$(SIM_SDK)))
+
+$(DIST_DIR)/ios/obj/ios-sim-fat/$(LIB_NAME).a: $(BUILD_DIR)/ios/ios-sim-arm64/$(LIB_NAME).a $(BUILD_DIR)/ios/ios-sim-x86_64/$(LIB_NAME).a
+	@mkdir -p $(dir $@)
+	lipo -create $^ -output $@
+
+$(DIST_DIR)/ios/headers/module.modulemap: $(STAMP)
+	@mkdir -p $(DIST_DIR)/ios/headers
+	cp generated/$(API_NAME).h $(DIST_DIR)/ios/headers/
+	printf 'module CHelloXplattergy {\n    header "$(API_NAME).h"\n    export *\n}\n' > $@
+
+$(DIST_DIR)/ios/HelloXplattergy.xcframework: $(BUILD_DIR)/ios/ios-arm64/$(LIB_NAME).a $(DIST_DIR)/ios/obj/ios-sim-fat/$(LIB_NAME).a $(DIST_DIR)/ios/headers/module.modulemap
+	rm -rf $@
+	xcodebuild -create-xcframework \
+		-library $(BUILD_DIR)/ios/ios-arm64/$(LIB_NAME).a -headers $(DIST_DIR)/ios/headers \
+		-library $(DIST_DIR)/ios/obj/ios-sim-fat/$(LIB_NAME).a -headers $(DIST_DIR)/ios/headers \
+		-output $@
+
+$(DIST_DIR)/ios/HelloXplattergyLib/Sources/HelloXplattergyBinding/HelloXplattergy.swift: $(GEN_SWIFT_BINDING)
+	@mkdir -p $(dir $@)
+	awk '{print} /^import Foundation$$/{print "import CHelloXplattergy"}' $(GEN_SWIFT_BINDING) > $@
+
+$(DIST_DIR)/ios/HelloXplattergyLib/Package.swift: $(DIST_DIR)/ios/HelloXplattergy.xcframework
+	@mkdir -p $(dir $@)
+	printf '// swift-tools-version: 5.9\nimport PackageDescription\n\nlet package = Package(\n    name: "HelloXplattergyLib",\n    platforms: [.iOS(.v15)],\n    products: [\n        .library(name: "HelloXplattergyLib", targets: ["HelloXplattergyBinding"]),\n    ],\n    targets: [\n        .binaryTarget(name: "CHelloXplattergy", path: "../HelloXplattergy.xcframework"),\n        .target(\n            name: "HelloXplattergyBinding",\n            dependencies: ["CHelloXplattergy"],\n            path: "Sources/HelloXplattergyBinding"\n        ),\n    ]\n)\n' > $@
+
+package-ios: $(DIST_DIR)/ios/HelloXplattergy.xcframework $(DIST_DIR)/ios/HelloXplattergyLib/Package.swift $(DIST_DIR)/ios/HelloXplattergyLib/Sources/HelloXplattergyBinding/HelloXplattergy.swift
+	@echo "Packaged iOS: $(DIST_DIR)/ios/"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Android: Go c-shared (CGO) with JNI bridge → .so per ABI

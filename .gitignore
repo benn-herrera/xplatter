@@ -5,6 +5,7 @@ bin/
 generated/
 DerivedData/
 .idea/
+xcuserdata/
 local.properties
 .gradle/
 .claude/settings.local.json
