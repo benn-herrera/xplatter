@@ -94,3 +94,17 @@ func GeneratorsForImplLang(implLang string) string {
 		return ""
 	}
 }
+
+// GeneratorsForImplLangAndTargets returns extra generators needed for a specific
+// impl_lang + targets combination. For Go with a web target, this returns impl_go_wasm
+// so that //go:wasmexport scaffolding is generated alongside the cgo shim.
+func GeneratorsForImplLangAndTargets(implLang string, targets []string) []string {
+	if implLang == "go" {
+		for _, t := range targets {
+			if t == "web" {
+				return []string{"impl_go_wasm"}
+			}
+		}
+	}
+	return nil
+}

@@ -135,6 +135,10 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		generatorNames = appendUnique(generatorNames, implGen)
 	}
 
+	for _, name := range gen.GeneratorsForImplLangAndTargets(def.API.ImplLang, def.EffectiveTargets()) {
+		generatorNames = appendUnique(generatorNames, name)
+	}
+
 	// Run generators and collect output
 	var allFiles []*gen.OutputFile
 	for _, name := range generatorNames {

@@ -1,5 +1,6 @@
 XPLATTERGY ?= ../../../xplattergy.sh
 BUILD_DIR  := build
+DIST_DIR   := dist
 STAMP      := $(BUILD_DIR)/.generated
 
 UNAME_S := $(shell uname -s)
@@ -10,7 +11,7 @@ else
 endif
 SHARED_LIB := $(BUILD_DIR)/libhello_xplattergy.$(DYLIB_EXT)
 
-.PHONY: run shared-lib clean
+.PHONY: run shared-lib package-web clean
 
 run: $(STAMP)
 	go build -o $(BUILD_DIR)/hello_xplattergy .
@@ -28,5 +29,16 @@ $(STAMP): ../shared_schemas/hello_xplattergy.yaml
 	cp generated/hello_xplattergy.h .
 	@touch $@
 
+$(DIST_DIR)/web/hello_xplattergy.wasm: $(STAMP)
+	@mkdir -p $(dir $@)
+	GOOS=wasip1 GOARCH=wasm go build -o $@ .
+
+$(DIST_DIR)/web/hello_xplattergy.js: $(STAMP)
+	@mkdir -p $(dir $@)
+	cp generated/hello_xplattergy.js $@
+
+package-web: $(DIST_DIR)/web/hello_xplattergy.wasm $(DIST_DIR)/web/hello_xplattergy.js
+	@echo "Packaged Web: $(DIST_DIR)/web/"
+
 clean:
-	rm -rf generated $(BUILD_DIR) hello_xplattergy.h
+	rm -rf generated $(BUILD_DIR) $(DIST_DIR) hello_xplattergy.h

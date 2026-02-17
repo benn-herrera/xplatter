@@ -470,7 +470,7 @@ With `c`, only the C API header is generated.
 
 **`impl_lang: rust`** — `_trait.rs` (traits), `_ffi.rs` (extern "C" shims), `_impl.rs` (stubs), `_types.rs` (if types exist)
 
-**`impl_lang: go`** — `_interface.go` (interfaces), `_cgo.go` (//export shims), `_impl.go` (stubs), `_types.go` (if enums exist)
+**`impl_lang: go`** — `_interface.go` (interfaces), `_cgo.go` (//export shims), `_impl.go` (stubs), `_types.go` (if enums exist), and `_wasm.go` (if `web` is in targets; //go:wasmexport stubs for GOOS=wasip1 builds)
 
 **Platform bindings:** `android` → `{PascalCase}.kt` + `_jni.c` | `ios`/`macos` → `{PascalCase}.swift` | `web` → `{api_name}.js` | `windows`/`linux` → C header only
 
