@@ -66,11 +66,11 @@ test-hello-app-web: build
 ## test-hello-apps: Run all app tests
 test-hello-apps: test-hello-app-desktop-cpp test-hello-app-desktop-swift test-hello-app-ios test-hello-app-android test-hello-app-web
 clean-hello-apps: 
-	$(MAKE) -C app-desktop-cpp clean
-	$(MAKE) -C app-desktop-swift clean
-	$(MAKE) -C app-ios clean
-	$(MAKE) -C app-android clean
-	$(MAKE) -C app-web
+	$(MAKE) -C hello-xplattergy/app-desktop-cpp clean
+	$(MAKE) -C hello-xplattergy/app-desktop-swift clean
+	$(MAKE) -C hello-xplattergy/app-ios clean
+	$(MAKE) -C hello-xplattergy/app-android clean
+	$(MAKE) -C hello-xplattergy/app-web
 
 ## package-hello-cpp: Build cross-platform packages for C++ impl
 package-hello-cpp: build
