@@ -37,8 +37,11 @@ fi
 
 if ! is_valid "$BIN"; then
     echo "xplattergy: no usable binary found." >&2
-    echo "  If you've downloaded a dist package, 'build_codegen.sh' to build from source." >&2
-    echo "  If you're a developer 'make build'" >&2
+    if [[ -d "${SCRIPT_DIR}"/.git ]]; then
+        echo "  'make build' first." >&2        
+    else
+        echo "  'build_codegen.sh' to build from source." >&2        
+    fi
     exit 1
 fi
 
