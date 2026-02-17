@@ -95,7 +95,7 @@ func hello_xplattergy_greeter_say_hello(greeter C.greeter_handle, name *C.char, 
 	}
 
 	// Format message and store as C string (caller borrows)
-	msg := fmt.Sprintf("Hello, %s!", goName)
+	msg := fmt.Sprintf("Hello from impl-go, %s!", goName)
 	impl.lastMessage = C.CString(msg)
 	out_result.message = impl.lastMessage
 
