@@ -38,7 +38,7 @@ int32_t hello_xplattergy_greeter_say_hello(
     }
 
     snprintf(greeter->message_buf, sizeof(greeter->message_buf),
-             "Hello from impl-c, %s!", name);
+             "Hello, %s!", name);
     out_result->message = greeter->message_buf;
     return Hello_ErrorCode_Ok;
 }

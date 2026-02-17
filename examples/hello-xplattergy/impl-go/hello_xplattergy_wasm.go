@@ -122,7 +122,7 @@ func hello_xplattergy_greeter_say_hello(greeter uintptr, name uintptr, out_resul
 	}
 
 	// Allocate and populate the message string in WASM linear memory
-	msg := fmt.Sprintf("Hello from impl-go-wasm, %s!", goName)
+	msg := fmt.Sprintf("Hello, %s!", goName)
 	msgBytes := []byte(msg)
 	msgLen := uint32(len(msgBytes))
 	msgPtr := _wasmMalloc(msgLen + 1) // +1 for null terminator

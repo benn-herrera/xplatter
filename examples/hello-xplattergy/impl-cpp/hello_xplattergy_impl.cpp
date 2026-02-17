@@ -27,7 +27,7 @@ int32_t HelloXplattergyImpl::say_hello(
         return Hello_ErrorCode_InvalidArgument;
     }
 
-    message_buf_ = "Hello from impl-cpp, ";
+    message_buf_ = "Hello, ";
     message_buf_ += name;
     message_buf_ += "!";
 
