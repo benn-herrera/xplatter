@@ -45,15 +45,8 @@ vet:
 
 ## test-examples-hello-impl-app-matrix: build all hello example api impls and test all apps against all api impls
 test-examples-hello-impl-app-matrix:
-	$(MAKE) -C examples test-hello-impls	
-	$(MAKE) -C examples clean-hello-apps	
-	$(MAKE) -C examples IMPL=c test-hello-apps
-	$(MAKE) -C examples clean-hello-apps
-	$(MAKE) -C examples IMPL=cpp test-hello-apps
-	$(MAKE) -C examples clean-hello-apps	
-	$(MAKE) -C examples IMPL=go test-hello-apps
-	$(MAKE) -C examples clean-hello-apps		
-	$(MAKE) -C examples IMPL=rust test-hello-apps
+	$(MAKE) -C examples test-examples-hello-impl-app-matrix
+
 
 ## validate: Build and run the validate command against the example API definition
 validate: $(BINARY)
@@ -84,7 +77,7 @@ dist:
 	@tar -czf $(DIST_PKG).tar.gz -C $(DIST_DIR) $(DIST_NAME)
 	@echo "SDK archive ready: $(DIST_PKG).tar.gz"
 	@echo "Verifying distribution..."
-	$(MAKE) -C $(DIST_PKG)/examples test-hello-apps
+	$(MAKE) -C $(DIST_PKG)/examples test-examples-hello-impl-app-matrix
 
 ## help: Show this help
 help:

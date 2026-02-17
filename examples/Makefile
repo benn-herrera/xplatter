@@ -72,9 +72,17 @@ clean-hello-apps:
 	$(MAKE) -C hello-xplattergy/app-android clean
 	$(MAKE) -C hello-xplattergy/app-web
 
+## package-hello-c: Build cross-platform packages for C impl
+package-hello-c: build
+	$(MAKE) -C hello-xplattergy/impl-c packages
+
 ## package-hello-cpp: Build cross-platform packages for C++ impl
 package-hello-cpp: build
 	$(MAKE) -C hello-xplattergy/impl-cpp packages
+
+## package-hello-go: Build cross-platform packages for C impl
+package-hello-go: build
+	$(MAKE) -C hello-xplattergy/impl-go packages
 
 ## package-hello-rust: Build cross-platform packages for Rust impl
 package-hello-rust: build
@@ -82,6 +90,13 @@ package-hello-rust: build
 
 ## package-hello-all: Build packages for all implementations
 package-hello-all: package-hello-cpp package-hello-rust
+
+## test-examples-hello-impl-app-matrix: build all hello example api impls and test all apps against all api impls
+test-examples-hello-impl-app-matrix: test-hello-impls
+	$(MAKE) IMPL=c    clean-hello-apps test-hello-apps
+	$(MAKE) IMPL=cpp  clean-hello-apps test-hello-apps
+	$(MAKE) IMPL=go   clean-hello-apps test-hello-apps
+	$(MAKE) IMPL=rust clean-hello-apps test-hello-apps
 
 ## help: Show available targets
 help:
