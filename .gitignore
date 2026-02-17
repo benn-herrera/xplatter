@@ -16,3 +16,4 @@ local.properties
 *.exe
 *.o
 *.obj
+jniLibs/
