@@ -30,6 +30,7 @@ func (g *JSWASMGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	writeStringMarshalling(&b)
 	writeBufferMarshalling(&b)
 	writeHandleClasses(&b, api)
+	writeWASIPolyfill(&b)
 	writePlatformServiceImports(&b, apiName)
 	writeWASMLoader(&b, apiName, api)
 	writeInterfaceWrappers(&b, apiName, api, ctx.ResolvedTypes)
@@ -158,6 +159,114 @@ func writeHandleClasses(b *strings.Builder, api *model.APIDefinition) {
 	}
 }
 
+// writeWASIPolyfill emits _buildWasiImports(), a minimal WASI snapshot_preview1
+// implementation required by GOOS=wasip1 binaries (e.g. Go WASM).
+// Providing these imports is harmless for non-WASI WASM modules (they are never called).
+func writeWASIPolyfill(b *strings.Builder) {
+	b.WriteString("// Minimal WASI snapshot_preview1 polyfill\n")
+	b.WriteString("// Required for GOOS=wasip1 WASM modules (e.g. Go). Harmless for others.\n")
+	b.WriteString("function _buildWasiImports() {\n")
+	b.WriteString("  const ERRNO_SUCCESS = 0;\n")
+	b.WriteString("  const ERRNO_BADF    = 8;\n")
+	b.WriteString("  const ERRNO_NOSYS   = 52;\n")
+	b.WriteString("  return {\n")
+
+	// fd_write — route fd1→console.log, fd2→console.error, others discarded
+	b.WriteString("    fd_write(fd, iovsPtr, iovsLen, nwrittenPtr) {\n")
+	b.WriteString("      const mem  = _memoryBuffer();\n")
+	b.WriteString("      const view = new DataView(mem);\n")
+	b.WriteString("      let written = 0;\n")
+	b.WriteString("      for (let i = 0; i < iovsLen; i++) {\n")
+	b.WriteString("        const base = iovsPtr + i * 8;\n")
+	b.WriteString("        const ptr  = view.getUint32(base,     true);\n")
+	b.WriteString("        const len  = view.getUint32(base + 4, true);\n")
+	b.WriteString("        if (len > 0 && (fd === 1 || fd === 2)) {\n")
+	b.WriteString("          const text = new TextDecoder().decode(new Uint8Array(mem, ptr, len));\n")
+	b.WriteString("          (fd === 2 ? console.error : console.log)(text.replace(/\\n$/, ''));\n")
+	b.WriteString("        }\n")
+	b.WriteString("        written += len;\n")
+	b.WriteString("      }\n")
+	b.WriteString("      view.setUint32(nwrittenPtr, written, true);\n")
+	b.WriteString("      return ERRNO_SUCCESS;\n")
+	b.WriteString("    },\n")
+
+	// fd_read — no stdin
+	b.WriteString("    fd_read:            () => ERRNO_NOSYS,\n")
+	b.WriteString("    fd_seek:            () => ERRNO_NOSYS,\n")
+	b.WriteString("    fd_close:           () => ERRNO_SUCCESS,\n")
+	b.WriteString("    fd_fdstat_get:      () => ERRNO_NOSYS,\n")
+	b.WriteString("    fd_fdstat_set_flags:() => ERRNO_NOSYS,\n")
+	// fd_prestat_get: BADF signals "no preopened directories"
+	b.WriteString("    fd_prestat_get:     () => ERRNO_BADF,\n")
+	b.WriteString("    fd_prestat_dir_name:() => ERRNO_BADF,\n")
+	b.WriteString("    path_open:          () => ERRNO_NOSYS,\n")
+	b.WriteString("    path_filestat_get:  () => ERRNO_NOSYS,\n")
+
+	// environ — empty environment
+	b.WriteString("    environ_sizes_get(countPtr, bufSizePtr) {\n")
+	b.WriteString("      const v = new DataView(_memoryBuffer());\n")
+	b.WriteString("      v.setUint32(countPtr,   0, true);\n")
+	b.WriteString("      v.setUint32(bufSizePtr, 0, true);\n")
+	b.WriteString("      return ERRNO_SUCCESS;\n")
+	b.WriteString("    },\n")
+	b.WriteString("    environ_get(environPtr) {\n")
+	b.WriteString("      new DataView(_memoryBuffer()).setUint32(environPtr, 0, true);\n")
+	b.WriteString("      return ERRNO_SUCCESS;\n")
+	b.WriteString("    },\n")
+
+	// args — no command-line arguments
+	b.WriteString("    args_sizes_get(argcPtr, bufSizePtr) {\n")
+	b.WriteString("      const v = new DataView(_memoryBuffer());\n")
+	b.WriteString("      v.setUint32(argcPtr,    0, true);\n")
+	b.WriteString("      v.setUint32(bufSizePtr, 0, true);\n")
+	b.WriteString("      return ERRNO_SUCCESS;\n")
+	b.WriteString("    },\n")
+	b.WriteString("    args_get(argvPtr) {\n")
+	b.WriteString("      new DataView(_memoryBuffer()).setUint32(argvPtr, 0, true);\n")
+	b.WriteString("      return ERRNO_SUCCESS;\n")
+	b.WriteString("    },\n")
+
+	// proc_exit — must throw, not no-op: Go places an unreachable instruction
+	// immediately after every proc_exit call site, expecting it to be terminal.
+	// Throwing unwinds the WASM stack cleanly; the loader catches exit code 0
+	// as a successful initialization (main() returning normally).
+	b.WriteString("    proc_exit: (code) => {\n")
+	b.WriteString("      const e = new Error('proc_exit:' + code);\n")
+	b.WriteString("      e.wasiExitCode = code;\n")
+	b.WriteString("      throw e;\n")
+	b.WriteString("    },\n")
+
+	// random_get — use Web Crypto
+	b.WriteString("    random_get(bufPtr, bufLen) {\n")
+	b.WriteString("      crypto.getRandomValues(new Uint8Array(_memoryBuffer(), bufPtr, bufLen));\n")
+	b.WriteString("      return ERRNO_SUCCESS;\n")
+	b.WriteString("    },\n")
+
+	// clock_time_get — wall clock in nanoseconds (BigInt)
+	b.WriteString("    clock_time_get(_clockId, _precision, timePtr) {\n")
+	b.WriteString("      const ns = BigInt(Date.now()) * 1_000_000n;\n")
+	b.WriteString("      new DataView(_memoryBuffer()).setBigUint64(timePtr, ns, true);\n")
+	b.WriteString("      return ERRNO_SUCCESS;\n")
+	b.WriteString("    },\n")
+	b.WriteString("    clock_res_get(_clockId, resPtr) {\n")
+	b.WriteString("      new DataView(_memoryBuffer()).setBigUint64(resPtr, 1_000_000n, true);\n")
+	b.WriteString("      return ERRNO_SUCCESS;\n")
+	b.WriteString("    },\n")
+
+	// sched_yield — no-op
+	b.WriteString("    sched_yield:  () => ERRNO_SUCCESS,\n")
+	// poll_oneoff — not supported
+	b.WriteString("    poll_oneoff:  () => ERRNO_NOSYS,\n")
+	// sock stubs
+	b.WriteString("    sock_accept:  () => ERRNO_NOSYS,\n")
+	b.WriteString("    sock_recv:    () => ERRNO_NOSYS,\n")
+	b.WriteString("    sock_send:    () => ERRNO_NOSYS,\n")
+	b.WriteString("    sock_shutdown:() => ERRNO_NOSYS,\n")
+
+	b.WriteString("  };\n")
+	b.WriteString("}\n\n")
+}
+
 // writePlatformServiceImports writes the env object builder for WASM imports
 // that provide platform services (logging, resources).
 func writePlatformServiceImports(b *strings.Builder, apiName string) {
@@ -215,6 +324,7 @@ func writePlatformServiceImports(b *strings.Builder, apiName string) {
 	b.WriteString("      },\n")
 
 	b.WriteString("    },\n")
+	b.WriteString("    wasi_snapshot_preview1: _buildWasiImports(),\n")
 	b.WriteString("  };\n")
 	b.WriteString("}\n\n")
 }
@@ -240,9 +350,18 @@ func writeWASMLoader(b *strings.Builder, apiName string, api *model.APIDefinitio
 	b.WriteString("  } else {\n")
 	b.WriteString("    throw new Error('wasmSource must be a URL string, Response, WebAssembly.Module, or ArrayBuffer');\n")
 	b.WriteString("  }\n")
-	b.WriteString("  // Initialize WASM runtime (static constructors, allocator setup, etc.)\n")
+	b.WriteString("  // Initialize WASM runtime.\n")
+	b.WriteString("  // Reactor mode (Rust, C/Emscripten): exports _initialize, returns normally.\n")
+	b.WriteString("  // Command mode (Go wasip1): exports _start, which runs main() then calls\n")
+	b.WriteString("  // proc_exit(0). proc_exit throws to unwind the stack; exit code 0 is success.\n")
 	b.WriteString("  if (_wasm.exports._initialize) {\n")
 	b.WriteString("    _wasm.exports._initialize();\n")
+	b.WriteString("  } else if (_wasm.exports._start) {\n")
+	b.WriteString("    try {\n")
+	b.WriteString("      _wasm.exports._start();\n")
+	b.WriteString("    } catch (e) {\n")
+	b.WriteString("      if (!e || e.wasiExitCode !== 0) throw e;\n")
+	b.WriteString("    }\n")
 	b.WriteString("  }\n")
 	b.WriteString("  return {\n")
 
