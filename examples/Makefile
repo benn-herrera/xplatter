@@ -2,65 +2,67 @@
 
 ROOT_DIR := ..
 HOST_OS  := $(shell uname -s)
-BUILD_TARGET  := $(shell [[ -d $(ROOT_DIR)/.git ]] && echo build_for_dev || echo build_in_dist)
+BUILD_XPLATTER_TARGET  := $(shell [[ -d $(ROOT_DIR)/.git ]] && echo build-xplatter-for-dev || echo build-xplatter-in-dist)
 
 # the API implementation to bind when building test apps (c, cpp, rust, or go)
 IMPL ?= cpp
 
-.PHONY: build build_in_dist build_for_dev \
+.PHONY: default build-xplatter build-xplatter-in-dist build-xplatter-for-dev \
        test-hello-impl-c test-hello-impl-cpp test-hello-impl-rust test-hello-impl-go test-hello-impls \
        test-hello-app-desktop-cpp test-hello-app-desktop-swift test-hello-app-ios test-hello-app-android test-hello-app-web test-hello-apps \
        package-hello-cpp package-hello-rust package-hello-all \
        help
 
+default: test-hello-apps
+
 ## build: Ensure a valid xplatter binary is available
-build_in_dist:
+build-xplatter-in-dist:
 	($(ROOT_DIR)/xplatter.sh version 1>&2) 2> /dev/null || $(ROOT_DIR)/build_codegen.sh
 
-build_for_dev:
+build-xplatter-for-dev:
 	$(MAKE) -C $(ROOT_DIR) build
 
-build: $(BUILD_TARGET)
+build-xplatter: $(BUILD_XPLATTER_TARGET)
 
 ## test-hello-impl-c: Build and run the hello example C implementation
-test-hello-impl-c: build
+test-hello-impl-c: build-xplatter
 	$(MAKE) -C hello-xplatter/impl-c run
 
 ## test-hello-impl-cpp: Build and run the hello example C++ implementation
-test-hello-impl-cpp: build
+test-hello-impl-cpp: build-xplatter
 	$(MAKE) -C hello-xplatter/impl-cpp run
 
 ## test-hello-impl-rust: Build and run the hello example Rust implementation
-test-hello-impl-rust: build
+test-hello-impl-rust: build-xplatter
 	cd hello-xplatter/impl-rust && cargo test
 
 ## test-hello-impl-go: Build and run the hello example Go implementation
-test-hello-impl-go: build
+test-hello-impl-go: build-xplatter
 	$(MAKE) -C hello-xplatter/impl-go run
 
 ## test-hello-impls: Run all hello example implementations
 test-hello-impls: test-hello-impl-c test-hello-impl-cpp test-hello-impl-rust test-hello-impl-go
 
 ## test-hello-app-desktop-cpp: Build and test the hello C++ desktop app
-test-hello-app-desktop-cpp: build
+test-hello-app-desktop-cpp: build-xplatter
 	$(MAKE) -C hello-xplatter/app-desktop-cpp IMPL=$(IMPL) test
 
 ## test-hello-app-desktop-swift: Build and test the hello Swift desktop app (macOS only)
-test-hello-app-desktop-swift: build
+test-hello-app-desktop-swift: build-xplatter
 	[[ $(HOST_OS) != Darwin ]] || $(MAKE) -C hello-xplatter/app-desktop-swift IMPL=$(IMPL) test
 	@[[ $(HOST_OS) == Darwin ]] || echo $@ skipped on $(HOST_OS)
 
 ## test-hello-app-ios: Build and test the hello iOS app (simulator, macOS only)
-test-hello-app-ios: build
+test-hello-app-ios: build-xplatter
 	@[[ $(HOST_OS) != Darwin ]] || $(MAKE) -C hello-xplatter/app-ios IMPL=$(IMPL) test
 	@[[ $(HOST_OS) == Darwin ]] || echo $@ skipped on $(HOST_OS)
 
 ## test-hello-app-android: Build and test the hello Android app
-test-hello-app-android: build
+test-hello-app-android: build-xplatter
 	$(MAKE) -C hello-xplatter/app-android IMPL=$(IMPL) test
 
 ## test-hello-app-web: Build and test the hello Web/WASM app (requires emcc)
-test-hello-app-web: build
+test-hello-app-web: build-xplatter
 	$(MAKE) -C hello-xplatter/app-web IMPL=$(IMPL) test
 
 ## test-hello-apps: Run all app tests
@@ -73,23 +75,23 @@ clean-hello-apps:
 	$(MAKE) -C hello-xplatter/app-web
 
 ## package-hello-c: Build cross-platform packages for C impl
-package-hello-c: build
+package-hello-c: build-xplatter
 	$(MAKE) -C hello-xplatter/impl-c packages
 
 ## package-hello-cpp: Build cross-platform packages for C++ impl
-package-hello-cpp: build
+package-hello-cpp: build-xplatter
 	$(MAKE) -C hello-xplatter/impl-cpp packages
 
 ## package-hello-go: Build cross-platform packages for C impl
-package-hello-go: build
+package-hello-go: build-xplatter
 	$(MAKE) -C hello-xplatter/impl-go packages
 
 ## package-hello-rust: Build cross-platform packages for Rust impl
-package-hello-rust: build
+package-hello-rust: build-xplatter
 	$(MAKE) -C hello-xplatter/impl-rust packages
 
 ## package-hello-all: Build packages for all implementations
-package-hello-all: package-hello-cpp package-hello-rust
+package-hello-all: package-hello-c package-hello-cpp package-hello-rust package-hello-go
 
 ## test-examples-hello-impl-app-matrix: build all hello example api impls and test all apps against all api impls
 test-examples-hello-impl-app-matrix: test-hello-impls
