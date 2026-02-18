@@ -1,4 +1,4 @@
-# <img src="docs/logo.png" alt="drawing" height="32"/> xplatter
+# ![xplatter logo](docs/logo_small.png)<br/> xplatter
 
 xplatter is a code generation tool that produces cross-platform API bindings from a single YAML API definition. Define your API once, define your data types in FlatBuffers, and xplatter generates the C ABI contract and idiomatic bindings for Android, iOS, Web, Windows, macOS, and Linux.
 

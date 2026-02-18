@@ -1,4 +1,4 @@
-# <img src="logo.png" alt="drawing" width="32"/> xplatter API Definition Specification
+# ![xplatter logo](logo_small.png)<br/> xplatter API Definition Specification
 
 This document specifies the YAML format for defining cross-platform APIs in xplatter. The API definition file describes the **API surface** — handles, interfaces, and methods — that the code gen tool uses to produce the C ABI header, platform bindings, and optional implementation scaffolding.
 

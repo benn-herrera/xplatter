@@ -1,4 +1,4 @@
-# <img src="docs/logo.png" alt="drawing" width="32"/> xplatter Architecture Overview
+# ![xplatter logo](docs/logo_small.png)<br/> xplatter Architecture Overview
 
 ## What It Is
 
