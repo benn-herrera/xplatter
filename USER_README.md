@@ -1,15 +1,20 @@
 # ![xplatter logo](docs/logo_small.png)<br/> xplatter
-xplatter generates cross-platform API bindings from a single YAML definition. 
+xplatter generates performant bindings for every major user-facing platform.
 
-Define your API and implement it once in the cross-platform system language of your choice and get a set of ready-to-use, idiomatic target language API packages for mobile, web, and desktop.
+Define your performance-critical API and implement it once in the cross-platform system language of your choice and get a set of ready-to-use, idiomatic API packages for mobile, web, and desktop.
 
 ## Quick Start
 
 ### Prerequisites
 
 - A prebuilt `xplatter` binary (included in the SDK) or Go 1.25+ to build from source
-- FlatBuffers compiler (`flatc`) for per-language struct codegen (required)
-- make (GNU Make)
+- FlatBuffers compiler (`flatc`) for per-language struct codegen
+  - Linux: sudo apt install flatbuffers
+  - macOS: brew install flatbuffers
+  - Windows: winget install flatbuffers
+- For examples
+  - make (GNU make) to build example projects
+  - npm or python3 for local http server to run examples/hello-xplatter/app-web (see serve.sh)
 
 Additional tools are required depending on which target platforms you select — see [Platform Tooling Requirements](#platform-tooling-requirements) below.
 

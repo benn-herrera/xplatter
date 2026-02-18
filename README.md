@@ -1,12 +1,13 @@
 # ![xplatter logo](docs/logo_small.png)<br/> xplatter
+xplatter generates performant bindings for every major user-facing platform.
 
-xplatter is a code generation tool that produces cross-platform API bindings from a single YAML API definition. Define your API once, define your data types in FlatBuffers, and xplatter generates the C ABI contract and idiomatic bindings for Android, iOS, Web, Windows, macOS, and Linux.
+Define your performance-critical API and implement it once in the cross-platform system language of your choice and get a set of ready-to-use, idiomatic API packages for mobile, web, and desktop.
 
 ## Quick Start
 
 ### Prerequisites
 
-- **Go 1.25+** (to build the code gen tool)
+- **Go 1.25+**
 - **flatc** (FlatBuffers compiler — required for per-language struct codegen)
 - **make** (GNU Make)
   - On Windows
