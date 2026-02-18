@@ -1,8 +1,8 @@
-// xplattergy Core Types
+// xplatter Core Types
 //
 // FlatBuffers table types for returning string and buffer data across
 // the C ABI boundary. Since string and buffer<T> are parameter-only
-// types in xplattergy, these boxed types provide a standard way to
+// types in xplatter, these boxed types provide a standard way to
 // return such data via FlatBuffer result types.
 //
 // These types are provided as first-party contrib — usable by example

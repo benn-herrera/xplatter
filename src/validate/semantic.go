@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/benn-herrera/xplattergy/model"
-	"github.com/benn-herrera/xplattergy/resolver"
+	"github.com/benn-herrera/xplatter/model"
+	"github.com/benn-herrera/xplatter/resolver"
 )
 
 // ValidationError represents a single semantic validation error.

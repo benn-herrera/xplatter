@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# build_codegen.sh — Build the xplattergy code generation tool.
+# build_codegen.sh — Build the xplatter code generation tool.
 #
 # Detects or installs Go, then builds the binary.
 #
@@ -11,7 +11,7 @@ set -euo pipefail
 #   ./build_codegen.sh --help       # show usage
 #
 # Environment variables:
-#   XPLATTERGY_VERSION  Override the embedded version string (default: git describe or "dev")
+#   XPLATTER_VERSION  Override the embedded version string (default: git describe or "dev")
 #   GO_MIN_VERSION      Minimum required Go version (default: 1.22)
 #   GOBIN               Directory for the built binary (default: ./bin)
 
@@ -19,7 +19,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_DIR="${SCRIPT_DIR}/src"
 GO_MIN_VERSION="${GO_MIN_VERSION:-1.22}"
 GOBIN="${GOBIN:-${SCRIPT_DIR}/bin}"
-MODULE_PATH="github.com/benn-herrera/xplattergy"
+MODULE_PATH="github.com/benn-herrera/xplatter"
 
 # ---------- helpers ----------
 
@@ -52,8 +52,8 @@ detect_go() {
 
 # Resolve version string for embedding.
 resolve_version() {
-    if [[ -n "${XPLATTERGY_VERSION:-}" ]]; then
-        echo "$XPLATTERGY_VERSION"
+    if [[ -n "${XPLATTER_VERSION:-}" ]]; then
+        echo "$XPLATTER_VERSION"
         return
     fi
     if git -C "$SCRIPT_DIR" describe --tags --always 2>/dev/null; then
@@ -82,7 +82,7 @@ ensure_go() {
     echo "  Linux (snap):      sudo snap install go --classic"
     echo "  Any platform:      https://go.dev/dl/"
     echo ""
-    die "Go >= ${GO_MIN_VERSION} is required to build xplattergy."
+    die "Go >= ${GO_MIN_VERSION} is required to build xplatter."
 }
 
 # ---------- build ----------
@@ -91,7 +91,7 @@ do_build() {
     local version
     version="$(resolve_version)"
 
-    log "Building xplattergy (version: ${version})"
+    log "Building xplatter (version: ${version})"
 
     mkdir -p "$GOBIN"
 
@@ -99,10 +99,10 @@ do_build() {
 
     (cd "$SRC_DIR" && go build \
         -ldflags "$ldflags" \
-        -o "${GOBIN}/xplattergy" \
+        -o "${GOBIN}/xplatter" \
         .)
 
-    log "Built: ${GOBIN}/xplattergy"
+    log "Built: ${GOBIN}/xplatter"
 }
 
 # ---------- main ----------
@@ -111,14 +111,14 @@ case "${1:-}" in
     --help|-h)
         echo "Usage: $0 [--version | --help]"
         echo ""
-        echo "Build the xplattergy code generation tool."
+        echo "Build the xplatter code generation tool."
         echo ""
         echo "Options:"
         echo "  --version   Print the version that would be embedded and exit"
         echo "  --help      Show this help message"
         echo ""
         echo "Environment variables:"
-        echo "  XPLATTERGY_VERSION  Override embedded version (default: git describe or 'dev')"
+        echo "  XPLATTER_VERSION  Override embedded version (default: git describe or 'dev')"
         echo "  GO_MIN_VERSION      Minimum Go version (default: 1.22)"
         echo "  GOBIN               Output directory (default: ./bin)"
         exit 0

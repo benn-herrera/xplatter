@@ -14,9 +14,9 @@ import (
 //go:generate cp ../../docs/api_definition_schema.json schema_embedded.json
 var schemaJSON = `{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://xplattergy.dev/schemas/api-definition/v1",
-  "title": "xplattergy API Definition",
-  "description": "Schema for xplattergy API definition YAML files.",
+  "$id": "https://xplatter.dev/schemas/api-definition/v1",
+  "title": "xplatter API Definition",
+  "description": "Schema for xplatter API definition YAML files.",
   "type": "object",
   "required": ["api", "flatbuffers", "interfaces"],
   "additionalProperties": false,

@@ -1,9 +1,9 @@
-# xplattergy Makefile
+# xplatter Makefile
 
 SRC_DIR     := src
 BIN_DIR     := bin
-BINARY      := $(BIN_DIR)/xplattergy
-MODULE_PATH := github.com/benn-herrera/xplattergy
+BINARY      := $(BIN_DIR)/xplatter
+MODULE_PATH := github.com/benn-herrera/xplatter
 
 VERSION     ?= $(shell git describe --tags --always 2>/dev/null || echo dev)
 LDFLAGS     := -s -w -X $(MODULE_PATH)/cmd.Version=$(VERSION)
@@ -55,14 +55,14 @@ validate: $(BINARY)
 	$(BINARY) validate docs/example_api_definition.yaml
 
 ## dist: Build a batteries-included SDK archive for distribution
-dist: DIST_NAME := xplattergy-$(VERSION)
+dist: DIST_NAME := xplatter-$(VERSION)
 dist: DIST_PKG  := $(DIST_DIR)/$(DIST_NAME)
 dist:
 	@mkdir -p $(DIST_PKG)/bin
 	@for platform in $(PLATFORMS); do \
 		GOOS=$${platform%/*}; \
 		GOARCH=$${platform#*/}; \
-		output="$(DIST_PKG)/bin/xplattergy-$${GOOS}-$${GOARCH}"; \
+		output="$(DIST_PKG)/bin/xplatter-$${GOOS}-$${GOARCH}"; \
 		if [ "$$GOOS" = "windows" ]; then output="$${output}.exe"; fi; \
 		echo "Building $$output ..."; \
 		cd $(SRC_DIR) && CGO_ENABLED=0 GOOS=$$GOOS GOARCH=$$GOARCH \
@@ -70,8 +70,8 @@ dist:
 	done
 	@cp -r $(SRC_DIR) $(DIST_PKG)/$(SRC_DIR)
 	@cp build_codegen.sh $(DIST_PKG)/
-	@cp xplattergy.sh $(DIST_PKG)/
-	@rsync -a --exclude='build/' --exclude='generated/' --exclude='dist/' --exclude='target/' --exclude='hello_xplattergy.h' --exclude='Cargo.lock' examples $(DIST_PKG)/
+	@cp xplatter.sh $(DIST_PKG)/
+	@rsync -a --exclude='build/' --exclude='generated/' --exclude='dist/' --exclude='target/' --exclude='hello_xplatter.h' --exclude='Cargo.lock' examples $(DIST_PKG)/
 	@cp -r schemas $(DIST_PKG)/bin/schemas
 	@cp -r docs $(DIST_PKG)/docs
 	@cp LICENSE.md $(DIST_PKG)/

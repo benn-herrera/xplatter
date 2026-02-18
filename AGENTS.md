@@ -6,7 +6,7 @@ Go code-gen tool that reads YAML API definitions + FlatBuffers schemas and outpu
 
 ```bash
 # Build the tool
-make build                    # → bin/xplattergy
+make build                    # → bin/xplatter
 
 # Run all Go unit tests
 make test                     # quiet
@@ -125,7 +125,7 @@ All generators follow the same pattern: iterate API interfaces, iterate methods,
 - **Swift FlatBuffer returns** use C struct names (not OpaquePointer).
 - **JS/WASM loader** must call `_initialize()` after WASM instantiation (WASI reactor init for static constructors).
 - **`flatc` is required** — the FlatBuffers compiler must be available. Use `--skip-flatc` for incomplete output without it.
-- **Go generated package name**: API name with underscores removed (e.g., `hello_xplattergy` → `helloxplattergy`).
+- **Go generated package name**: API name with underscores removed (e.g., `hello_xplatter` → `helloxplatter`).
 
 ## C ABI Boundary Summary
 

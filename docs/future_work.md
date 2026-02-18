@@ -9,5 +9,5 @@
     * COULD offer quick, agentic driven prototyping & discovery with higher reliability
     * with working Go impl + agentically maintained spec porting from discovery language (Go) to delivery language (Rust, C, or C++) will be cheaper than ever before.
     * COULD be an attactive nuisance
-  * experiment during building of projects downstream of xplattergy
+  * experiment during building of projects downstream of xplatter
   * if it shows deal breaker issues or just doesn't pan out cut it and save the hassle.

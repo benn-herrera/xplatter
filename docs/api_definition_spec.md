@@ -1,6 +1,6 @@
-# <img src="logo.png" alt="drawing" width="32"/> xplattergy API Definition Specification
+# <img src="logo.png" alt="drawing" width="32"/> xplatter API Definition Specification
 
-This document specifies the YAML format for defining cross-platform APIs in xplattergy. The API definition file describes the **API surface** — handles, interfaces, and methods — that the code gen tool uses to produce the C ABI header, platform bindings, and optional implementation scaffolding.
+This document specifies the YAML format for defining cross-platform APIs in xplatter. The API definition file describes the **API surface** — handles, interfaces, and methods — that the code gen tool uses to produce the C ABI header, platform bindings, and optional implementation scaffolding.
 
 All data types (structs, enums, unions, constants, typedefs) are defined in FlatBuffers schemas, not in this file. The API definition references FlatBuffers types by their fully-qualified namespace.
 

@@ -1,8 +1,8 @@
-# <img src="docs/logo.png" alt="drawing" width="32"/> xplattergy Architecture Overview
+# <img src="docs/logo.png" alt="drawing" width="32"/> xplatter Architecture Overview
 
 ## What It Is
 
-xplattergy is a code generation system that produces complete, ready-to-use API packages for a set of target platforms from a single API definition and implementation. It targets six platforms — Android, iOS, Web, Windows, macOS, and Linux — and is agnostic to the language used to implement the underlying library.
+xplatter is a code generation system that produces complete, ready-to-use API packages for a set of target platforms from a single API definition and implementation. It targets six platforms — Android, iOS, Web, Windows, macOS, and Linux — and is agnostic to the language used to implement the underlying library.
 
 ## Core Principles
 
@@ -104,7 +104,7 @@ The system enforces a clean separation between two roles: the **API provider** (
 
 ### Provider — builds and packages
 
-The provider authors the API definition and FlatBuffers schemas, runs `xplattergy generate`, implements the generated abstract interface, and builds platform-specific packages. Each package bundles the compiled library with the idiomatic language binding for that platform:
+The provider authors the API definition and FlatBuffers schemas, runs `xplatter generate`, implements the generated abstract interface, and builds platform-specific packages. Each package bundles the compiled library with the idiomatic language binding for that platform:
 
 | Platform | Package contents |
 |----------|-----------------|
@@ -120,7 +120,7 @@ The provider owns the code gen tool, the build infrastructure, and the implement
 
 The consumer receives an opaque, pre-built package and imports it using the platform's standard mechanism — SPM dependency for iOS, Gradle JNI libs for Android, ES module or `<script>` tag for web, header + shared library for desktop. The consumer:
 
-- Never runs `xplattergy generate`
+- Never runs `xplatter generate`
 - Never sees the implementation source, the generated shim, or the C header (on platforms with higher-level bindings)
 - Has no dependency on the code gen tool or any of its prerequisites
 - Calls the API through the idiomatic binding in their platform's language
@@ -129,7 +129,7 @@ This mirrors the standard library distribution model: the provider is the shared
 
 ### In the examples
 
-The `examples/hello-xplattergy/` directory demonstrates both roles. The impl directories (`impl-c/`, `impl-cpp/`, `impl-rust/`, `impl-go/`) are provider-side — they run code gen, compile the implementation, and produce platform packages via `make packages`. The app directories (`app-ios/`, `app-android/`, `app-web/`, `app-desktop-cpp/`, `app-desktop-swift/`) are consumer-side — each has an `ensure-package` target that checks for the pre-built package and, if absent, triggers the provider's package build. But the app project itself only references the packaged artifacts. No app project runs code gen or reaches into implementation internals.
+The `examples/hello-xplatter/` directory demonstrates both roles. The impl directories (`impl-c/`, `impl-cpp/`, `impl-rust/`, `impl-go/`) are provider-side — they run code gen, compile the implementation, and produce platform packages via `make packages`. The app directories (`app-ios/`, `app-android/`, `app-web/`, `app-desktop-cpp/`, `app-desktop-swift/`) are consumer-side — each has an `ensure-package` target that checks for the pre-built package and, if absent, triggers the provider's package build. But the app project itself only references the packaged artifacts. No app project runs code gen or reaches into implementation internals.
 
 ## The C ABI Boundary
 
@@ -171,7 +171,7 @@ FlatBuffers serves three roles in the system:
 
 1. **Data structure IDL** — `.fbs` schemas define all data types (structs, enums, unions, tables, constants) used in the API. All type definitions live in FlatBuffers — the YAML API definition exclusively describes the API surface (interfaces, methods, handles). This avoids inventing a type definition language and gives users a well-documented, mature format they may already know.
 
-2. **Per-language struct codegen** — the FlatBuffers compiler generates idiomatic data structure code for every target language. The xplattergy code gen tool does not need to replicate this.
+2. **Per-language struct codegen** — the FlatBuffers compiler generates idiomatic data structure code for every target language. The xplatter code gen tool does not need to replicate this.
 
 3. **Serialization** — zero-copy marshalling across the JNI boundary, binary-compatible save files across platforms, and a wire format for cross-device communication.
 

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://xplattergy.dev/schemas/api-definition/v1",
-  "title": "xplattergy API Definition",
-  "description": "Schema for xplattergy API definition YAML files. Defines the API surface (handles, interfaces, methods) for cross-platform code generation. All data types (structs, enums, unions, constants) are defined in FlatBuffers schemas, not in this file.",
+  "$id": "https://xplatter.dev/schemas/api-definition/v1",
+  "title": "xplatter API Definition",
+  "description": "Schema for xplatter API definition YAML files. Defines the API surface (handles, interfaces, methods) for cross-platform code generation. All data types (structs, enums, unions, constants) are defined in FlatBuffers schemas, not in this file.",
   "type": "object",
   "required": ["api", "flatbuffers", "interfaces"],
   "additionalProperties": false,

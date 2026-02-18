@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// APIDefinition is the top-level structure of an xplattergy API definition YAML file.
+// APIDefinition is the top-level structure of an xplatter API definition YAML file.
 type APIDefinition struct {
 	API         APIMetadata    `yaml:"api"`
 	FlatBuffers []string       `yaml:"flatbuffers"`

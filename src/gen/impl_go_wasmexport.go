@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/benn-herrera/xplattergy/model"
+	"github.com/benn-herrera/xplatter/model"
 )
 
 func init() {

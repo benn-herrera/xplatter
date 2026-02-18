@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/benn-herrera/xplattergy/model"
+	"github.com/benn-herrera/xplatter/model"
 	"gopkg.in/yaml.v3"
 )
 

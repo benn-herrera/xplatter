@@ -1,4 +1,4 @@
-module github.com/benn-herrera/xplattergy
+module github.com/benn-herrera/xplatter
 
 go 1.25.0
 

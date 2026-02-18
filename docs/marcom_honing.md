@@ -1,6 +1,6 @@
 # MarCom Honing — Branding & Capitalization Assessment
 
-This document captures a branding, capitalization, and positioning assessment for the xplattergy project. It’s designed to be revisited across conversations as we decide whether to pursue a reputational bridge (career signal) or a real business (commercial product).
+This document captures a branding, capitalization, and positioning assessment for the xplatter project. It’s designed to be revisited across conversations as we decide whether to pursue a reputational bridge (career signal) or a real business (commercial product).
 
 ## 1) Context (what the project is)
 - Code generation tool that produces cross-platform API bindings from a single YAML API definition.
@@ -9,7 +9,7 @@ This document captures a branding, capitalization, and positioning assessment fo
 - Documentation emphasizes a deliberate architecture (Pure C ABI as universal contract; no ownership transfer; no callbacks; per-API export macros).
 
 ## 2) Branding Problems Identified (from the assessment)
-- Name problem: xplattergy is obscure, hard to spell, hard to remember, and signals dated tech; low searchability and weak signal of what the product does.
+- Name problem: xplatter is obscure, hard to spell, hard to remember, and signals dated tech; low searchability and weak signal of what the product does.
 - The brand currently lacks a semantic signal about the problem it solves (cross-platform codegen for ABIs).
 - The project sits at a crossroads: reputational bridge for the creator (career signal) vs. real product with revenue potential.
 

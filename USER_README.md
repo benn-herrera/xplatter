@@ -1,6 +1,6 @@
-# <img src="docs/logo.png" alt="drawing" width="32"/> xplattergy
+# <img src="docs/logo.png" alt="drawing" width="32"/> xplatter
 
-xplattergy *(splat-er-jee)* generates cross-platform API bindings from a single YAML definition. 
+xplatter *(splat-er-jee)* generates cross-platform API bindings from a single YAML definition. 
 
 Define your API and implement it once in the cross-platform system language of your choice and get a set of ready-to-use, idiomatic target language API packages for mobile, web, and desktop.
 
@@ -8,7 +8,7 @@ Define your API and implement it once in the cross-platform system language of y
 
 ### Prerequisites
 
-- A prebuilt `xplattergy` binary (included in the SDK) or Go 1.25+ to build from source
+- A prebuilt `xplatter` binary (included in the SDK) or Go 1.25+ to build from source
 - FlatBuffers compiler (`flatc`) for per-language struct codegen (required)
 - make (GNU Make)
 
@@ -22,7 +22,7 @@ Additional tools are required depending on which target platforms you select —
 
 ### Try the Examples
 
-Working examples with API implementations in C, C++, Rust, and Go with front end consumer apps targeting mobile, desktop, and web live under `examples/`. hello-xplattergy defines a simple greeter API. All examples generate bindings, implement them, and run tests.
+Working examples with API implementations in C, C++, Rust, and Go with front end consumer apps targeting mobile, desktop, and web live under `examples/`. hello-xplatter defines a simple greeter API. All examples generate bindings, implement them, and run tests.
 
 ```bash
 # Run all implementation examples
@@ -46,34 +46,34 @@ make test-hello-app-android           # requires Android SDK + NDK
 
 ```bash
 # Generate all bindings
-xplattergy generate my_api.yaml -o generated
+xplatter generate my_api.yaml -o generated
 
 # Generate for specific platforms only
-xplattergy generate my_api.yaml -o generated --targets android,ios,web
+xplatter generate my_api.yaml -o generated --targets android,ios,web
 
 # Validate without generating
-xplattergy validate my_api.yaml
+xplatter validate my_api.yaml
 
 # Scaffold a new project
-xplattergy init --name my_api --impl-lang cpp
+xplatter init --name my_api --impl-lang cpp
 
 # Preview what would be generated
-xplattergy generate my_api.yaml --dry-run
+xplatter generate my_api.yaml --dry-run
 ```
 
 ### Workflow
 
 1. Define your API in YAML
 2. Define your data types in FlatBuffers schemas (`.fbs` files)
-3. Run `xplattergy generate your_api.yaml -o generated`
+3. Run `xplatter generate your_api.yaml -o generated`
 4. Implement the generated abstract interface in your language (C++, Rust, Go, or plain C)
 5. Build your implementation against the generated C header and shim
-  * xplattergy should be integrated into your project build system as a code gen dependency
+  * xplatter should be integrated into your project build system as a code gen dependency
 
 ## CLI Reference
 
 ```
-xplattergy <command> [flags]
+xplatter <command> [flags]
 ```
 
 ### Commands
@@ -115,7 +115,7 @@ xplattergy <command> [flags]
 
 **FlatBuffers compiler resolution order:**
 1. `--flatc` flag
-2. `XPLATTERGY_FLATC_PATH` environment variable
+2. `XPLATTER_FLATC_PATH` environment variable
 3. `flatc` in `PATH`
 
 ## API Definition Format

@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/benn-herrera/xplattergy/gen"
-	"github.com/benn-herrera/xplattergy/loader"
-	"github.com/benn-herrera/xplattergy/resolver"
-	"github.com/benn-herrera/xplattergy/validate"
+	"github.com/benn-herrera/xplatter/gen"
+	"github.com/benn-herrera/xplatter/loader"
+	"github.com/benn-herrera/xplatter/resolver"
+	"github.com/benn-herrera/xplatter/validate"
 )
 
 var (
@@ -90,7 +90,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	if !genSkipFlatc && len(def.FlatBuffers) > 0 {
 		flatcPath, err := resolver.ResolveFlatc(genFlatc)
 		if err != nil {
-			return fmt.Errorf("flatc is required but not found: %w\n\nProvide flatc via --flatc flag, XPLATTERGY_FLATC_PATH env var, or ensure it is in PATH.\nUse --skip-flatc to skip FlatBuffers codegen (generated bindings will be incomplete).", err)
+			return fmt.Errorf("flatc is required but not found: %w\n\nProvide flatc via --flatc flag, XPLATTER_FLATC_PATH env var, or ensure it is in PATH.\nUse --skip-flatc to skip FlatBuffers codegen (generated bindings will be incomplete).", err)
 		}
 
 		// Resolve absolute paths for .fbs files using same search dirs

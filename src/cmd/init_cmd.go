@@ -90,7 +90,7 @@ enum ErrorCode : int32 {
 		fmt.Printf("Created:\n")
 		fmt.Printf("  %s\n", apiDefPath)
 		fmt.Printf("  %s\n", fbsPath)
-		fmt.Printf("\nNext: xplattergy validate %s\n", apiDefPath)
+		fmt.Printf("\nNext: xplatter validate %s\n", apiDefPath)
 	}
 	return nil
 }

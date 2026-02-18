@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>hello_xplatter — Web</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 480px; margin: 40px auto; padding: 0 16px; }
+    h1 { font-size: 1.25rem; }
+    input, button { font-size: 1rem; padding: 6px 12px; }
+    input { width: 200px; }
+    #output { margin-top: 16px; min-height: 1.5em; }
+    #error { color: red; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>hello_xplatter</h1>
+  <div>
+    <input id="name" type="text" value="xplatter" placeholder="Enter a name">
+    <button id="greet">Greet</button>
+  </div>
+  <p id="impl" style="font-size: 0.85rem; color: #666;"></p>
+  <p id="output"></p>
+  <p id="error"></p>
+
+  <script type="module">
+    import { loadHelloXplatter } from './hello_xplatter.js';
+
+    const nameInput = document.getElementById('name');
+    const greetBtn  = document.getElementById('greet');
+    const implInfo  = document.getElementById('impl');
+    const output    = document.getElementById('output');
+    const error     = document.getElementById('error');
+
+    let api = null;
+    let greeter = null;
+
+    async function init() {
+      try {
+        // Use fetch + arrayBuffer to avoid MIME type issues with simple HTTP servers
+        const response = await fetch('hello_xplatter.wasm');
+        const bytes = await response.arrayBuffer();
+        api = await loadHelloXplatter(bytes);
+        greeter = api.lifecycle.createGreeter();
+        // Discover backing implementation
+        try {
+          const probe = api.greeter.sayHello(greeter, '');
+          if (probe.apiImpl) {
+            implInfo.textContent = 'Backing implementation: ' + probe.apiImpl;
+          }
+        } catch (_) {}
+        greetBtn.disabled = false;
+      } catch (e) {
+        error.textContent = 'Failed to load WASM: ' + e.message;
+      }
+    }
+
+    greetBtn.disabled = true;
+    greetBtn.addEventListener('click', () => {
+      error.textContent = '';
+      try {
+        const result = api.greeter.sayHello(greeter, nameInput.value);
+        output.textContent = result.message;
+      } catch (e) {
+        error.textContent = e.message;
+      }
+    });
+
+    init();
+  </script>
+</body>
+</html>

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/benn-herrera/xplattergy/model"
+	"github.com/benn-herrera/xplatter/model"
 )
 
 func init() {
@@ -494,7 +494,7 @@ func cppOutParamType(retType string) string {
 	return cppReturnType(retType) + "*"
 }
 
-// cppPrimitiveType maps xplattergy primitive types to C++ fixed-width types.
+// cppPrimitiveType maps xplatter primitive types to C++ fixed-width types.
 func cppPrimitiveType(t string) string {
 	// Same as C — stdint.h types
 	return model.PrimitiveCType(t)

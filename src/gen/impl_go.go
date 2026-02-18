@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/benn-herrera/xplattergy/model"
-	"github.com/benn-herrera/xplattergy/resolver"
+	"github.com/benn-herrera/xplatter/model"
+	"github.com/benn-herrera/xplatter/resolver"
 )
 
 func init() {
@@ -423,7 +423,7 @@ func goZeroValue(t string) string {
 	return "nil"
 }
 
-// primitiveGoType maps xplattergy primitive types to Go types.
+// primitiveGoType maps xplatter primitive types to Go types.
 func primitiveGoType(t string) string {
 	switch t {
 	case "int8":

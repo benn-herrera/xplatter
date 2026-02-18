@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/benn-herrera/xplattergy/model"
-	"github.com/benn-herrera/xplattergy/resolver"
+	"github.com/benn-herrera/xplatter/model"
+	"github.com/benn-herrera/xplatter/resolver"
 )
 
 func init() {
@@ -552,7 +552,7 @@ func kotlinNativeReturnType(t string) string {
 	return "Long"
 }
 
-// kotlinPrimitiveType maps an xplattergy primitive type to a Kotlin type.
+// kotlinPrimitiveType maps an xplatter primitive type to a Kotlin type.
 func kotlinPrimitiveType(t string) string {
 	switch t {
 	case "int8":

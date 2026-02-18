@@ -1,6 +1,6 @@
-# <img src="docs/logo.png" alt="drawing" width="32"/> xplattergy
+# <img src="docs/logo.png" alt="drawing" width="32"/> xplatter
 
-xplattergy *(splat-er-jee)* is a code generation tool that produces cross-platform API bindings from a single YAML API definition. Define your API once, define your data types in FlatBuffers, and xplattergy generates the C ABI contract and idiomatic bindings for Android, iOS, Web, Windows, macOS, and Linux.
+xplatter is a code generation tool that produces cross-platform API bindings from a single YAML API definition. Define your API once, define your data types in FlatBuffers, and xplatter generates the C ABI contract and idiomatic bindings for Android, iOS, Web, Windows, macOS, and Linux.
 
 ## Quick Start
 
@@ -25,24 +25,24 @@ Only the tools for your selected target platforms are required — see [Platform
 make build
 ```
 
-This produces `bin/xplattergy`.
+This produces `bin/xplatter`.
 
 ### Run
 
 ```bash
 # Generate bindings from an API definition
-bin/xplattergy generate docs/example_api_definition.yaml -o generated
+bin/xplatter generate docs/example_api_definition.yaml -o generated
 
 # Validate an API definition without generating
-bin/xplattergy validate docs/example_api_definition.yaml
+bin/xplatter validate docs/example_api_definition.yaml
 
 # Scaffold a new project
-bin/xplattergy init --name my_api --impl-lang cpp
+bin/xplatter init --name my_api --impl-lang cpp
 ```
 
 ### Run the Examples
 
-Working examples with API implementations in C, C++, Rust, and Go with front end consumer apps targeting mobile, desktop, and web live under `examples/`. hello-xplattergy defines a simple greeter API. All examples generate bindings, implement them, and run tests.
+Working examples with API implementations in C, C++, Rust, and Go with front end consumer apps targeting mobile, desktop, and web live under `examples/`. hello-xplatter defines a simple greeter API. All examples generate bindings, implement them, and run tests.
 
 ```bash
 # Run all implementation examples
@@ -74,11 +74,11 @@ make validate      # validate the example API definition
 
 1. **Define your API** in YAML (see `docs/example_api_definition.yaml`)
 2. **Define data types** in FlatBuffers schemas (`.fbs` files)
-3. **Generate bindings:** `bin/xplattergy generate your_api.yaml`
+3. **Generate bindings:** `bin/xplatter generate your_api.yaml`
 4. **Implement** the generated abstract interface in your language (C++, Rust, Go, or plain C)
 5. **Build** your implementation — the generated C ABI shim handles all FFI compliance
 
-The `examples/hello-xplattergy/` directory shows this workflow end-to-end for each supported language.
+The `examples/hello-xplatter/` directory shows this workflow end-to-end for each supported language.
 
 ## What It Generates
 
@@ -152,7 +152,7 @@ These build consumer-facing apps that use the generated bindings. Platform avail
 
 | Target | Description |
 |--------|-------------|
-| `build` | Build `bin/xplattergy` for the current platform |
+| `build` | Build `bin/xplatter` for the current platform |
 | `test` | Run all Go unit tests |
 | `test-v` | Run tests with verbose output |
 | `test-examples` | Build and run all implementation examples (C, C++, Rust, Go) |

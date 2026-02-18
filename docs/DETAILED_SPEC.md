@@ -1,10 +1,10 @@
-# xplattergy Code Generation Specification
+# xplatter Code Generation Specification
 
-Self-contained specification for implementing the xplattergy code generation tool.
+Self-contained specification for implementing the xplatter code generation tool.
 
 ## 1. Project Overview
 
-xplattergy generates cross-platform API bindings from a single YAML API definition, targeting Android, iOS, Web, Windows, macOS, and Linux. **Implementation language agnostic** — any language with C ABI + WASM exports works.
+xplatter generates cross-platform API bindings from a single YAML API definition, targeting Android, iOS, Web, Windows, macOS, and Linux. **Implementation language agnostic** — any language with C ABI + WASM exports works.
 
 ## 2. Tool Implementation
 
@@ -22,7 +22,7 @@ Fallback: `build_codegen.sh` script + Makefile. Dependencies resolve via Go modu
 ### 2.2 CLI Interface
 
 ```
-xplattergy <command> [flags]
+xplatter <command> [flags]
 ```
 
 **Commands:**
@@ -69,7 +69,7 @@ xplattergy <command> [flags]
 
 **FlatBuffers compiler resolution order:**
 1. `--flatc` flag
-2. `XPLATTERGY_FLATC_PATH` environment variable
+2. `XPLATTER_FLATC_PATH` environment variable
 3. `flatc` in `PATH`
 
 ## 3. Inputs
@@ -313,7 +313,7 @@ The C header emits a per-API export macro:
 #endif
 ```
 
-`<UPPER_API_NAME>` = API name in `UPPER_SNAKE_CASE` (e.g., `HELLO_XPLATTERGY`).
+`<UPPER_API_NAME>` = API name in `UPPER_SNAKE_CASE` (e.g., `HELLO_XPLATTER`).
 
 **Rules:**
 
@@ -356,7 +356,7 @@ Strings use JNI `GetStringUTFChars`/`ReleaseStringUTFChars`. Handles are wrapped
 
 **Type mappings:**
 
-| xplattergy | Kotlin | JNI C |
+| xplatter | Kotlin | JNI C |
 |------------|--------|-------|
 | `string` | `String` | `jstring` |
 | `buffer<uint8>` | `ByteArray` | `jbyteArray` |
@@ -384,7 +384,7 @@ Strings use `withCString` or automatic bridging. Handles are wrapped in Swift cl
 
 **Type mappings:**
 
-| xplattergy | Swift |
+| xplatter | Swift |
 |------------|-------|
 | `string` | `String` (marshalled via `withCString`) |
 | `buffer<uint8>` | `Data` / `UnsafeMutableBufferPointer<UInt8>` |
@@ -524,7 +524,7 @@ All other methods are "regular" — they find the first handle parameter, cast i
 
 **Interface type mappings** (idiomatic C++, not raw C):
 
-| xplattergy Type | C++ Interface Type |
+| xplatter Type | C++ Interface Type |
 |-----------------|--------------------|
 | `string` | `std::string_view` |
 | `buffer<T>` (ref) | `std::span<const T>` |
@@ -556,7 +556,7 @@ All other methods are "regular" — they find the first handle parameter, cast i
 
 **Trait type mappings:**
 
-| xplattergy Type | Rust Trait Type | Rust FFI Type |
+| xplatter Type | Rust Trait Type | Rust FFI Type |
 |-----------------|-----------------|---------------|
 | `string` | `&str` | `*const c_char` |
 | `buffer<T>` (ref) | `&[T]` | `*const T`, `u32` |
@@ -639,7 +639,7 @@ func {cabi_function_name}(params) C.int32_t {
 
 **Go type mappings:**
 
-| xplattergy Type | Go Interface Type | cgo Type |
+| xplatter Type | Go Interface Type | cgo Type |
 |-----------------|-------------------|----------|
 | `string` | `string` | `*C.char` |
 | `buffer<T>` | `[]T` | `*C.{ctype}`, `C.uint32_t` |
@@ -653,7 +653,7 @@ All shim code is mechanically derivable from the API definition — each method 
 
 The code gen tool produces source files only. Packaging those into deliverable platform artifacts is a build-system concern handled by Makefiles, Gradle, Xcode projects, etc. See ARCHITECTURE.md for the full provider/consumer model and per-platform package contents.
 
-The **provider** (library author) runs codegen, implements the interface, and builds platform packages. The **consumer** (app developer) receives pre-built packages and calls the idiomatic binding — no dependency on `xplattergy` or `flatc`.
+The **provider** (library author) runs codegen, implements the interface, and builds platform packages. The **consumer** (app developer) receives pre-built packages and calls the idiomatic binding — no dependency on `xplatter` or `flatc`.
 
 Consumer app projects typically use an `ensure-package` pattern: check for the pre-built package, and if absent, trigger the provider's package build.
 

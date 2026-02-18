@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/benn-herrera/xplattergy/cmd"
+	"github.com/benn-herrera/xplatter/cmd"
 )
 
 func main() {

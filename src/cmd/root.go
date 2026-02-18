@@ -10,9 +10,9 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "xplattergy",
+	Use:   "xplatter",
 	Short: "Cross-platform API binding code generator",
-	Long:  "xplattergy generates C ABI headers, platform bindings, and implementation scaffolding from a single YAML API definition.",
+	Long:  "xplatter generates C ABI headers, platform bindings, and implementation scaffolding from a single YAML API definition.",
 }
 
 func init() {

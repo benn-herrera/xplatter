@@ -1,8 +1,8 @@
 package gen
 
 import (
-	"github.com/benn-herrera/xplattergy/model"
-	"github.com/benn-herrera/xplattergy/resolver"
+	"github.com/benn-herrera/xplatter/model"
+	"github.com/benn-herrera/xplatter/resolver"
 )
 
 // Context holds everything a generator needs to produce output.

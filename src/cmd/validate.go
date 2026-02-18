@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/benn-herrera/xplattergy/loader"
-	"github.com/benn-herrera/xplattergy/resolver"
-	"github.com/benn-herrera/xplattergy/validate"
+	"github.com/benn-herrera/xplatter/loader"
+	"github.com/benn-herrera/xplatter/resolver"
+	"github.com/benn-herrera/xplatter/validate"
 )
 
 var (

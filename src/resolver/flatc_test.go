@@ -33,7 +33,7 @@ func TestResolveFlatc_EnvVar(t *testing.T) {
 	fakeExe := filepath.Join(tmp, "flatc")
 	os.WriteFile(fakeExe, []byte("#!/bin/sh\n"), 0755)
 
-	t.Setenv("XPLATTERGY_FLATC_PATH", fakeExe)
+	t.Setenv("XPLATTER_FLATC_PATH", fakeExe)
 
 	path, err := ResolveFlatc("")
 	if err != nil {
@@ -45,7 +45,7 @@ func TestResolveFlatc_EnvVar(t *testing.T) {
 }
 
 func TestResolveFlatc_EnvVarNotFound(t *testing.T) {
-	t.Setenv("XPLATTERGY_FLATC_PATH", "/nonexistent/flatc")
+	t.Setenv("XPLATTER_FLATC_PATH", "/nonexistent/flatc")
 	_, err := ResolveFlatc("")
 	if err == nil {
 		t.Error("expected error for nonexistent env path")
@@ -59,7 +59,7 @@ func TestResolveFlatc_FlagTakesPrecedence(t *testing.T) {
 	os.WriteFile(flagExe, []byte("#!/bin/sh\n"), 0755)
 	os.WriteFile(envExe, []byte("#!/bin/sh\n"), 0755)
 
-	t.Setenv("XPLATTERGY_FLATC_PATH", envExe)
+	t.Setenv("XPLATTER_FLATC_PATH", envExe)
 
 	path, err := ResolveFlatc(flagExe)
 	if err != nil {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/benn-herrera/xplattergy/model"
+	"github.com/benn-herrera/xplatter/model"
 )
 
 // CABIFunctionName builds the C ABI function name: <api_name>_<interface>_<method>
@@ -104,12 +104,12 @@ func ToCamelCase(s string) string {
 	return strings.ToLower(pascal[:1]) + pascal[1:]
 }
 
-// ExportMacroName returns the export macro name for an API, e.g. "HELLO_XPLATTERGY_EXPORT".
+// ExportMacroName returns the export macro name for an API, e.g. "HELLO_XPLATTER_EXPORT".
 func ExportMacroName(apiName string) string {
 	return UpperSnakeCase(apiName) + "_EXPORT"
 }
 
-// BuildMacroName returns the build macro name for an API, e.g. "HELLO_XPLATTERGY_BUILD".
+// BuildMacroName returns the build macro name for an API, e.g. "HELLO_XPLATTER_BUILD".
 func BuildMacroName(apiName string) string {
 	return UpperSnakeCase(apiName) + "_BUILD"
 }
