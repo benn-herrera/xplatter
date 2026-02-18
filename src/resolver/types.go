@@ -96,14 +96,32 @@ func fbsTypeAlias(t string) string {
 	}
 }
 
+// ResolveFBSPath resolves a relative .fbs path by searching directories in order.
+// Returns the first path that exists. Absolute paths are returned as-is.
+func ResolveFBSPath(relPath string, searchDirs []string) (string, error) {
+	if filepath.IsAbs(relPath) {
+		return relPath, nil
+	}
+	for _, dir := range searchDirs {
+		if dir == "" {
+			continue
+		}
+		candidate := filepath.Join(dir, relPath)
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("%s not found in search directories: %v", relPath, searchDirs)
+}
+
 // ParseFBSFiles parses multiple .fbs files and returns all resolved types.
-// Paths are resolved relative to baseDir.
-func ParseFBSFiles(baseDir string, fbsPaths []string) (ResolvedTypes, error) {
+// Relative paths are resolved by searching directories in order.
+func ParseFBSFiles(searchDirs []string, fbsPaths []string) (ResolvedTypes, error) {
 	types := make(ResolvedTypes)
 	for _, p := range fbsPaths {
-		fullPath := p
-		if !filepath.IsAbs(p) {
-			fullPath = filepath.Join(baseDir, p)
+		fullPath, err := ResolveFBSPath(p, searchDirs)
+		if err != nil {
+			return nil, fmt.Errorf("resolving %s: %w", p, err)
 		}
 		fileTypes, err := ParseFBSFile(fullPath)
 		if err != nil {

@@ -90,7 +90,7 @@ func TestParseFBSFiles_MultipleFiles(t *testing.T) {
 	fbs2 := filepath.Join(tmp, "b.fbs")
 	os.WriteFile(fbs2, []byte("namespace B;\ntable Point { x: float; y: float; }\n"), 0644)
 
-	types, err := ParseFBSFiles(tmp, []string{"a.fbs", "b.fbs"})
+	types, err := ParseFBSFiles([]string{tmp}, []string{"a.fbs", "b.fbs"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -100,6 +100,35 @@ func TestParseFBSFiles_MultipleFiles(t *testing.T) {
 	}
 	if _, ok := types["B.Point"]; !ok {
 		t.Error("expected B.Point")
+	}
+}
+
+func TestParseFBSFiles_FallbackSearchDir(t *testing.T) {
+	primary := t.TempDir()
+	fallback := t.TempDir()
+
+	// Put a.fbs in primary, b.fbs only in fallback
+	os.WriteFile(filepath.Join(primary, "a.fbs"), []byte("namespace A;\nenum Color : byte { Red = 0 }\n"), 0644)
+	os.WriteFile(filepath.Join(fallback, "b.fbs"), []byte("namespace B;\ntable Point { x: float; }\n"), 0644)
+
+	types, err := ParseFBSFiles([]string{primary, fallback}, []string{"a.fbs", "b.fbs"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if _, ok := types["A.Color"]; !ok {
+		t.Error("expected A.Color from primary dir")
+	}
+	if _, ok := types["B.Point"]; !ok {
+		t.Error("expected B.Point from fallback dir")
+	}
+}
+
+func TestResolveFBSPath_NotFound(t *testing.T) {
+	tmp := t.TempDir()
+	_, err := ResolveFBSPath("nonexistent.fbs", []string{tmp})
+	if err == nil {
+		t.Error("expected error for nonexistent file")
 	}
 }
 

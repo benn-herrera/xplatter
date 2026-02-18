@@ -21,6 +21,7 @@ build: $(BINARY)
 $(BINARY):
 	@mkdir -p $(BIN_DIR)
 	cd $(SRC_DIR) && go build -ldflags "$(LDFLAGS)" -o ../$(BINARY) .
+	@ln -sfn ../schemas $(BIN_DIR)/schemas
 	@echo "Built: $(BINARY)"
 
 ## test: Run all tests
@@ -70,7 +71,7 @@ dist:
 	@cp build_codegen.sh $(DIST_PKG)/
 	@cp xplattergy.sh $(DIST_PKG)/
 	@rsync -a --exclude='build/' --exclude='generated/' --exclude='dist/' --exclude='target/' --exclude='hello_xplattergy.h' --exclude='Cargo.lock' examples $(DIST_PKG)/
-	@cp -r schemas $(DIST_PKG)/schemas
+	@cp -r schemas $(DIST_PKG)/bin/schemas
 	@cp -r docs $(DIST_PKG)/docs
 	@cp LICENSE.md $(DIST_PKG)/
 	@cp USER_README.md $(DIST_PKG)/README.md

@@ -61,9 +61,10 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		def.API.Targets = genTargets
 	}
 
-	// Resolve FlatBuffers types
+	// Resolve FlatBuffers types — search YAML dir first, then exe-sibling schemas dir
 	baseDir := filepath.Dir(apiDefPath)
-	resolvedTypes, err := resolver.ParseFBSFiles(baseDir, def.FlatBuffers)
+	searchDirs := schemaSearchDirs(baseDir)
+	resolvedTypes, err := resolver.ParseFBSFiles(searchDirs, def.FlatBuffers)
 	if err != nil {
 		return fmt.Errorf("parsing FlatBuffers schemas: %w", err)
 	}
@@ -92,14 +93,14 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("flatc is required but not found: %w\n\nProvide flatc via --flatc flag, XPLATTERGY_FLATC_PATH env var, or ensure it is in PATH.\nUse --skip-flatc to skip FlatBuffers codegen (generated bindings will be incomplete).", err)
 		}
 
-		// Resolve absolute paths for .fbs files
+		// Resolve absolute paths for .fbs files using same search dirs
 		fbsFiles := make([]string, len(def.FlatBuffers))
 		for i, p := range def.FlatBuffers {
-			if filepath.IsAbs(p) {
-				fbsFiles[i] = p
-			} else {
-				fbsFiles[i] = filepath.Join(baseDir, p)
+			resolved, err := resolver.ResolveFBSPath(p, searchDirs)
+			if err != nil {
+				return fmt.Errorf("resolving %s for flatc: %w", p, err)
 			}
+			fbsFiles[i] = resolved
 		}
 
 		flatcCount, err = gen.RunFlatc(&gen.FlatcConfig{
@@ -189,6 +190,17 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		}
 	}
 	return nil
+}
+
+// schemaSearchDirs returns directories to search for .fbs files:
+// 1. The YAML file's directory (user schemas)
+// 2. The directory containing the running executable (system schemas)
+func schemaSearchDirs(yamlBaseDir string) []string {
+	dirs := []string{yamlBaseDir}
+	if exe, err := os.Executable(); err == nil {
+		dirs = append(dirs, filepath.Dir(exe))
+	}
+	return dirs
 }
 
 func appendUnique(slice []string, s string) []string {

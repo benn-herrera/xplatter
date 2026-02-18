@@ -20,7 +20,7 @@ func loadTestAPI(t *testing.T, name string) *Context {
 
 	// Parse FBS for type resolution
 	fbsDir := filepath.Join("..", "testdata")
-	types, err := resolver.ParseFBSFiles(fbsDir, def.FlatBuffers)
+	types, err := resolver.ParseFBSFiles([]string{fbsDir}, def.FlatBuffers)
 	if err != nil {
 		t.Fatalf("failed to parse FBS: %v", err)
 	}

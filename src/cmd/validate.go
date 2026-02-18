@@ -46,9 +46,10 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  Interfaces: %d\n", len(def.Interfaces))
 	}
 
-	// Resolve FlatBuffers types
+	// Resolve FlatBuffers types — search YAML dir first, then exe-sibling schemas dir
 	baseDir := filepath.Dir(apiDefPath)
-	resolvedTypes, err := resolver.ParseFBSFiles(baseDir, def.FlatBuffers)
+	searchDirs := schemaSearchDirs(baseDir)
+	resolvedTypes, err := resolver.ParseFBSFiles(searchDirs, def.FlatBuffers)
 	if err != nil {
 		return fmt.Errorf("parsing FlatBuffers schemas: %w", err)
 	}
