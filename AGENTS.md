@@ -61,6 +61,7 @@ src/
     impl_cpp.go    C++ impl interface + shim + stubs
     impl_rust.go   Rust impl trait + FFI + stubs
     impl_go.go     Go impl interface + cgo shim + stubs
+    impl_go_wasmexport.go  Go WASM impl (//go:wasmexport scaffolding for wasip1)
     *_test.go      Golden-file tests for each generator
   model/        API model types (APIDefinition, InterfaceDef, MethodDef, etc.)
     api.go         Type classification: IsPrimitive, IsString, IsBuffer, IsHandle, IsFlatBufferType
@@ -68,6 +69,7 @@ src/
   resolver/     FlatBuffers schema parsing and type resolution
   validate/     Semantic validation of API definitions
   testdata/     Test YAML definitions and golden/ output files
+schemas/        Top-level FlatBuffers schemas (core_types.fbs, input_events.fbs)
 ```
 
 ## Code Conventions
@@ -89,7 +91,7 @@ src/
 - **Output**: generators return `[]*OutputFile` where `OutputFile` has `Path` (relative) and `Content` ([]byte)
 - **Golden-file testing**: `loadTestAPI(t, "minimal.yaml")` loads a test API + FBS types into a `*Context`, then compares `Generate()` output against files in `testdata/golden/`
 - **Naming utilities** in `gen/util.go`: `ToPascalCase`, `ToCamelCase`, `UpperSnakeCase`, `CABIFunctionName`, `HandleTypedefName`, `HandleStructName`, `ExportMacroName`, `BuildMacroName`, `CParamType`, `CReturnType`, `COutParamType`, `CollectErrorTypes`, `FindDestroyInfo`
-- **Type classification** in `model/api.go`: `IsPrimitive(t)`, `IsString(t)`, `IsBuffer(t)`, `IsHandle(t)`, `IsFlatBufferType(t)`, `PrimitiveCType(t)`, `FlatBufferCType(t)`, `HandleToSnake(name)`
+- **Type classification** in `model/api.go`: `IsPrimitive(t)`, `IsString(t)`, `IsBuffer(t)`, `IsHandle(t)`, `IsFlatBufferType(t)`, `PrimitiveCType(t)`, `FlatBufferCType(t)`, `HandleToSnake(name)`, `EffectiveTargets()`, `HandleByName(name)`
 
 ## Generator Architecture
 
@@ -103,6 +105,8 @@ All generators follow the same pattern: iterate API interfaces, iterate methods,
   - `"windows"`, `"linux"` → `nil` (C header only)
 - **Impl-lang mapping** via `GeneratorsForImplLang(lang) string`:
   - `"cpp"` → `"impl_cpp"`, `"rust"` → `"impl_rust"`, `"go"` → `"impl_go"`, `"c"` → `""` (no scaffolding)
+- **Impl-lang + targets mapping** via `GeneratorsForImplLangAndTargets(lang, targets) []string`:
+  - `"go"` + `"web"` target → `["impl_go_wasm"]` (adds `//go:wasmexport` scaffolding alongside cgo shim)
 - **Create/destroy detection**: `FindDestroyInfo()` locates destroy methods for handles. Create methods are detected by heuristic (returns handle + fallible + no handle input). Generators use these to emit factory/teardown bodies in shims.
 
 ## Adding a New Generator
