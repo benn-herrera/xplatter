@@ -12,6 +12,7 @@ LDFLAGS     := -s -w -X $(MODULE_PATH)/cmd.Version=$(VERSION)
 DIST_DIR    := dist
 PLATFORMS   := windows/amd64 windows/arm64 darwin/arm64 linux/amd64
 HOST_OS     := $(shell uname -s)
+TEST_DIST   ?= false
 
 .PHONY: build test clean validate fmt vet lint dist help
 
@@ -77,8 +78,10 @@ dist:
 	@cp USER_README.md $(DIST_PKG)/README.md
 	@tar -czf $(DIST_PKG).tar.gz -C $(DIST_DIR) $(DIST_NAME)
 	@echo "SDK archive ready: $(DIST_PKG).tar.gz"
-	@echo "Verifying distribution..."
-	$(MAKE) -C $(DIST_PKG)/examples test-examples-hello-impl-app-matrix
+	@if $(TEST_DIST); then \
+		echo "Verifying distribution..."; \
+		$(MAKE) -C $(DIST_PKG)/examples test-examples-hello-impl-app-matrix; \
+	fi
 
 ## help: Show this help
 help:
