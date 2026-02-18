@@ -4,7 +4,12 @@
 
 xplatter is a code generation system that produces complete, ready-to-use API packages for a set of target platforms from a single API definition and implementation. It targets six platforms — Android, iOS, Web, Windows, macOS, and Linux. The implementation language can be C, C++, Rust, Go (front door), or any language that can build for all your target platforms and present a C ABI.
 
+It handles mechanistic code generation which requires perfect consistency & repeatability that is particularly ill-suited to AI coding.
+
 ## Core Principles
+
+* The delivered value to the user is more important than purity.
+  * e.g. if one of the binding generators has to cheat (I'm looking at you WASM) to provide uniform developer experience, cheating is the lesser evil compared to inconsistent or missing coverage.
 
 * The Pure C ABI is the universal contract at the center of the system. Any implementation language that can export C-compatible functions and compile to WASM with C ABI exports is a valid choice. The code generation system neither knows nor cares what language is on the other side of that boundary.
 
