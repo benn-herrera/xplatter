@@ -8,32 +8,5 @@
 
 ## impl-go is implementing twice - once for WASM and once for everyone else. see if there's a workaround.
 
-## it looks like a packaging artifact for iOS build is in repo? investigate.
-
 ## idiomatic bindings for kotlin, javascript, swift should return the values fetched by API getters and raise exceptions. the pattern of return by writable reference is possible, but not smooth. The only reason we do it for the C API is to allow for the error code to be returned.
 Architecture question: preferable or more efficient to return the primary value and have a writable error code pointer parameter (reversing the return behavior) instead? something else?
-
-## DONE - comprehensive rename of project
-* Renamed from prior name to xplatter across the entire project
-* Repo name was already handled
-* Updated all directory and file names (git mv): example dirs, scripts, source files, iOS package dir
-* Updated all file contents: Go module path, imports, CLI binary name, generated code comments, env var names, schema URLs, Makefiles, build scripts, config files (Cargo.toml, go.mod, build.gradle.kts, Package.swift, project.pbxproj), documentation, and example source code
-* Three case-sensitive replacements covering UPPER, PascalCase, and lowercase variants
-* Removed outdated pronunciation guide from README
-* Case-insensitive search for prior name in all tracked file contents and path names returns zero results
-
-## DONE - in the example apps the consumed impl package is not obvious at run time.
-* Fixed FBS parser regex to support camelCase field names (apiImpl)
-* All 4 impls (c, cpp, rust, go + go-wasm) populate apiImpl with "impl-[lang]"
-* Empty name now returns Ok with empty message (not error) in all impls
-* All 5 apps (desktop-cpp, desktop-swift, ios, android, web) call say_hello("") on startup and display "Backing implementation: [apiImpl]"
-* Updated Rust src/hello_xplatter_types.rs (crate-local copy) to include apiImpl field
-* Updated Android app-android Kotlin binding copy to include apiImpl field
-* All impl tests and full app matrix (4 impls x 5 apps) pass
-
-## DONE - the system fbs files should live in a schemas/ directory that's a sibling to the executable.
-* ParseFBSFiles now accepts searchDirs []string — tries YAML dir first, then exe-sibling dir
-* ResolveFBSPath searches directories in order for relative .fbs paths
-* generate and validate commands construct search path: [yamlBaseDir, exeDir]
-* `make build` creates bin/schemas symlink to ../schemas/
-* `make dist` copies schemas into bin/schemas/ (no top-level schemas in distro)
