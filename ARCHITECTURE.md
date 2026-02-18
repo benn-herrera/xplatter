@@ -2,7 +2,7 @@
 
 ## What It Is
 
-xplatter is a code generation system that produces complete, ready-to-use API packages for a set of target platforms from a single API definition and implementation. It targets six platforms — Android, iOS, Web, Windows, macOS, and Linux — and is agnostic to the language used to implement the underlying library.
+xplatter is a code generation system that produces complete, ready-to-use API packages for a set of target platforms from a single API definition and implementation. It targets six platforms — Android, iOS, Web, Windows, macOS, and Linux. The implementation language can be C, C++, Rust, Go (front door), or any language that can build for all your target platforms and present a C ABI.
 
 ## Core Principles
 
