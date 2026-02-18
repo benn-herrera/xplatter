@@ -3,7 +3,12 @@
 * to obtain tasking context read ./ARCHITECTURE.md and ./README.md
 * items on the todo list are addressed one encapsulated (## headed) issue at a time in top down order. 
 * when completed they are marked done (## DONE - [description]) and moved to the end of the file for archival purposes
-  
+
+## in the example apps the consumed impl package is not obvious at run time.
+* I've added the string field apiImpl to the hello_types.fbs definition of the Greeting structure.
+* Update each of the c, cpp, rust, go implementations to fill in that field with impl-[language]
+* Update each of the app-[platform] examples to invoke say_hello() on startup with an empty string for the name parameter. it should display "Backing implementation: [apiImpl]" in a static text field above the existing controls (GUI) or just print that string to stdout before starting the interaction loop. During the interaction loop it will, as before, just print the greeting. Update the tests to account for the change. 
+
 ## example app-android project not debuggable from Android Studio like iOS xcode project is. find out why.
 
 ## impl-go is implementing twice - once for WASM and once for everyone else. see if there's a workaround.

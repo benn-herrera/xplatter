@@ -31,5 +31,8 @@ interfaces:
           - name: name
             type: string
         returns:
+          # if yout need to return a string in your API use
+          # BoxedString from schemas/core_types.fbs
+          # this is just a minimal example of defining your own types.
           type: Hello.Greeting
         error: Hello.ErrorCode

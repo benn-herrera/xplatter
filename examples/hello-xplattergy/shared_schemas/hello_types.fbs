@@ -12,7 +12,7 @@ enum ErrorCode : int32 {
 
 // if you just need to return a string in your API use
 // BoxedString from schemas/core_types.fbs
-// this is just a minimal example of defining your own types.
 table Greeting {
     message: string;
+    apiImpl: string;
 }
