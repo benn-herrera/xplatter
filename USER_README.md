@@ -1,6 +1,6 @@
 # <img src="docs/logo.png" alt="drawing" width="32"/> xplatter
 
-xplatter *(splat-er-jee)* generates cross-platform API bindings from a single YAML definition. 
+xplatter generates cross-platform API bindings from a single YAML definition. 
 
 Define your API and implement it once in the cross-platform system language of your choice and get a set of ready-to-use, idiomatic target language API packages for mobile, web, and desktop.
 
