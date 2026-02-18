@@ -7,15 +7,17 @@ CXX        ?= c++
 HEADER_DIR := $(IMPL_DIR)/dist/desktop/include
 LIB_DIR    := $(IMPL_DIR)/dist/desktop/lib
 
-.PHONY: run test clean ensure-package
+.PHONY: build run test clean ensure-package
+
+build: $(TARGET)
 
 ensure-package:
-	@test -f $(HEADER_DIR)/hello_xplattergy.h || $(MAKE) -C $(IMPL_DIR) package-desktop
+	@test -f $(HEADER_DIR)/hello_xplattergy.h || $(MAKE) -C $(IMPL_DIR) build
 
-run: $(TARGET)
+run: build
 	./$(TARGET)
 
-test: $(TARGET)
+test: build
 	@printf 'World\nexit\n' | ./$(TARGET) | grep -q 'Hello, World!' && echo "PASS: C++ desktop app" || (echo "FAIL: C++ desktop app"; exit 1)
 
 $(TARGET): main.cpp ensure-package

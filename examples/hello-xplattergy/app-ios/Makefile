@@ -3,17 +3,17 @@ IMPL       ?= cpp
 IMPL_DIR   := ../impl-$(IMPL)
 BUILD_DIR  := build
 
-.PHONY: test build-app clean
+.PHONY: test build clean
 
 # End-to-end: build the iOS app using packages from the impl
-test: build-app
+test: build
 	@echo "PASS: iOS app builds for simulator"
 
 # --- Ensure impl has built iOS package ---
 
 .PHONY: ensure-package
 ensure-package:
-	@test -d $(IMPL_DIR)/dist/ios/HelloXplattergy.xcframework || $(MAKE) -C $(IMPL_DIR) package-ios
+	@test -d $(IMPL_DIR)/dist/ios/HelloXplattergy.xcframework || $(MAKE) -C $(IMPL_DIR) build
 
 # --- Stage SPM package locally (symlinks to impl's dist/ios/) ---
 
@@ -28,7 +28,7 @@ HelloXplattergyLib/Package.swift: ensure-package
 
 # --- Build iOS app for simulator ---
 
-build-app: HelloXplattergyLib/Package.swift
+build: HelloXplattergyLib/Package.swift
 	xcodebuild -project HelloApp/HelloApp.xcodeproj \
 		-scheme HelloApp \
 		-destination 'generic/platform=iOS Simulator' \

@@ -6,7 +6,9 @@ BUILD_DIR  := build
 # Gradle wrapper source
 GRADLE_WRAPPER_SRC := /Users/benn/projects/letterboxed_android
 
-.PHONY: test package build-app clean gradle-wrapper
+.PHONY: build test package build-app clean gradle-wrapper
+
+build: build-app
 
 # End-to-end: build the Android app using packages from the impl
 test: package build-app
@@ -16,7 +18,7 @@ test: package build-app
 
 .PHONY: ensure-package
 ensure-package:
-	@test -d $(IMPL_DIR)/dist/android/jniLibs || $(MAKE) -C $(IMPL_DIR) package-android
+	@test -d $(IMPL_DIR)/dist/android/jniLibs || $(MAKE) -C $(IMPL_DIR) build
 
 # --- Copy packaged native libs + Kotlin binding into Gradle project ---
 

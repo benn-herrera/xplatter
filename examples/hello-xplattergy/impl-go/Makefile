@@ -14,7 +14,15 @@ SHARED_LIB := $(BUILD_DIR)/libhello_xplattergy.$(DYLIB_EXT)
 API_NAME := hello_xplattergy
 LIB_NAME := libhello_xplattergy
 
-.PHONY: run shared-lib package-desktop package-web package-android package-ios clean
+# ── Target filtering ──────────────────────────────────────────────────────────
+
+TARGETS ?= ios android web desktop
+
+target_enabled = $(filter $(1),$(TARGETS))
+
+# ──────────────────────────────────────────────────────────────────────────────
+
+.PHONY: run shared-lib clean
 
 run: $(STAMP)
 	go build -o $(BUILD_DIR)/hello_xplattergy .
@@ -32,6 +40,12 @@ $(STAMP): ../shared_schemas/hello_xplattergy.yaml
 	cp generated/hello_xplattergy.h .
 	@touch $@
 
+# ══════════════════════════════════════════════════════════════════════════════
+# Desktop: C header + Swift binding + shared library
+# ══════════════════════════════════════════════════════════════════════════════
+
+ifneq ($(call target_enabled,desktop),)
+
 $(DIST_DIR)/desktop/include/$(API_NAME).h: $(STAMP)
 	@mkdir -p $(dir $@)
 	cp generated/$(API_NAME).h $@
@@ -44,8 +58,17 @@ $(DIST_DIR)/desktop/lib/$(LIB_NAME).$(DYLIB_EXT): $(SHARED_LIB)
 	@mkdir -p $(dir $@)
 	cp $(SHARED_LIB) $@
 
+.PHONY: package-desktop
 package-desktop: $(STAMP) $(DIST_DIR)/desktop/include/$(API_NAME).h $(DIST_DIR)/desktop/include/HelloXplattergy.swift $(DIST_DIR)/desktop/lib/$(LIB_NAME).$(DYLIB_EXT)
 	@echo "Packaged Desktop: $(DIST_DIR)/desktop/"
+
+endif
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Web: Go WASM (wasip1) + JS binding
+# ══════════════════════════════════════════════════════════════════════════════
+
+ifneq ($(call target_enabled,web),)
 
 $(DIST_DIR)/web/hello_xplattergy.wasm: $(STAMP)
 	@mkdir -p $(dir $@)
@@ -55,12 +78,17 @@ $(DIST_DIR)/web/hello_xplattergy.js: $(STAMP)
 	@mkdir -p $(dir $@)
 	cp generated/hello_xplattergy.js $@
 
+.PHONY: package-web
 package-web: $(DIST_DIR)/web/hello_xplattergy.wasm $(DIST_DIR)/web/hello_xplattergy.js
 	@echo "Packaged Web: $(DIST_DIR)/web/"
+
+endif
 
 # ══════════════════════════════════════════════════════════════════════════════
 # iOS: Go c-archive (CGO) per arch → lipo → xcframework + SPM package
 # ══════════════════════════════════════════════════════════════════════════════
+
+ifneq ($(call target_enabled,ios),)
 
 IOS_MIN := 15.0
 IOS_SDK := $(shell xcrun --sdk iphoneos --show-sdk-path 2>/dev/null)
@@ -116,12 +144,17 @@ $(DIST_DIR)/ios/HelloXplattergyLib/Package.swift: $(DIST_DIR)/ios/HelloXplatterg
 	@mkdir -p $(dir $@)
 	printf '// swift-tools-version: 5.9\nimport PackageDescription\n\nlet package = Package(\n    name: "HelloXplattergyLib",\n    platforms: [.iOS(.v15)],\n    products: [\n        .library(name: "HelloXplattergyLib", targets: ["HelloXplattergyBinding"]),\n    ],\n    targets: [\n        .binaryTarget(name: "CHelloXplattergy", path: "../HelloXplattergy.xcframework"),\n        .target(\n            name: "HelloXplattergyBinding",\n            dependencies: ["CHelloXplattergy"],\n            path: "Sources/HelloXplattergyBinding"\n        ),\n    ]\n)\n' > $@
 
+.PHONY: package-ios
 package-ios: $(DIST_DIR)/ios/HelloXplattergy.xcframework $(DIST_DIR)/ios/HelloXplattergyLib/Package.swift $(DIST_DIR)/ios/HelloXplattergyLib/Sources/HelloXplattergyBinding/HelloXplattergy.swift
 	@echo "Packaged iOS: $(DIST_DIR)/ios/"
+
+endif
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Android: Go c-shared (CGO) with JNI bridge → .so per ABI
 # ══════════════════════════════════════════════════════════════════════════════
+
+ifneq ($(call target_enabled,android),)
 
 NDK_VERSION     ?= 29.0.14206865
 NDK             ?= $(HOME)/Library/Android/sdk/ndk/$(NDK_VERSION)
@@ -167,8 +200,33 @@ $(DIST_DIR)/android/HelloXplattergy.kt: $(GEN_KOTLIN_BINDING)
 	@mkdir -p $(dir $@)
 	cp $(GEN_KOTLIN_BINDING) $@
 
+.PHONY: package-android
 package-android: $(ANDROID_NATIVE_LIBS) $(DIST_DIR)/android/HelloXplattergy.kt
 	@echo "Packaged Android: $(DIST_DIR)/android/"
+
+endif
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Aggregate target
+# ══════════════════════════════════════════════════════════════════════════════
+
+PACKAGE_TARGETS :=
+ifneq ($(call target_enabled,ios),)
+PACKAGE_TARGETS += package-ios
+endif
+ifneq ($(call target_enabled,android),)
+PACKAGE_TARGETS += package-android
+endif
+ifneq ($(call target_enabled,web),)
+PACKAGE_TARGETS += package-web
+endif
+ifneq ($(call target_enabled,desktop),)
+PACKAGE_TARGETS += package-desktop
+endif
+
+.PHONY: packages build
+packages: $(PACKAGE_TARGETS)
+build: packages
 
 clean:
 	rm -rf generated $(BUILD_DIR) $(DIST_DIR) hello_xplattergy.h

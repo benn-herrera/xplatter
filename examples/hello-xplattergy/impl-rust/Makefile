@@ -230,5 +230,6 @@ ifneq ($(call target_enabled,desktop),)
 PACKAGE_TARGETS += package-desktop
 endif
 
-.PHONY: packages
+.PHONY: packages build
 packages: $(PACKAGE_TARGETS)
+build: packages

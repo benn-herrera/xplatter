@@ -7,15 +7,17 @@ BRIDGING_HDR  := $(IMPL_DIR)/dist/desktop/include/hello_xplattergy.h
 SWIFT_BINDING := $(IMPL_DIR)/dist/desktop/include/HelloXplattergy.swift
 LIB_DIR       := $(IMPL_DIR)/dist/desktop/lib
 
-.PHONY: run test clean ensure-package
+.PHONY: build run test clean ensure-package
+
+build: $(TARGET)
 
 ensure-package:
-	@test -f $(BRIDGING_HDR) || $(MAKE) -C $(IMPL_DIR) package-desktop
+	@test -f $(BRIDGING_HDR) || $(MAKE) -C $(IMPL_DIR) build
 
-run: $(TARGET)
+run: build
 	./$(TARGET)
 
-test: $(TARGET)
+test: build
 	@printf 'World\nexit\n' | ./$(TARGET) | grep -q 'Hello, World!' && echo "PASS: Swift desktop app" || (echo "FAIL: Swift desktop app"; exit 1)
 
 $(TARGET): main.swift ensure-package
