@@ -10,6 +10,11 @@ func main() throws {
 
     let greeter = try Greeter.createGreeter()
 
+    // Discover backing implementation
+    if let probe = try? greeter.sayHello(name: ""), let impl = probe.apiImpl {
+        print("Backing implementation: \(String(cString: impl))")
+    }
+
     print("Enter a name (or 'exit' to quit): ", terminator: "")
     fflush(stdout)
 

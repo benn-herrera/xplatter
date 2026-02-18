@@ -39,14 +39,20 @@ int main() {
     CHECK(greeting.message != nullptr, "greeting message is non-null");
     CHECK(std::strcmp(greeting.message, "Hello, World!") == 0, "greeting message is correct");
 
+    /* Verify apiImpl */
+    CHECK(greeting.apiImpl != nullptr, "apiImpl is non-null");
+    CHECK(std::strcmp(greeting.apiImpl, "impl-cpp") == 0, "apiImpl is correct");
+
     /* Say hello again */
     err = hello_xplattergy_greeter_say_hello(greeter, "xplattergy", &greeting);
     CHECK(err == Hello_ErrorCode_Ok, "say_hello succeeds again");
     CHECK(std::strcmp(greeting.message, "Hello, xplattergy!") == 0, "greeting message updated");
 
-    /* Error case: empty name */
+    /* Empty name returns empty message (not error) */
     err = hello_xplattergy_greeter_say_hello(greeter, "", &greeting);
-    CHECK(err == Hello_ErrorCode_InvalidArgument, "empty name returns InvalidArgument");
+    CHECK(err == Hello_ErrorCode_Ok, "empty name succeeds");
+    CHECK(std::strcmp(greeting.message, "") == 0, "empty name gives empty message");
+    CHECK(std::strcmp(greeting.apiImpl, "impl-cpp") == 0, "apiImpl set for empty name");
 
     /* Destroy (shim deletes the interface instance) */
     hello_xplattergy_lifecycle_destroy_greeter(greeter);

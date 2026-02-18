@@ -37,8 +37,13 @@ int32_t hello_xplattergy_greeter_say_hello(
         return Hello_ErrorCode_InvalidArgument;
     }
 
-    snprintf(greeter->message_buf, sizeof(greeter->message_buf),
-             "Hello, %s!", name);
-    out_result->message = greeter->message_buf;
+    if (name[0] == '\0') {
+        out_result->message = "";
+    } else {
+        snprintf(greeter->message_buf, sizeof(greeter->message_buf),
+                 "Hello, %s!", name);
+        out_result->message = greeter->message_buf;
+    }
+    out_result->apiImpl = "impl-c";
     return Hello_ErrorCode_Ok;
 }

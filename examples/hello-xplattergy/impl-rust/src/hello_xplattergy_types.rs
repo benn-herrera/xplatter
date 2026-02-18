@@ -14,5 +14,6 @@ pub enum HelloErrorCode {
 #[derive(Debug)]
 pub struct HelloGreeting {
     pub message: *const c_char,
+    pub apiImpl: *const c_char,
 }
 

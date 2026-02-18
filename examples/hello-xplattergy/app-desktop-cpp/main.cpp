@@ -19,6 +19,13 @@ int main() {
         return 1;
     }
 
+    // Discover backing implementation
+    Hello_Greeting probe = {};
+    err = hello_xplattergy_greeter_say_hello(greeter, "", &probe);
+    if (err == Hello_ErrorCode_Ok && probe.apiImpl) {
+        std::printf("Backing implementation: %s\n", probe.apiImpl);
+    }
+
     char buf[256];
     std::printf("Enter a name (or 'exit' to quit): ");
     std::fflush(stdout);

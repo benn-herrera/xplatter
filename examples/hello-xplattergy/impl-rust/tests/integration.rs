@@ -14,6 +14,8 @@ use std::os::raw::c_char;
 #[repr(C)]
 struct HelloGreeting {
     message: *const c_char,
+    #[allow(non_snake_case)]
+    apiImpl: *const c_char,
 }
 
 extern "C" {
@@ -47,6 +49,7 @@ fn test_say_hello() {
         let name = CString::new("World").unwrap();
         let mut greeting = HelloGreeting {
             message: std::ptr::null(),
+            apiImpl: std::ptr::null(),
         };
         let err = hello_xplattergy_greeter_say_hello(greeter, name.as_ptr(), &mut greeting);
         assert_eq!(err, 0, "say_hello should succeed");
@@ -54,6 +57,10 @@ fn test_say_hello() {
 
         let msg = CStr::from_ptr(greeting.message).to_str().unwrap();
         assert_eq!(msg, "Hello, World!");
+
+        assert!(!greeting.apiImpl.is_null(), "apiImpl should be non-null");
+        let impl_name = CStr::from_ptr(greeting.apiImpl).to_str().unwrap();
+        assert_eq!(impl_name, "impl-rust");
 
         hello_xplattergy_lifecycle_destroy_greeter(greeter);
     }
@@ -68,6 +75,7 @@ fn test_say_hello_twice() {
         let name1 = CString::new("World").unwrap();
         let mut greeting = HelloGreeting {
             message: std::ptr::null(),
+            apiImpl: std::ptr::null(),
         };
         hello_xplattergy_greeter_say_hello(greeter, name1.as_ptr(), &mut greeting);
 
@@ -89,9 +97,15 @@ fn test_say_hello_empty_name() {
         let name = CString::new("").unwrap();
         let mut greeting = HelloGreeting {
             message: std::ptr::null(),
+            apiImpl: std::ptr::null(),
         };
         let err = hello_xplattergy_greeter_say_hello(greeter, name.as_ptr(), &mut greeting);
-        assert_eq!(err, 1, "empty name should return InvalidArgument (1)");
+        assert_eq!(err, 0, "empty name should succeed");
+        assert!(!greeting.message.is_null(), "message should be non-null for empty name");
+        let msg = CStr::from_ptr(greeting.message).to_str().unwrap();
+        assert_eq!(msg, "", "empty name gives empty message");
+        let impl_name = CStr::from_ptr(greeting.apiImpl).to_str().unwrap();
+        assert_eq!(impl_name, "impl-rust", "apiImpl set for empty name");
 
         hello_xplattergy_lifecycle_destroy_greeter(greeter);
     }

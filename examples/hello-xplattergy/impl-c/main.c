@@ -38,10 +38,20 @@ int main(void) {
     CHECK(greeting.message != NULL, "greeting message is non-null");
     CHECK(strcmp(greeting.message, "Hello, World!") == 0, "greeting message is correct");
 
+    /* Verify apiImpl */
+    CHECK(greeting.apiImpl != NULL, "apiImpl is non-null");
+    CHECK(strcmp(greeting.apiImpl, "impl-c") == 0, "apiImpl is correct");
+
     /* Say hello again (message buffer reused) */
     err = hello_xplattergy_greeter_say_hello(greeter, "xplattergy", &greeting);
     CHECK(err == Hello_ErrorCode_Ok, "say_hello succeeds again");
     CHECK(strcmp(greeting.message, "Hello, xplattergy!") == 0, "greeting message updated");
+
+    /* Empty name returns empty message (not error) */
+    err = hello_xplattergy_greeter_say_hello(greeter, "", &greeting);
+    CHECK(err == Hello_ErrorCode_Ok, "empty name succeeds");
+    CHECK(strcmp(greeting.message, "") == 0, "empty name gives empty message");
+    CHECK(strcmp(greeting.apiImpl, "impl-c") == 0, "apiImpl set for empty name");
 
     /* Error case: null arguments */
     err = hello_xplattergy_greeter_say_hello(NULL, "test", &greeting);

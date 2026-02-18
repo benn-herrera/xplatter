@@ -65,7 +65,7 @@ var (
 	structPattern    = regexp.MustCompile(`^\s*struct\s+([A-Z][a-zA-Z0-9]*)\s*`)
 	unionPattern     = regexp.MustCompile(`^\s*union\s+([A-Z][a-zA-Z0-9]*)\s*`)
 	enumValuePattern = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?:=\s*(-?\d+))?\s*,?\s*$`)
-	fieldPattern     = regexp.MustCompile(`([a-z_][a-z0-9_]*)\s*:\s*(\S+?)\s*;`)
+	fieldPattern     = regexp.MustCompile(`([a-z_][a-zA-Z0-9_]*)\s*:\s*(\S+?)\s*;`)
 )
 
 // fbsTypeAlias normalizes FBS type aliases to their canonical form.

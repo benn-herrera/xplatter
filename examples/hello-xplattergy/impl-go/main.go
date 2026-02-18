@@ -44,6 +44,11 @@ func main() {
 	msg := C.GoString(greeting.message)
 	check(msg == "Hello, World!", "greeting message is correct")
 
+	// Verify apiImpl
+	check(greeting.apiImpl != nil, "apiImpl is non-nil")
+	implName := C.GoString(greeting.apiImpl)
+	check(implName == "impl-go", "apiImpl is correct")
+
 	// Say hello again
 	name2 := C.CString("xplattergy")
 	defer C.free(unsafe.Pointer(name2))
@@ -52,11 +57,15 @@ func main() {
 	msg = C.GoString(greeting.message)
 	check(msg == "Hello, xplattergy!", "greeting message updated")
 
-	// Error case: empty name
+	// Empty name returns empty message (not error)
 	emptyName := C.CString("")
 	defer C.free(unsafe.Pointer(emptyName))
 	err = hello_xplattergy_greeter_say_hello(greeter, emptyName, &greeting)
-	check(err == C.int32_t(HelloErrorCodeInvalidArgument), "empty name returns InvalidArgument")
+	check(err == C.int32_t(HelloErrorCodeOk), "empty name succeeds")
+	msg = C.GoString(greeting.message)
+	check(msg == "", "empty name gives empty message")
+	implName = C.GoString(greeting.apiImpl)
+	check(implName == "impl-go", "apiImpl set for empty name")
 
 	// Destroy
 	hello_xplattergy_lifecycle_destroy_greeter(greeter)

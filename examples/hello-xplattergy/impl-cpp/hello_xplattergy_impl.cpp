@@ -23,15 +23,20 @@ int32_t HelloXplattergyImpl::say_hello(
     std::string_view name,
     Hello_Greeting* out_result)
 {
-    if (name.empty() || !out_result) {
+    if (!out_result) {
         return Hello_ErrorCode_InvalidArgument;
     }
 
-    message_buf_ = "Hello, ";
-    message_buf_ += name;
-    message_buf_ += "!";
+    if (name.empty()) {
+        message_buf_.clear();
+    } else {
+        message_buf_ = "Hello, ";
+        message_buf_ += name;
+        message_buf_ += "!";
+    }
 
     out_result->message = message_buf_.c_str();
+    out_result->apiImpl = "impl-cpp";
     return Hello_ErrorCode_Ok;
 }
 

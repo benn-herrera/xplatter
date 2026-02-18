@@ -13,6 +13,9 @@ type GreeterWASMImpl struct {
 	lastMsgPtr uintptr // WASM linear memory pointer to last allocated message (0 if none)
 }
 
+// _wasmImplName is a persistent "impl-go\0" string in WASM linear memory (allocated once).
+var _wasmImplName uintptr
+
 // Memory allocation: pin byte slices so the GC does not collect them.
 var _wasmAllocs sync.Map
 
@@ -79,6 +82,14 @@ func _platformResourceSize(name uintptr) uint32
 //go:wasmimport env hello_xplattergy_resource_read
 func _platformResourceRead(name uintptr, buffer uintptr, bufferSize uint32) int32
 
+func init() {
+	// Allocate persistent "impl-go" string in WASM linear memory.
+	name := []byte("impl-go\x00")
+	_wasmImplName = _wasmMalloc(uint32(len(name)))
+	buf := unsafe.Slice((*byte)(unsafe.Pointer(_wasmImplName)), len(name))
+	copy(buf, name)
+}
+
 /* lifecycle */
 
 //go:wasmexport hello_xplattergy_lifecycle_create_greeter
@@ -112,9 +123,6 @@ func hello_xplattergy_greeter_say_hello(greeter uintptr, name uintptr, out_resul
 	impl := val.(*GreeterWASMImpl)
 
 	goName := _cstring(name)
-	if goName == "" {
-		return 1 // HelloErrorCodeInvalidArgument
-	}
 
 	// Free previous message before allocating a new one
 	if impl.lastMsgPtr != 0 {
@@ -122,7 +130,12 @@ func hello_xplattergy_greeter_say_hello(greeter uintptr, name uintptr, out_resul
 	}
 
 	// Allocate and populate the message string in WASM linear memory
-	msg := fmt.Sprintf("Hello, %s!", goName)
+	var msg string
+	if goName == "" {
+		msg = ""
+	} else {
+		msg = fmt.Sprintf("Hello, %s!", goName)
+	}
 	msgBytes := []byte(msg)
 	msgLen := uint32(len(msgBytes))
 	msgPtr := _wasmMalloc(msgLen + 1) // +1 for null terminator
@@ -131,9 +144,10 @@ func hello_xplattergy_greeter_say_hello(greeter uintptr, name uintptr, out_resul
 	buf[msgLen] = 0
 	impl.lastMsgPtr = msgPtr
 
-	// Write Hello_Greeting{message: msgPtr} to out_result.
-	// In WASM32, Hello_Greeting is {uint32 message} at offset 0.
+	// Write Hello_Greeting{message, apiImpl} to out_result.
+	// In WASM32, Hello_Greeting is {uint32 message, uint32 apiImpl} at offsets 0 and 4.
 	*(*uint32)(unsafe.Pointer(out_result)) = uint32(msgPtr)
+	*(*uint32)(unsafe.Pointer(out_result + 4)) = uint32(_wasmImplName)
 	return 0 // HelloErrorCodeOk
 }
 

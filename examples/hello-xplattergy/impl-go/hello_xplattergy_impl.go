@@ -16,6 +16,7 @@ typedef enum {
 
 typedef struct Hello_Greeting {
     const char* message;
+    const char* apiImpl;
 } Hello_Greeting;
 */
 import "C"
@@ -30,6 +31,9 @@ import (
 type GreeterImpl struct {
 	lastMessage *C.char // C-allocated string for borrowing semantics
 }
+
+// Static C string for the implementation identifier (never freed).
+var implName = C.CString("impl-go")
 
 // Handle management: maps integer keys to Go objects.
 // We use integer keys (not real pointers) because Go pointers
@@ -85,19 +89,19 @@ func hello_xplattergy_greeter_say_hello(greeter C.greeter_handle, name *C.char, 
 	}
 
 	goName := C.GoString(name)
-	if goName == "" {
-		return C.int32_t(HelloErrorCodeInvalidArgument)
-	}
 
 	// Free previous message
 	if impl.lastMessage != nil {
 		C.free(unsafe.Pointer(impl.lastMessage))
 	}
 
-	// Format message and store as C string (caller borrows)
-	msg := fmt.Sprintf("Hello, %s!", goName)
-	impl.lastMessage = C.CString(msg)
+	if goName == "" {
+		impl.lastMessage = C.CString("")
+	} else {
+		impl.lastMessage = C.CString(fmt.Sprintf("Hello, %s!", goName))
+	}
 	out_result.message = impl.lastMessage
+	out_result.apiImpl = implName
 
 	return C.int32_t(HelloErrorCodeOk)
 }

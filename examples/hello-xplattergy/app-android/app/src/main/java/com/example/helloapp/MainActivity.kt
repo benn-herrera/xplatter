@@ -29,9 +29,13 @@ class MainActivity : ComponentActivity() {
 fun HelloScreen() {
     var nameInput by remember { mutableStateOf("xplattergy") }
     var greetingOutput by remember { mutableStateOf("") }
+    var backingImpl by remember { mutableStateOf("") }
     val greeter = remember {
         try {
-            HelloXplattergy.createGreeter()
+            val g = HelloXplattergy.createGreeter()
+            val probe = g.sayHello("")
+            backingImpl = "Backing implementation: ${probe.apiImpl ?: "unknown"}"
+            g
         } catch (e: Exception) {
             null
         }
@@ -41,6 +45,9 @@ fun HelloScreen() {
         modifier = Modifier.padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
+        if (backingImpl.isNotEmpty()) {
+            Text(backingImpl, style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+        }
         TextField(
             value = nameInput,
             onValueChange = { nameInput = it },

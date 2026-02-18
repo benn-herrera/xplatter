@@ -19,6 +19,7 @@
     <input id="name" type="text" value="xplattergy" placeholder="Enter a name">
     <button id="greet">Greet</button>
   </div>
+  <p id="impl" style="font-size: 0.85rem; color: #666;"></p>
   <p id="output"></p>
   <p id="error"></p>
 
@@ -27,6 +28,7 @@
 
     const nameInput = document.getElementById('name');
     const greetBtn  = document.getElementById('greet');
+    const implInfo  = document.getElementById('impl');
     const output    = document.getElementById('output');
     const error     = document.getElementById('error');
 
@@ -40,6 +42,13 @@
         const bytes = await response.arrayBuffer();
         api = await loadHelloXplattergy(bytes);
         greeter = api.lifecycle.createGreeter();
+        // Discover backing implementation
+        try {
+          const probe = api.greeter.sayHello(greeter, '');
+          if (probe.apiImpl) {
+            implInfo.textContent = 'Backing implementation: ' + probe.apiImpl;
+          }
+        } catch (_) {}
         greetBtn.disabled = false;
       } catch (e) {
         error.textContent = 'Failed to load WASM: ' + e.message;

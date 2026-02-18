@@ -34,16 +34,17 @@ impl Lifecycle for Impl {
 
 impl Greeter for Impl {
     fn say_hello(&self, greeter: *mut c_void, name: &str) -> Result<HelloGreeting, HelloErrorCode> {
-        if name.is_empty() {
-            return Err(HelloErrorCode::InvalidArgument);
-        }
-
         let state = unsafe { &mut *(greeter as *mut GreeterState) };
-        let msg = CString::new(format!("Hello, {}!", name))
-            .map_err(|_| HelloErrorCode::InternalError)?;
-        let ptr = msg.as_ptr();
-        state.message = Some(msg);
 
-        Ok(HelloGreeting { message: ptr })
+        if name.is_empty() {
+            state.message = Some(CString::new("").unwrap());
+        } else {
+            let msg = CString::new(format!("Hello, {}!", name))
+                .map_err(|_| HelloErrorCode::InternalError)?;
+            state.message = Some(msg);
+        }
+        let ptr = state.message.as_ref().unwrap().as_ptr();
+
+        Ok(HelloGreeting { message: ptr, apiImpl: b"impl-rust\0".as_ptr() as *const _ })
     }
 }
