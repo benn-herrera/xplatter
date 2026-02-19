@@ -163,6 +163,7 @@ $(DIST_DIR)/android/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(STAMP)
 	cp $(GEN_JNI_SOURCE) $(GEN_JNI_SOURCE_LOCAL)
 	CGO_ENABLED=1 GOOS=android GOARCH=$(2) $(4) \
 		CC=$(NDK_BIN)/$(3)-clang \
+		CGO_CFLAGS="-I generated" \
 		go build -buildmode=c-shared -o $$@ . || (rm -f $(GEN_JNI_SOURCE_LOCAL); exit 1)
 	rm -f $(GEN_JNI_SOURCE_LOCAL)
 

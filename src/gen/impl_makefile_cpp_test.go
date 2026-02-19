@@ -145,8 +145,8 @@ func TestCppMakefileGenerator_AndroidRules(t *testing.T) {
 	if !strings.Contains(content, "define BUILD_ANDROID_ABI") {
 		t.Error("missing BUILD_ANDROID_ABI macro")
 	}
-	if !strings.Contains(content, "$(NDK_BIN)/$(2)-$(CXX)") {
-		t.Error("missing NDK C++ compilation in Android ABI rule")
+	if !strings.Contains(content, "$(NDK_BIN)/$(2)-clang++") {
+		t.Error("missing NDK clang++ compilation in Android ABI rule")
 	}
 	if !strings.Contains(content, "arm64-v8a,aarch64-linux-android") {
 		t.Error("missing arm64-v8a ABI evaluation")

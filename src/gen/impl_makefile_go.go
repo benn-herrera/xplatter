@@ -120,6 +120,7 @@ func (g *GoMakefileGenerator) writeAndroidABIRules(b *strings.Builder, apiName s
 	b.WriteString("\tcp $(GEN_JNI_SOURCE) $(GEN_JNI_SOURCE_LOCAL)\n")
 	b.WriteString("\tCGO_ENABLED=1 GOOS=android GOARCH=$(2) $(4) \\\n")
 	b.WriteString("\t\tCC=$(NDK_BIN)/$(3)-clang \\\n")
+	b.WriteString("\t\tCGO_CFLAGS=\"-I generated\" \\\n")
 	b.WriteString("\t\tgo build -buildmode=c-shared -o $$@ . || (rm -f $(GEN_JNI_SOURCE_LOCAL); exit 1)\n")
 	b.WriteString("\trm -f $(GEN_JNI_SOURCE_LOCAL)\n\n")
 

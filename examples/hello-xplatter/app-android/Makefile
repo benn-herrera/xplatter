@@ -18,16 +18,16 @@ test: package build-app
 
 .PHONY: ensure-package
 ensure-package:
-	@test -d $(IMPL_DIR)/dist/android/jniLibs || $(MAKE) -C $(IMPL_DIR) build
+	@test -d $(IMPL_DIR)/dist/android/src/main/jniLibs || $(MAKE) -C $(IMPL_DIR) build
 
 # --- Copy packaged native libs + Kotlin binding into Gradle project ---
 
 package: ensure-package
 	@mkdir -p lib/src/main/kotlin/hello/xplatter
-	cp $(IMPL_DIR)/dist/android/HelloXplatter.kt lib/src/main/kotlin/hello/xplatter/
+	cp $(IMPL_DIR)/dist/android/src/main/kotlin/hello/xplatter/HelloXplatter.kt lib/src/main/kotlin/hello/xplatter/
 	@for abi in arm64-v8a armeabi-v7a x86_64 x86; do \
 		mkdir -p lib/src/main/jniLibs/$$abi; \
-		cp $(IMPL_DIR)/dist/android/jniLibs/$$abi/libhello_xplatter.so lib/src/main/jniLibs/$$abi/; \
+		cp $(IMPL_DIR)/dist/android/src/main/jniLibs/$$abi/libhello_xplatter.so lib/src/main/jniLibs/$$abi/; \
 	done
 	@echo "Staged Android package from $(IMPL_DIR)/dist/android/"
 

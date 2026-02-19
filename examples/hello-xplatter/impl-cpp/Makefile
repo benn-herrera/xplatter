@@ -175,15 +175,15 @@ define BUILD_ANDROID_ABI
 
 $(DIST_DIR)/android/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(IMPL_SOURCES) $(SHIM_SOURCE) $(GEN_JNI_SOURCE) $(PLATFORM_SERVICES)/android.c $(GEN_HEADER)
 	@mkdir -p $(DIST_DIR)/android/obj/$(1) $$(dir $$@)
-	$(NDK_BIN)/$(2)-$(CXX) $(CXXFLAGS) -fPIC $(LIB_VISIBILITY_FLAGS) \
+	$(NDK_BIN)/$(2)-clang++ $(CXXFLAGS) -fPIC $(LIB_VISIBILITY_FLAGS) \
 		-c -o $(DIST_DIR)/android/obj/$(1)/impl.o $(IMPL_SOURCES)
-	$(NDK_BIN)/$(2)-$(CXX) $(CXXFLAGS) -fPIC $(LIB_VISIBILITY_FLAGS) \
+	$(NDK_BIN)/$(2)-clang++ $(CXXFLAGS) -fPIC $(LIB_VISIBILITY_FLAGS) \
 		-c -o $(DIST_DIR)/android/obj/$(1)/shim.o $(SHIM_SOURCE)
 	$(NDK_BIN)/$(2)-clang $(LIB_C_FLAGS) -fPIC \
 		-c -o $(DIST_DIR)/android/obj/$(1)/jni.o $(GEN_JNI_SOURCE)
 	$(NDK_BIN)/$(2)-clang $(LIB_C_FLAGS) -fPIC \
 		-c -o $(DIST_DIR)/android/obj/$(1)/platform.o $(PLATFORM_SERVICES)/android.c
-	$(NDK_BIN)/$(2)-$(CXX) -shared -llog \
+	$(NDK_BIN)/$(2)-clang++ -shared -llog \
 		$(DIST_DIR)/android/obj/$(1)/impl.o \
 		$(DIST_DIR)/android/obj/$(1)/shim.o \
 		$(DIST_DIR)/android/obj/$(1)/jni.o \

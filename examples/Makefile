@@ -87,7 +87,7 @@ clean-hello-apps:
 	$(MAKE) -C hello-xplatter/app-desktop-swift clean
 	$(MAKE) -C hello-xplatter/app-ios clean
 	$(MAKE) -C hello-xplatter/app-android clean
-	$(MAKE) -C hello-xplatter/app-web
+	$(MAKE) -C hello-xplatter/app-web clean
 
 ## package-hello-c: Build cross-platform packages for C impl
 package-hello-c: build-xplatter
