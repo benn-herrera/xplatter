@@ -28,7 +28,7 @@ func (g *GoImplGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 		return nil, fmt.Errorf("generating interface: %w", err)
 	}
 
-	cgoFile, err := g.generateCgo(api, apiName)
+	cgoFile, err := g.generateCgo(api, apiName, ctx)
 	if err != nil {
 		return nil, fmt.Errorf("generating cgo shim: %w", err)
 	}
@@ -44,6 +44,9 @@ func (g *GoImplGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 		typesFile := g.generateTypes(ctx.ResolvedTypes, apiName)
 		files = append(files, typesFile)
 	}
+
+	goModFile := g.generateGoMod(api)
+	files = append(files, goModFile)
 
 	return files, nil
 }
@@ -73,16 +76,22 @@ func (g *GoImplGenerator) generateInterface(api *model.APIDefinition, apiName st
 }
 
 // generateCgo produces the cgo shim file with //export functions.
-func (g *GoImplGenerator) generateCgo(api *model.APIDefinition, apiName string) (*OutputFile, error) {
+// The cgo preamble emits local C type definitions instead of #include-ing
+// the generated C header, because //export generates C prototypes that
+// conflict with the header's declarations.
+func (g *GoImplGenerator) generateCgo(api *model.APIDefinition, apiName string, ctx *Context) (*OutputFile, error) {
 	pkgName := goPackageName(apiName)
 	var b strings.Builder
 
 	fmt.Fprintf(&b, "package %s\n", pkgName)
 	b.WriteString("\n")
 
-	// cgo preamble
+	// cgo preamble — local C typedefs instead of #include (avoids prototype conflicts)
 	fmt.Fprintf(&b, "/*\n")
-	fmt.Fprintf(&b, "#include \"%s.h\"\n", apiName)
+	b.WriteString("#include <stdint.h>\n")
+	b.WriteString("#include <stdbool.h>\n")
+	b.WriteString("\n")
+	WriteCTypedefs(&b, api.Handles, ctx.ResolvedTypes)
 	fmt.Fprintf(&b, "*/\n")
 	b.WriteString("import \"C\"\n")
 	b.WriteString("\n")
@@ -135,7 +144,16 @@ func (g *GoImplGenerator) generateImpl(api *model.APIDefinition, apiName string)
 	}
 
 	filename := apiName + "_impl.go"
-	return &OutputFile{Path: filename, Content: []byte(b.String())}, nil
+	return &OutputFile{Path: filename, Content: []byte(b.String()), Scaffold: true}, nil
+}
+
+// generateGoMod produces a scaffold go.mod for the implementation package.
+func (g *GoImplGenerator) generateGoMod(api *model.APIDefinition) *OutputFile {
+	moduleName := strings.ReplaceAll(api.API.Name, "_", "-")
+	var b strings.Builder
+	fmt.Fprintf(&b, "module %s\n\n", moduleName)
+	b.WriteString("go 1.24\n")
+	return &OutputFile{Path: "go.mod", Content: []byte(b.String()), Scaffold: true}
 }
 
 // generateTypes produces the Go type definitions file from FBS schemas.

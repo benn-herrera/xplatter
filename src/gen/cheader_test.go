@@ -25,7 +25,7 @@ func loadTestAPI(t *testing.T, name string) *Context {
 		t.Fatalf("failed to parse FBS: %v", err)
 	}
 
-	return NewContext(def, types, "")
+	return NewContext(def, types, "", path)
 }
 
 func TestCHeaderGenerator_Minimal(t *testing.T) {

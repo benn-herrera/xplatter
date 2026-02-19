@@ -43,7 +43,9 @@ func (g *ImplCppGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 		return nil, fmt.Errorf("generating impl source: %w", err)
 	}
 
-	return []*OutputFile{ifaceFile, shimFile, implHeader, implSource}, nil
+	cmakeFile := g.generateCMakeLists(api, apiName)
+
+	return []*OutputFile{ifaceFile, shimFile, implHeader, implSource, cmakeFile}, nil
 }
 
 // generateInterface produces the abstract C++ interface header.
@@ -330,8 +332,9 @@ func (g *ImplCppGenerator) generateImplHeader(api *model.APIDefinition, apiName 
 	fmt.Fprintf(&b, "#endif\n")
 
 	return &OutputFile{
-		Path:    apiName + "_impl.h",
-		Content: []byte(b.String()),
+		Path:     apiName + "_impl.h",
+		Content:  []byte(b.String()),
+		Scaffold: true,
 	}, nil
 }
 
@@ -397,8 +400,9 @@ func (g *ImplCppGenerator) generateImplSource(api *model.APIDefinition, apiName 
 	b.WriteString("}\n")
 
 	return &OutputFile{
-		Path:    apiName + "_impl.cpp",
-		Content: []byte(b.String()),
+		Path:     apiName + "_impl.cpp",
+		Content:  []byte(b.String()),
+		Scaffold: true,
 	}, nil
 }
 
@@ -439,6 +443,31 @@ func (g *ImplCppGenerator) writeImplMethodStub(b *strings.Builder, implClassName
 	}
 
 	b.WriteString("}\n")
+}
+
+// generateCMakeLists produces a scaffold CMakeLists.txt for the C++ implementation.
+func (g *ImplCppGenerator) generateCMakeLists(api *model.APIDefinition, apiName string) *OutputFile {
+	projectName := strings.ReplaceAll(apiName, "_", "-")
+	var b strings.Builder
+
+	b.WriteString("cmake_minimum_required(VERSION 3.15)\n")
+	fmt.Fprintf(&b, "project(%s VERSION %s LANGUAGES CXX)\n\n", projectName, api.API.Version)
+	b.WriteString("set(CMAKE_CXX_STANDARD 20)\n")
+	b.WriteString("set(CMAKE_CXX_STANDARD_REQUIRED ON)\n\n")
+
+	// Collect source files
+	fmt.Fprintf(&b, "add_library(%s SHARED\n", projectName)
+	fmt.Fprintf(&b, "    %s_shim.cpp\n", apiName)
+	fmt.Fprintf(&b, "    %s_impl.cpp\n", apiName)
+	b.WriteString(")\n\n")
+
+	fmt.Fprintf(&b, "target_include_directories(%s PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})\n", projectName)
+
+	return &OutputFile{
+		Path:     "CMakeLists.txt",
+		Content:  []byte(b.String()),
+		Scaffold: true,
+	}
 }
 
 // --- C++ type helpers ---

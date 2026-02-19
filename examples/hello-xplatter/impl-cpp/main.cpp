@@ -5,7 +5,7 @@
  * the full shim → interface → impl path.
  */
 
-#include "generated/hello_xplatter.h"
+#include "hello_xplatter.h"
 
 #include <cstdio>
 #include <cstring>

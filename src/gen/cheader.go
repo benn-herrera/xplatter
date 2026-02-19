@@ -2,7 +2,6 @@ package gen
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/benn-herrera/xplatter/model"
@@ -52,7 +51,7 @@ func (g *CHeaderGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 
 	// FlatBuffer type definitions
 	if len(ctx.ResolvedTypes) > 0 {
-		writeFBSTypeDefinitions(&b, ctx.ResolvedTypes)
+		writeFBSTypedefs(&b, ctx.ResolvedTypes)
 	}
 
 	// Platform services
@@ -200,59 +199,6 @@ func formatCParam(p *model.ParameterDef) []string {
 		return []string{"const " + cType + "* " + p.Name}
 	}
 	return []string{cType + " " + p.Name}
-}
-
-// writeFBSTypeDefinitions emits C type definitions for all FlatBuffer types.
-// Enums are emitted first, then structs, then tables.
-func writeFBSTypeDefinitions(b *strings.Builder, resolved resolver.ResolvedTypes) {
-	// Collect and sort type names for deterministic output
-	var enumNames, structNames, tableNames []string
-	for name, info := range resolved {
-		switch info.Kind {
-		case resolver.TypeKindEnum:
-			enumNames = append(enumNames, name)
-		case resolver.TypeKindStruct:
-			structNames = append(structNames, name)
-		case resolver.TypeKindTable:
-			tableNames = append(tableNames, name)
-		}
-	}
-	sort.Strings(enumNames)
-	sort.Strings(structNames)
-	sort.Strings(tableNames)
-
-	// Enums
-	for _, name := range enumNames {
-		info := resolved[name]
-		cName := model.FlatBufferCType(name)
-		b.WriteString("typedef enum {\n")
-		for i, val := range info.EnumValues {
-			if i < len(info.EnumValues)-1 {
-				fmt.Fprintf(b, "    %s_%s = %d,\n", cName, val.Name, val.Value)
-			} else {
-				fmt.Fprintf(b, "    %s_%s = %d\n", cName, val.Name, val.Value)
-			}
-		}
-		fmt.Fprintf(b, "} %s;\n\n", cName)
-	}
-
-	// Structs (fixed-size, by value)
-	for _, name := range structNames {
-		info := resolved[name]
-		cName := model.FlatBufferCType(name)
-		fmt.Fprintf(b, "typedef struct %s {\n", cName)
-		writeCStructFields(b, info.Fields)
-		fmt.Fprintf(b, "} %s;\n\n", cName)
-	}
-
-	// Tables
-	for _, name := range tableNames {
-		info := resolved[name]
-		cName := model.FlatBufferCType(name)
-		fmt.Fprintf(b, "typedef struct %s {\n", cName)
-		writeCStructFields(b, info.Fields)
-		fmt.Fprintf(b, "} %s;\n\n", cName)
-	}
 }
 
 // writeCStructFields writes C struct field declarations for FBS fields.

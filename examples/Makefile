@@ -7,10 +7,21 @@ BUILD_XPLATTER_TARGET  := $(shell [[ -d $(ROOT_DIR)/.git ]] && echo build-xplatt
 # the API implementation to bind when building test apps (c, cpp, rust, or go)
 IMPL ?= cpp
 
+# Absolute paths for codegen bootstrap (so cd into impl dirs works)
+XPLATTER_ABS := $(abspath $(ROOT_DIR)/xplatter.sh)
+HELLO_API_ABS := $(abspath hello-xplatter/shared_schemas/hello_xplatter.yaml)
+
+# Bootstrap codegen: generates Makefile + platform_services + bindings.
+# Scaffold files (Makefile, platform_services, impl stubs) are only written on first run.
+# $(1) = impl dir, $(2) = impl lang, $(3) = output flag (e.g. "-o generated" or "-o .")
+define gen-impl
+	cd $(1) && $(XPLATTER_ABS) generate --impl-lang $(2) $(3) $(HELLO_API_ABS)
+endef
+
 .PHONY: default build-xplatter build-xplatter-in-dist build-xplatter-for-dev \
        test-hello-impl-c test-hello-impl-cpp test-hello-impl-rust test-hello-impl-go test-hello-impls \
        test-hello-app-desktop-cpp test-hello-app-desktop-swift test-hello-app-ios test-hello-app-android test-hello-app-web test-hello-apps \
-       package-hello-cpp package-hello-rust package-hello-all \
+       package-hello-c package-hello-cpp package-hello-go package-hello-rust package-hello-all \
        help
 
 default: test-hello-apps
@@ -26,19 +37,23 @@ build-xplatter: $(BUILD_XPLATTER_TARGET)
 
 ## test-hello-impl-c: Build and run the hello example C implementation
 test-hello-impl-c: build-xplatter
-	$(MAKE) -C hello-xplatter/impl-c run
+	$(call gen-impl,hello-xplatter/impl-c,c,-o generated)
+	$(MAKE) -C hello-xplatter/impl-c XPLATTER=$(XPLATTER_ABS) run
 
 ## test-hello-impl-cpp: Build and run the hello example C++ implementation
 test-hello-impl-cpp: build-xplatter
-	$(MAKE) -C hello-xplatter/impl-cpp run
+	$(call gen-impl,hello-xplatter/impl-cpp,cpp,-o .)
+	$(MAKE) -C hello-xplatter/impl-cpp XPLATTER=$(XPLATTER_ABS) run
 
 ## test-hello-impl-rust: Build and run the hello example Rust implementation
 test-hello-impl-rust: build-xplatter
-	cd hello-xplatter/impl-rust && cargo test
+	$(call gen-impl,hello-xplatter/impl-rust,rust,-o .)
+	$(MAKE) -C hello-xplatter/impl-rust XPLATTER=$(XPLATTER_ABS) run
 
 ## test-hello-impl-go: Build and run the hello example Go implementation
 test-hello-impl-go: build-xplatter
-	$(MAKE) -C hello-xplatter/impl-go run
+	$(call gen-impl,hello-xplatter/impl-go,go,-o generated)
+	$(MAKE) -C hello-xplatter/impl-go XPLATTER=$(XPLATTER_ABS) run
 
 ## test-hello-impls: Run all hello example implementations
 test-hello-impls: test-hello-impl-c test-hello-impl-cpp test-hello-impl-rust test-hello-impl-go
@@ -67,7 +82,7 @@ test-hello-app-web: build-xplatter
 
 ## test-hello-apps: Run all app tests
 test-hello-apps: test-hello-app-desktop-cpp test-hello-app-desktop-swift test-hello-app-ios test-hello-app-android test-hello-app-web
-clean-hello-apps: 
+clean-hello-apps:
 	$(MAKE) -C hello-xplatter/app-desktop-cpp clean
 	$(MAKE) -C hello-xplatter/app-desktop-swift clean
 	$(MAKE) -C hello-xplatter/app-ios clean
@@ -76,19 +91,23 @@ clean-hello-apps:
 
 ## package-hello-c: Build cross-platform packages for C impl
 package-hello-c: build-xplatter
-	$(MAKE) -C hello-xplatter/impl-c packages
+	$(call gen-impl,hello-xplatter/impl-c,c,-o generated)
+	$(MAKE) -C hello-xplatter/impl-c XPLATTER=$(XPLATTER_ABS) packages
 
 ## package-hello-cpp: Build cross-platform packages for C++ impl
 package-hello-cpp: build-xplatter
-	$(MAKE) -C hello-xplatter/impl-cpp packages
+	$(call gen-impl,hello-xplatter/impl-cpp,cpp,-o .)
+	$(MAKE) -C hello-xplatter/impl-cpp XPLATTER=$(XPLATTER_ABS) packages
 
-## package-hello-go: Build cross-platform packages for C impl
+## package-hello-go: Build cross-platform packages for Go impl
 package-hello-go: build-xplatter
-	$(MAKE) -C hello-xplatter/impl-go packages
+	$(call gen-impl,hello-xplatter/impl-go,go,-o generated)
+	$(MAKE) -C hello-xplatter/impl-go XPLATTER=$(XPLATTER_ABS) packages
 
 ## package-hello-rust: Build cross-platform packages for Rust impl
 package-hello-rust: build-xplatter
-	$(MAKE) -C hello-xplatter/impl-rust packages
+	$(call gen-impl,hello-xplatter/impl-rust,rust,-o .)
+	$(MAKE) -C hello-xplatter/impl-rust XPLATTER=$(XPLATTER_ABS) packages
 
 ## package-hello-all: Build packages for all implementations
 package-hello-all: package-hello-c package-hello-cpp package-hello-rust package-hello-go

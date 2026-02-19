@@ -2,7 +2,7 @@ package main
 
 /*
 #include <stdlib.h>
-#include "hello_xplatter.h"
+#include "generated/hello_xplatter.h"
 */
 import "C"
 import (

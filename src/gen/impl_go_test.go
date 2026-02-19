@@ -14,8 +14,8 @@ func TestGoImplGenerator_Minimal(t *testing.T) {
 		t.Fatalf("generation failed: %v", err)
 	}
 
-	if len(files) != 4 {
-		t.Fatalf("expected 4 output files, got %d", len(files))
+	if len(files) != 5 {
+		t.Fatalf("expected 5 output files, got %d", len(files))
 	}
 
 	// Verify filenames
@@ -24,10 +24,25 @@ func TestGoImplGenerator_Minimal(t *testing.T) {
 		"test_api_cgo.go",
 		"test_api_impl.go",
 		"test_api_types.go",
+		"go.mod",
 	}
 	for i, name := range expectedNames {
 		if files[i].Path != name {
 			t.Errorf("file[%d]: expected %q, got %q", i, name, files[i].Path)
+		}
+	}
+
+	// Verify scaffold flags
+	scaffoldFiles := map[string]bool{
+		"test_api_impl.go": true,
+		"go.mod":           true,
+	}
+	for _, f := range files {
+		if scaffoldFiles[f.Path] && !f.Scaffold {
+			t.Errorf("%s should be scaffold", f.Path)
+		}
+		if !scaffoldFiles[f.Path] && f.Scaffold {
+			t.Errorf("%s should not be scaffold", f.Path)
 		}
 	}
 }
@@ -80,9 +95,22 @@ func TestGoImplGenerator_CgoFile(t *testing.T) {
 		t.Error("missing package declaration")
 	}
 
-	// cgo header include
-	if !strings.Contains(content, `#include "test_api.h"`) {
-		t.Error("missing cgo header include")
+	// cgo preamble should NOT include the header (causes prototype conflicts with //export)
+	if strings.Contains(content, `#include "test_api.h"`) {
+		t.Error("cgo preamble must not #include the C header (conflicts with //export prototypes)")
+	}
+
+	// cgo preamble should have local C type definitions
+	if !strings.Contains(content, "#include <stdint.h>") {
+		t.Error("missing #include <stdint.h> in cgo preamble")
+	}
+	if !strings.Contains(content, "#include <stdbool.h>") {
+		t.Error("missing #include <stdbool.h> in cgo preamble")
+	}
+
+	// Handle typedef in cgo preamble
+	if !strings.Contains(content, "typedef struct engine_s* engine_handle;") {
+		t.Error("missing engine_handle typedef in cgo preamble")
 	}
 
 	// import "C"
@@ -161,6 +189,26 @@ func TestGoImplGenerator_ImplFile(t *testing.T) {
 	}
 }
 
+func TestGoImplGenerator_GoMod(t *testing.T) {
+	ctx := loadTestAPI(t, "minimal.yaml")
+	gen := &GoImplGenerator{}
+
+	files, err := gen.Generate(ctx)
+	if err != nil {
+		t.Fatalf("generation failed: %v", err)
+	}
+
+	// go.mod is the last file
+	gomod := string(files[len(files)-1].Content)
+
+	if !strings.Contains(gomod, "module test-api") {
+		t.Error("missing module name in go.mod")
+	}
+	if !strings.Contains(gomod, "go 1.24") {
+		t.Error("missing go version in go.mod")
+	}
+}
+
 func TestGoImplGenerator_Full(t *testing.T) {
 	ctx := loadTestAPI(t, "full.yaml")
 	gen := &GoImplGenerator{}
@@ -170,8 +218,8 @@ func TestGoImplGenerator_Full(t *testing.T) {
 		t.Fatalf("generation failed: %v", err)
 	}
 
-	if len(files) != 4 {
-		t.Fatalf("expected 4 output files, got %d", len(files))
+	if len(files) != 5 {
+		t.Fatalf("expected 5 output files, got %d", len(files))
 	}
 
 	ifaceContent := string(files[0].Content)

@@ -1,14 +1,14 @@
 /*
- * Web/WASM platform services for the hello_xplatter example.
- *
- * No-op stubs compiled into the WASM binary. Since these are resolved
- * at compile time, the JS _buildPlatformImports() entries are unused.
+ * Web/WASM platform services for hello_xplatter.
+ * No-op stubs compiled into the WASM binary.
  */
 
 #include <stdint.h>
 
 void hello_xplatter_log_sink(int32_t level, const char* tag, const char* message) {
-    (void)level; (void)tag; (void)message;
+    (void)level;
+    (void)tag;
+    (void)message;
 }
 
 uint32_t hello_xplatter_resource_count(void) {

@@ -1,15 +1,14 @@
 /*
- * iOS platform services for the hello_xplatter example.
- *
- * Logging uses os_log; resource functions are stubs.
+ * Web/WASM platform services for hello_xplatter.
+ * No-op stubs compiled into the WASM binary.
  */
 
 #include <stdint.h>
-#include <os/log.h>
 
 void hello_xplatter_log_sink(int32_t level, const char* tag, const char* message) {
-    os_log_type_t type = (level <= 1) ? OS_LOG_TYPE_DEBUG : OS_LOG_TYPE_DEFAULT;
-    os_log_with_type(OS_LOG_DEFAULT, type, "[%{public}s] %{public}s", tag, message);
+    (void)level;
+    (void)tag;
+    (void)message;
 }
 
 uint32_t hello_xplatter_resource_count(void) {

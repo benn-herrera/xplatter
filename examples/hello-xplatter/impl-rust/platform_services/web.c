@@ -1,15 +1,14 @@
 /*
- * Android platform services for the hello_xplatter example.
- *
- * Logging uses __android_log_print; resource functions are stubs.
+ * Web/WASM platform services for hello_xplatter.
+ * No-op stubs compiled into the WASM binary.
  */
 
 #include <stdint.h>
-#include <android/log.h>
 
 void hello_xplatter_log_sink(int32_t level, const char* tag, const char* message) {
-    int prio = (level <= 1) ? ANDROID_LOG_DEBUG : ANDROID_LOG_INFO;
-    __android_log_print(prio, tag, "%s", message);
+    (void)level;
+    (void)tag;
+    (void)message;
 }
 
 uint32_t hello_xplatter_resource_count(void) {

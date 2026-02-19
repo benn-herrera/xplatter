@@ -14,8 +14,8 @@ func TestImplCppGenerator_Minimal(t *testing.T) {
 		t.Fatalf("generation failed: %v", err)
 	}
 
-	if len(files) != 4 {
-		t.Fatalf("expected 4 output files, got %d", len(files))
+	if len(files) != 5 {
+		t.Fatalf("expected 5 output files, got %d", len(files))
 	}
 
 	// Verify filenames
@@ -24,10 +24,26 @@ func TestImplCppGenerator_Minimal(t *testing.T) {
 		"test_api_shim.cpp",
 		"test_api_impl.h",
 		"test_api_impl.cpp",
+		"CMakeLists.txt",
 	}
 	for i, expected := range expectedNames {
 		if files[i].Path != expected {
 			t.Errorf("file[%d]: expected %q, got %q", i, expected, files[i].Path)
+		}
+	}
+
+	// Verify scaffold flags
+	scaffoldFiles := map[string]bool{
+		"test_api_impl.h":   true,
+		"test_api_impl.cpp": true,
+		"CMakeLists.txt":    true,
+	}
+	for _, f := range files {
+		if scaffoldFiles[f.Path] && !f.Scaffold {
+			t.Errorf("%s should be scaffold", f.Path)
+		}
+		if !scaffoldFiles[f.Path] && f.Scaffold {
+			t.Errorf("%s should not be scaffold", f.Path)
 		}
 	}
 }
@@ -221,6 +237,32 @@ func TestImplCppGenerator_ImplSource(t *testing.T) {
 	}
 }
 
+func TestImplCppGenerator_CMakeLists(t *testing.T) {
+	ctx := loadTestAPI(t, "minimal.yaml")
+	gen := &ImplCppGenerator{}
+
+	files, err := gen.Generate(ctx)
+	if err != nil {
+		t.Fatalf("generation failed: %v", err)
+	}
+
+	// CMakeLists.txt is the last file
+	cmake := string(files[len(files)-1].Content)
+
+	if !strings.Contains(cmake, "cmake_minimum_required(VERSION 3.15)") {
+		t.Error("missing cmake_minimum_required in CMakeLists.txt")
+	}
+	if !strings.Contains(cmake, "project(test-api") {
+		t.Error("missing project name in CMakeLists.txt")
+	}
+	if !strings.Contains(cmake, "test_api_shim.cpp") {
+		t.Error("missing shim source in CMakeLists.txt")
+	}
+	if !strings.Contains(cmake, "test_api_impl.cpp") {
+		t.Error("missing impl source in CMakeLists.txt")
+	}
+}
+
 func TestImplCppGenerator_Full(t *testing.T) {
 	ctx := loadTestAPI(t, "full.yaml")
 	gen := &ImplCppGenerator{}
@@ -230,8 +272,8 @@ func TestImplCppGenerator_Full(t *testing.T) {
 		t.Fatalf("generation failed: %v", err)
 	}
 
-	if len(files) != 4 {
-		t.Fatalf("expected 4 output files, got %d", len(files))
+	if len(files) != 5 {
+		t.Fatalf("expected 5 output files, got %d", len(files))
 	}
 
 	// Verify filenames use correct API name
@@ -240,6 +282,7 @@ func TestImplCppGenerator_Full(t *testing.T) {
 		"example_app_engine_shim.cpp",
 		"example_app_engine_impl.h",
 		"example_app_engine_impl.cpp",
+		"CMakeLists.txt",
 	}
 	for i, expected := range expectedNames {
 		if files[i].Path != expected {

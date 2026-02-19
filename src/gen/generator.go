@@ -8,8 +8,10 @@ import (
 
 // OutputFile represents a single generated file.
 type OutputFile struct {
-	Path    string // Relative path within output directory
-	Content []byte
+	Path        string // Relative path within output directory
+	Content     []byte
+	Scaffold    bool // If true, only write when file doesn't already exist
+	ProjectFile bool // If true, write to parent of output directory (for Makefiles, platform stubs)
 }
 
 // Generator is the interface all code generators implement.
@@ -79,19 +81,19 @@ func GeneratorsForTarget(target string) []string {
 	}
 }
 
-// GeneratorsForImplLang returns the generator name for impl scaffolding.
-func GeneratorsForImplLang(implLang string) string {
+// GeneratorsForImplLang returns the generator names for impl scaffolding, Makefile, and platform services.
+func GeneratorsForImplLang(implLang string) []string {
 	switch implLang {
 	case "cpp":
-		return "impl_cpp"
+		return []string{"impl_cpp", "impl_makefile_cpp", "impl_platform_services"}
 	case "rust":
-		return "impl_rust"
+		return []string{"impl_rust", "impl_makefile_rust", "impl_platform_services"}
 	case "go":
-		return "impl_go"
+		return []string{"impl_go", "impl_makefile_go", "impl_platform_services"}
 	case "c":
-		return "" // No scaffolding for pure C
+		return []string{"impl_makefile_c", "impl_platform_services"}
 	default:
-		return ""
+		return nil
 	}
 }
 

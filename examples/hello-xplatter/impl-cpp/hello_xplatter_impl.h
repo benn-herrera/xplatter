@@ -7,7 +7,7 @@
 #ifndef HELLO_XPLATTER_IMPL_H
 #define HELLO_XPLATTER_IMPL_H
 
-#include "generated/hello_xplatter.h"
+#include "hello_xplatter.h"
 #include "hello_xplatter_interface.h"
 
 #include <string>

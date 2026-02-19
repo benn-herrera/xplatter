@@ -1,0 +1,49 @@
+#include <jni.h>
+#include <string.h>
+#include "hello_xplatter.h"
+
+static void throw_exception(JNIEnv *env, const char *class_name, const char *message) {
+    jclass cls = (*env)->FindClass(env, class_name);
+    if (cls != NULL) {
+        (*env)->ThrowNew(env, cls, message);
+    }
+}
+
+/* lifecycle */
+JNIEXPORT jlongArray JNICALL
+Java_hello_xplatter_HelloXplatter_nativeLifecycleCreateGreeter(JNIEnv *env, jobject thiz) {
+    greeter_handle out_result;
+    int32_t rc = hello_xplatter_lifecycle_create_greeter(&out_result);
+    jlongArray arr = (*env)->NewLongArray(env, 2);
+    jlong values[2] = { (jlong)rc, (jlong)out_result };
+    (*env)->SetLongArrayRegion(env, arr, 0, 2, values);
+    return arr;
+}
+
+JNIEXPORT void JNICALL
+Java_hello_xplatter_HelloXplatter_nativeLifecycleDestroyGreeter(JNIEnv *env, jobject thiz, jlong greeter) {
+    hello_xplatter_lifecycle_destroy_greeter((greeter_handle)greeter);
+}
+
+
+/* greeter */
+JNIEXPORT jobject JNICALL
+Java_hello_xplatter_HelloXplatter_nativeGreeterSayHello(JNIEnv *env, jobject thiz, jlong greeter, jstring name) {
+    const char *c_name = (*env)->GetStringUTFChars(env, name, NULL);
+    Hello_Greeting out_result;
+    int32_t rc = hello_xplatter_greeter_say_hello((greeter_handle)greeter, c_name, &out_result);
+    (*env)->ReleaseStringUTFChars(env, name, c_name);
+    if (rc != 0) {
+        jclass ex_cls = (*env)->FindClass(env, "hello/xplatter/HelloErrorCodeException");
+        jmethodID ex_ctor = (*env)->GetMethodID(env, ex_cls, "<init>", "(I)V");
+        (*env)->Throw(env, (jthrowable)(*env)->NewObject(env, ex_cls, ex_ctor, (jint)rc));
+        return NULL;
+    }
+    jstring j_message = (*env)->NewStringUTF(env, out_result.message);
+    jstring j_apiImpl = (*env)->NewStringUTF(env, out_result.apiImpl);
+    jclass cls = (*env)->FindClass(env, "hello/xplatter/HelloGreeting");
+    jmethodID ctor = (*env)->GetMethodID(env, cls, "<init>", "(Ljava/lang/String;Ljava/lang/String;)V");
+    return (*env)->NewObject(env, cls, ctor, j_message, j_apiImpl);
+}
+
+

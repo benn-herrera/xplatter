@@ -119,7 +119,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create generation context
-	ctx := gen.NewContext(def, resolvedTypes, genOutput)
+	ctx := gen.NewContext(def, resolvedTypes, genOutput, apiDefPath)
 	ctx.Verbose = verbose
 	ctx.DryRun = genDryRun
 
@@ -132,8 +132,8 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if implGen := gen.GeneratorsForImplLang(def.API.ImplLang); implGen != "" {
-		generatorNames = appendUnique(generatorNames, implGen)
+	for _, name := range gen.GeneratorsForImplLang(def.API.ImplLang) {
+		generatorNames = appendUnique(generatorNames, name)
 	}
 
 	for _, name := range gen.GeneratorsForImplLangAndTargets(def.API.ImplLang, def.EffectiveTargets()) {
@@ -163,8 +163,25 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Write output files
+	var written, skipped int
 	for _, f := range allFiles {
-		outPath := filepath.Join(genOutput, f.Path)
+		base := genOutput
+		if f.ProjectFile {
+			base = filepath.Dir(genOutput)
+		}
+		outPath := filepath.Join(base, f.Path)
+
+		// Scaffold files are only written when they don't already exist.
+		if f.Scaffold {
+			if _, err := os.Stat(outPath); err == nil {
+				skipped++
+				if verbose {
+					fmt.Printf("  Scaffold exists, skipped: %s\n", outPath)
+				}
+				continue
+			}
+		}
+
 		if genDryRun {
 			fmt.Printf("  Would write: %s\n", outPath)
 			continue
@@ -177,16 +194,21 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("writing %s: %w", outPath, err)
 		}
 
+		written++
 		if verbose {
 			fmt.Printf("  Wrote: %s\n", outPath)
 		}
 	}
 
 	if !quiet {
+		skippedMsg := ""
+		if skipped > 0 {
+			skippedMsg = fmt.Sprintf(", %d scaffold file(s) preserved", skipped)
+		}
 		if flatcCount > 0 {
-			fmt.Printf("Generated %d files in %s (flatc ran %d invocation(s))\n", len(allFiles), genOutput, flatcCount)
+			fmt.Printf("Generated %d files in %s (flatc ran %d invocation(s)%s)\n", written, genOutput, flatcCount, skippedMsg)
 		} else {
-			fmt.Printf("Generated %d files in %s\n", len(allFiles), genOutput)
+			fmt.Printf("Generated %d files in %s%s\n", written, genOutput, skippedMsg)
 		}
 	}
 	return nil
