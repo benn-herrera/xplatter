@@ -20,25 +20,25 @@ func (g *CppMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 
 	MakefileHeader(&b, ctx, "cpp")
 	MakefileTargetConfig(&b)
-	MakefileBindingVars(&b, apiName, "")
+	MakefileBindingVars(&b, apiName, "generated/")
 	MakefileWASMExports(&b, apiName, ctx.API)
 
 	// C++ specific variables
 	b.WriteString("# ── C++ build configuration ───────────────────────────────────────────────────\n\n")
 	b.WriteString("CXX        ?= c++\n")
 	b.WriteString("CC         ?= cc\n")
-	b.WriteString("CXXFLAGS   := -Wall -Wextra -std=c++20 -I.\n")
-	b.WriteString("CFLAGS     := -Wall -Wextra -std=c11 -I.\n")
+	b.WriteString("CXXFLAGS   := -Wall -Wextra -std=c++20 -Igenerated\n")
+	b.WriteString("CFLAGS     := -Wall -Wextra -std=c11 -Igenerated\n")
 	b.WriteString("LIB_VISIBILITY_FLAGS := -fvisibility=hidden -D$(BUILD_MACRO)\n")
 	b.WriteString("LIB_C_FLAGS := -std=c11 -Wall -Wextra $(LIB_VISIBILITY_FLAGS)\n\n")
 
 	b.WriteString("PLATFORM_SERVICES := platform_services\n\n")
 
 	b.WriteString("# Ensure codegen runs before any target needs generated files\n")
-	b.WriteString("$(API_NAME).h: $(STAMP)\n\n")
+	b.WriteString("$(GEN_HEADER): $(STAMP)\n\n")
 
 	// Codegen stamp
-	MakefileCodegenStamp(&b, "cpp", "-o .")
+	MakefileCodegenStamp(&b, "cpp", "-o generated")
 
 	// Phony declarations
 	b.WriteString(".PHONY: run shared-lib clean\n\n")
@@ -46,7 +46,7 @@ func (g *CppMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	// Local build
 	b.WriteString("# ── Local build ──────────────────────────────────────────────────────────────\n\n")
 	b.WriteString("IMPL_SOURCES   := $(API_NAME)_impl.cpp\n")
-	b.WriteString("SHIM_SOURCE    := $(API_NAME)_shim.cpp\n\n")
+	b.WriteString("SHIM_SOURCE    := generated/$(API_NAME)_shim.cpp\n\n")
 
 	b.WriteString("run: $(STAMP)\n")
 	b.WriteString("\t@mkdir -p $(BUILD_DIR)\n")
@@ -64,7 +64,7 @@ func (g *CppMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 
 	// Clean
 	b.WriteString("clean:\n")
-	b.WriteString("\trm -rf $(BUILD_DIR) $(DIST_DIR)\n\n")
+	b.WriteString("\trm -rf generated $(BUILD_DIR) $(DIST_DIR)\n\n")
 
 	// iOS packaging
 	MakefilePackageIOS(&b, func(b *strings.Builder) {

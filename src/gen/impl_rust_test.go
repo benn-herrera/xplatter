@@ -18,12 +18,13 @@ func TestRustImplGenerator_Minimal(t *testing.T) {
 		t.Fatalf("expected 6 output files, got %d", len(files))
 	}
 
-	// Verify filenames (src/ prefix on .rs files, plus Cargo.toml and src/lib.rs)
+	// Verify filenames: non-scaffold .rs files have no prefix (go into generated/),
+	// scaffold files keep src/ prefix and use ProjectFile (go into project root).
 	expectedNames := []string{
-		"src/test_api_trait.rs",
-		"src/test_api_ffi.rs",
+		"test_api_trait.rs",
+		"test_api_ffi.rs",
 		"src/test_api_impl.rs",
-		"src/test_api_types.rs",
+		"test_api_types.rs",
 		"Cargo.toml",
 		"src/lib.rs",
 	}
@@ -33,18 +34,32 @@ func TestRustImplGenerator_Minimal(t *testing.T) {
 		}
 	}
 
-	// Verify scaffold flags
-	scaffoldFiles := map[string]bool{
-		"src/test_api_impl.rs": true,
-		"Cargo.toml":          true,
-		"src/lib.rs":          true,
+	// Verify scaffold and ProjectFile flags
+	type fileExpect struct {
+		scaffold    bool
+		projectFile bool
+	}
+	expectedFlags := map[string]fileExpect{
+		"test_api_trait.rs":    {false, false},
+		"test_api_ffi.rs":     {false, false},
+		"src/test_api_impl.rs": {true, true},
+		"test_api_types.rs":   {false, false},
+		"Cargo.toml":          {true, true},
+		"src/lib.rs":          {true, true},
 	}
 	for _, f := range files {
-		if scaffoldFiles[f.Path] && !f.Scaffold {
+		expect := expectedFlags[f.Path]
+		if expect.scaffold && !f.Scaffold {
 			t.Errorf("%s should be scaffold", f.Path)
 		}
-		if !scaffoldFiles[f.Path] && f.Scaffold {
+		if !expect.scaffold && f.Scaffold {
 			t.Errorf("%s should not be scaffold", f.Path)
+		}
+		if expect.projectFile && !f.ProjectFile {
+			t.Errorf("%s should be ProjectFile", f.Path)
+		}
+		if !expect.projectFile && f.ProjectFile {
+			t.Errorf("%s should not be ProjectFile", f.Path)
 		}
 	}
 }
@@ -225,6 +240,21 @@ func TestRustImplGenerator_LibRs(t *testing.T) {
 	}
 	if !strings.Contains(librs, "pub mod test_api_impl;") {
 		t.Error("missing impl module in lib.rs")
+	}
+
+	// Generated modules use #[path] to reference files in ../generated/
+	if !strings.Contains(librs, `#[path = "../generated/test_api_types.rs"]`) {
+		t.Error("missing #[path] for types module")
+	}
+	if !strings.Contains(librs, `#[path = "../generated/test_api_trait.rs"]`) {
+		t.Error("missing #[path] for trait module")
+	}
+	if !strings.Contains(librs, `#[path = "../generated/test_api_ffi.rs"]`) {
+		t.Error("missing #[path] for ffi module")
+	}
+	// impl module should NOT have #[path] — it's in src/ alongside lib.rs
+	if strings.Contains(librs, `#[path = "../generated/test_api_impl.rs"]`) {
+		t.Error("impl module should not have #[path] attribute")
 	}
 }
 

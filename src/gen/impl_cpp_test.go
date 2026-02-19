@@ -32,18 +32,31 @@ func TestImplCppGenerator_Minimal(t *testing.T) {
 		}
 	}
 
-	// Verify scaffold flags
-	scaffoldFiles := map[string]bool{
-		"test_api_impl.h":   true,
-		"test_api_impl.cpp": true,
-		"CMakeLists.txt":    true,
+	// Verify scaffold and ProjectFile flags
+	type fileExpect struct {
+		scaffold    bool
+		projectFile bool
+	}
+	expectedFlags := map[string]fileExpect{
+		"test_api_interface.h": {false, false},
+		"test_api_shim.cpp":   {false, false},
+		"test_api_impl.h":     {true, true},
+		"test_api_impl.cpp":   {true, true},
+		"CMakeLists.txt":      {true, true},
 	}
 	for _, f := range files {
-		if scaffoldFiles[f.Path] && !f.Scaffold {
+		expect := expectedFlags[f.Path]
+		if expect.scaffold && !f.Scaffold {
 			t.Errorf("%s should be scaffold", f.Path)
 		}
-		if !scaffoldFiles[f.Path] && f.Scaffold {
+		if !expect.scaffold && f.Scaffold {
 			t.Errorf("%s should not be scaffold", f.Path)
+		}
+		if expect.projectFile && !f.ProjectFile {
+			t.Errorf("%s should be ProjectFile", f.Path)
+		}
+		if !expect.projectFile && f.ProjectFile {
+			t.Errorf("%s should not be ProjectFile", f.Path)
 		}
 	}
 }

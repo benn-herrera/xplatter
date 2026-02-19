@@ -60,14 +60,14 @@ func TestRustMakefileGenerator_Content(t *testing.T) {
 		t.Error("missing cargo clean in clean target")
 	}
 
-	// Codegen stamp with -o . (Rust outputs to project root)
-	if !strings.Contains(content, "$(XPLATTER) generate --impl-lang rust -o .") {
-		t.Error("missing codegen stamp with -o . flag")
+	// Codegen stamp with -o generated
+	if !strings.Contains(content, "$(XPLATTER) generate --impl-lang rust -o generated") {
+		t.Error("missing codegen stamp with -o generated flag")
 	}
 
-	// No generated/ prefix for bindings (Rust uses -o .)
-	if !strings.Contains(content, "GEN_HEADER         := $(API_NAME).h") {
-		t.Error("Rust should have GEN_HEADER without generated/ prefix")
+	// Bindings use generated/ prefix
+	if !strings.Contains(content, "GEN_HEADER         := generated/$(API_NAME).h") {
+		t.Error("Rust should have GEN_HEADER with generated/ prefix")
 	}
 }
 

@@ -22,16 +22,16 @@ func (g *RustMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 
 	MakefileHeader(&b, ctx, "rust")
 	MakefileTargetConfig(&b)
-	MakefileBindingVars(&b, apiName, "")
+	MakefileBindingVars(&b, apiName, "generated/")
 	MakefileWASMExports(&b, apiName, ctx.API)
 
 	b.WriteString("# Ensure codegen runs before any target needs generated files\n")
-	b.WriteString("$(API_NAME).h: $(STAMP)\n\n")
+	b.WriteString("$(GEN_HEADER): $(STAMP)\n\n")
 
 	b.WriteString("LIB_C_FLAGS := -std=c11 -Wall -Wextra -fvisibility=hidden -D$(BUILD_MACRO)\n\n")
 
 	// Codegen stamp
-	MakefileCodegenStamp(&b, "rust", "-o .")
+	MakefileCodegenStamp(&b, "rust", "-o generated")
 
 	// Phony declarations
 	b.WriteString(".PHONY: run shared-lib clean\n\n")
@@ -53,8 +53,7 @@ func (g *RustMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	// Clean
 	b.WriteString("clean:\n")
 	b.WriteString("\tcargo clean\n")
-	b.WriteString("\trm -rf $(BUILD_DIR) $(DIST_DIR) flatbuffers\n")
-	b.WriteString("\trm -f $(API_NAME).h $(PASCAL_NAME).swift $(PASCAL_NAME).kt $(API_NAME).js $(API_NAME)_jni.c\n\n")
+	b.WriteString("\trm -rf generated $(BUILD_DIR) $(DIST_DIR) flatbuffers\n\n")
 
 	// iOS packaging
 	MakefilePackageIOS(&b, func(b *strings.Builder) {
@@ -105,7 +104,7 @@ func (g *RustMakefileGenerator) writeAndroidABIRules(b *strings.Builder) {
 	b.WriteString("\t@mkdir -p $(DIST_DIR)/android/obj/$(1) $$(dir $$@)\n")
 	b.WriteString("\tPATH=$(NDK_BIN):$$$$PATH cargo build --release --target $(2)\n")
 	b.WriteString("\t$(NDK_BIN)/$(3)-clang $(LIB_C_FLAGS) -fPIC \\\n")
-	b.WriteString("\t\t-I. -c -o $(DIST_DIR)/android/obj/$(1)/jni.o $(GEN_JNI_SOURCE)\n")
+	b.WriteString("\t\t-Igenerated -c -o $(DIST_DIR)/android/obj/$(1)/jni.o $(GEN_JNI_SOURCE)\n")
 	b.WriteString("\t$(NDK_BIN)/$(3)-clang -shared \\\n")
 	b.WriteString("\t\t-Wl,--whole-archive target/$(2)/release/$(LIB_NAME).a -Wl,--no-whole-archive \\\n")
 	b.WriteString("\t\t$(DIST_DIR)/android/obj/$(1)/jni.o \\\n")

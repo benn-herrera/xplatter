@@ -81,9 +81,24 @@ func TestCppMakefileGenerator_Content(t *testing.T) {
 		t.Error("missing shared library flags")
 	}
 
-	// Codegen stamp
-	if !strings.Contains(content, "$(XPLATTER) generate --impl-lang cpp") {
-		t.Error("missing codegen stamp rule")
+	// Codegen stamp with -o generated
+	if !strings.Contains(content, "$(XPLATTER) generate --impl-lang cpp -o generated") {
+		t.Error("missing codegen stamp rule with -o generated")
+	}
+
+	// Include path points to generated/
+	if !strings.Contains(content, "-Igenerated") {
+		t.Error("missing -Igenerated in CXXFLAGS")
+	}
+
+	// SHIM_SOURCE uses generated/ prefix
+	if !strings.Contains(content, "SHIM_SOURCE    := generated/$(API_NAME)_shim.cpp") {
+		t.Error("missing generated/ prefix on SHIM_SOURCE")
+	}
+
+	// Clean removes generated/
+	if !strings.Contains(content, "rm -rf generated") {
+		t.Error("clean target should remove generated/")
 	}
 
 	// WASM exports

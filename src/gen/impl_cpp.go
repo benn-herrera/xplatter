@@ -341,9 +341,10 @@ func (g *ImplCppGenerator) generateImplHeader(api *model.APIDefinition, apiName 
 	fmt.Fprintf(&b, "#endif\n")
 
 	return &OutputFile{
-		Path:     apiName + "_impl.h",
-		Content:  []byte(b.String()),
-		Scaffold: true,
+		Path:        apiName + "_impl.h",
+		Content:     []byte(b.String()),
+		Scaffold:    true,
+		ProjectFile: true,
 	}, nil
 }
 
@@ -409,9 +410,10 @@ func (g *ImplCppGenerator) generateImplSource(api *model.APIDefinition, apiName 
 	b.WriteString("}\n")
 
 	return &OutputFile{
-		Path:     apiName + "_impl.cpp",
-		Content:  []byte(b.String()),
-		Scaffold: true,
+		Path:        apiName + "_impl.cpp",
+		Content:     []byte(b.String()),
+		Scaffold:    true,
+		ProjectFile: true,
 	}, nil
 }
 
@@ -473,9 +475,10 @@ func (g *ImplCppGenerator) generateCMakeLists(api *model.APIDefinition, apiName 
 	fmt.Fprintf(&b, "target_include_directories(%s PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})\n", projectName)
 
 	return &OutputFile{
-		Path:     "CMakeLists.txt",
-		Content:  []byte(b.String()),
-		Scaffold: true,
+		Path:        "CMakeLists.txt",
+		Content:     []byte(b.String()),
+		Scaffold:    true,
+		ProjectFile: true,
 	}
 }
 

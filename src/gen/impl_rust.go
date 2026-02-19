@@ -79,26 +79,32 @@ func (g *RustImplGenerator) generateCargoToml(api *model.APIDefinition, apiName 
 	fmt.Fprintf(&b, "crate-type = [\"cdylib\", \"staticlib\", \"rlib\"]\n")
 
 	return &OutputFile{
-		Path:     "Cargo.toml",
-		Content:  []byte(b.String()),
-		Scaffold: true,
+		Path:        "Cargo.toml",
+		Content:     []byte(b.String()),
+		Scaffold:    true,
+		ProjectFile: true,
 	}
 }
 
 // generateLibRs produces the src/lib.rs entry point with module declarations.
+// Generated (non-scaffold) modules use #[path] to reference files in ../generated/.
 func (g *RustImplGenerator) generateLibRs(apiName string, hasTypes bool) *OutputFile {
 	var b strings.Builder
 	if hasTypes {
+		fmt.Fprintf(&b, "#[path = \"../generated/%s_types.rs\"]\n", apiName)
 		fmt.Fprintf(&b, "pub mod %s_types;\n", apiName)
 	}
+	fmt.Fprintf(&b, "#[path = \"../generated/%s_trait.rs\"]\n", apiName)
 	fmt.Fprintf(&b, "pub mod %s_trait;\n", apiName)
+	fmt.Fprintf(&b, "#[path = \"../generated/%s_ffi.rs\"]\n", apiName)
 	fmt.Fprintf(&b, "pub mod %s_ffi;\n", apiName)
 	fmt.Fprintf(&b, "pub mod %s_impl;\n", apiName)
 
 	return &OutputFile{
-		Path:     "src/lib.rs",
-		Content:  []byte(b.String()),
-		Scaffold: true,
+		Path:        "src/lib.rs",
+		Content:     []byte(b.String()),
+		Scaffold:    true,
+		ProjectFile: true,
 	}
 }
 
@@ -125,7 +131,7 @@ func (g *RustImplGenerator) generateTrait(api *model.APIDefinition, apiName stri
 	}
 
 	return &OutputFile{
-		Path:    "src/" + apiName + "_trait.rs",
+		Path:    apiName + "_trait.rs",
 		Content: []byte(b.String()),
 	}, nil
 }
@@ -152,7 +158,7 @@ func (g *RustImplGenerator) generateFFI(api *model.APIDefinition, apiName string
 	}
 
 	return &OutputFile{
-		Path:    "src/" + apiName + "_ffi.rs",
+		Path:    apiName + "_ffi.rs",
 		Content: []byte(b.String()),
 	}, nil
 }
@@ -186,9 +192,10 @@ func (g *RustImplGenerator) generateImpl(api *model.APIDefinition, apiName strin
 	}
 
 	return &OutputFile{
-		Path:     "src/" + apiName + "_impl.rs",
-		Content:  []byte(b.String()),
-		Scaffold: true,
+		Path:        "src/" + apiName + "_impl.rs",
+		Content:     []byte(b.String()),
+		Scaffold:    true,
+		ProjectFile: true,
 	}, nil
 }
 
@@ -255,7 +262,7 @@ func (g *RustImplGenerator) generateTypes(resolved resolver.ResolvedTypes, apiNa
 	}
 
 	return &OutputFile{
-		Path:    "src/" + apiName + "_types.rs",
+		Path:    apiName + "_types.rs",
 		Content: []byte(b.String()),
 	}
 }

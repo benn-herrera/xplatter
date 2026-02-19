@@ -21,9 +21,11 @@ func ComputeWASMExports(apiName string, api *model.APIDefinition) string {
 	return "[" + strings.Join(exports, ",") + "]"
 }
 
-// APIDefRelPath computes the relative path from the output directory to the API definition file.
+// APIDefRelPath computes the relative path from the project root to the API definition file.
+// The Makefile is a ProjectFile, so it lives at filepath.Dir(outputDir), not in the output dir itself.
 func APIDefRelPath(ctx *Context) string {
-	rel, err := filepath.Rel(ctx.OutputDir, ctx.APIDefPath)
+	base := filepath.Dir(ctx.OutputDir)
+	rel, err := filepath.Rel(base, ctx.APIDefPath)
 	if err != nil {
 		return ctx.APIDefPath
 	}

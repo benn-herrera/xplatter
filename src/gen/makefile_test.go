@@ -45,13 +45,24 @@ func TestComputeWASMExports_Full(t *testing.T) {
 }
 
 func TestAPIDefRelPath(t *testing.T) {
+	// API def relative to project root (parent of output dir)
 	ctx := &Context{
 		OutputDir:  "/home/user/project/generated",
 		APIDefPath: "/home/user/project/api.yaml",
 	}
 	rel := APIDefRelPath(ctx)
-	if rel != "../api.yaml" {
-		t.Errorf("expected ../api.yaml, got %q", rel)
+	if rel != "api.yaml" {
+		t.Errorf("expected api.yaml, got %q", rel)
+	}
+
+	// API def in a sibling directory
+	ctx2 := &Context{
+		OutputDir:  "/home/user/project/generated",
+		APIDefPath: "/home/user/schemas/api.yaml",
+	}
+	rel2 := APIDefRelPath(ctx2)
+	if rel2 != "../schemas/api.yaml" {
+		t.Errorf("expected ../schemas/api.yaml, got %q", rel2)
 	}
 }
 
