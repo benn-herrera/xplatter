@@ -11,6 +11,7 @@ type Context struct {
 	ResolvedTypes resolver.ResolvedTypes
 	OutputDir     string
 	APIDefPath    string // Path to the API definition YAML (for Makefile codegen step)
+	Version       string // xplatter version (e.g. "v0.1.1-6-g27008c1")
 	Verbose       bool
 	DryRun        bool
 }

@@ -23,6 +23,9 @@ func (g *KotlinGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	pascalName := ToPascalCase(apiName)
 	packageName := strings.ReplaceAll(apiName, "_", ".")
 
+	ktHeader := GeneratedFileHeader(ctx, "//", false)
+	jniHeader := GeneratedFileHeaderBlock(ctx, false)
+
 	ktContent, err := generateKotlinFile(api, ctx.ResolvedTypes, pascalName, packageName)
 	if err != nil {
 		return nil, fmt.Errorf("generating Kotlin file: %w", err)
@@ -34,8 +37,8 @@ func (g *KotlinGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	}
 
 	return []*OutputFile{
-		{Path: pascalName + ".kt", Content: []byte(ktContent)},
-		{Path: apiName + "_jni.c", Content: []byte(jniContent)},
+		{Path: pascalName + ".kt", Content: []byte(ktHeader + "\n" + ktContent)},
+		{Path: apiName + "_jni.c", Content: []byte(jniHeader + "\n" + jniContent)},
 	}, nil
 }
 

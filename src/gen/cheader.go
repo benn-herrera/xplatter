@@ -24,6 +24,9 @@ func (g *CHeaderGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 
 	var b strings.Builder
 
+	b.WriteString(GeneratedFileHeaderBlock(ctx, false))
+	b.WriteString("\n")
+
 	// Include guard
 	fmt.Fprintf(&b, "#ifndef %s\n", guardName)
 	fmt.Fprintf(&b, "#define %s\n\n", guardName)

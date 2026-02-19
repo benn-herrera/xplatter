@@ -25,9 +25,10 @@ func (g *GoWASMImplGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 
 	var b strings.Builder
 
-	// Build tag and package declaration
-	b.WriteString("//go:build wasip1\n")
-	fmt.Fprintf(&b, "package %s\n\n", pkgName)
+	// Build tag, generated header, and package declaration
+	b.WriteString("//go:build wasip1\n\n")
+	b.WriteString(GeneratedFileHeader(ctx, "//", true))
+	fmt.Fprintf(&b, "\npackage %s\n\n", pkgName)
 
 	// Imports
 	b.WriteString("import (\n")

@@ -120,6 +120,7 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 
 	// Create generation context
 	ctx := gen.NewContext(def, resolvedTypes, genOutput, apiDefPath)
+	ctx.Version = Version
 	ctx.Verbose = verbose
 	ctx.DryRun = genDryRun
 

@@ -1,4 +1,4 @@
-XPLATTER ?= ../../../xplatter.sh
+XPLATTER   ?= ../../../xplatter.sh
 IMPL       ?= cpp
 IMPL_DIR   := ../impl-$(IMPL)
 BUILD_DIR  := build
@@ -38,4 +38,4 @@ build: HelloXplatterLib/Package.swift
 
 clean:
 	rm -rf $(BUILD_DIR)
-	rm -rf HelloXplatterLib/Sources/HelloXplatterBinding/HelloXplatter.swift
+	rm -rf HelloXplatterLib

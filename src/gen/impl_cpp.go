@@ -23,27 +23,36 @@ func (g *ImplCppGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	api := ctx.API
 	apiName := api.API.Name
 
+	genHeader := GeneratedFileHeaderBlock(ctx, false)
+	scaffoldHeader := GeneratedFileHeaderBlock(ctx, true)
+	scaffoldCMakeHeader := GeneratedFileHeader(ctx, "#", true)
+
 	ifaceFile, err := g.generateInterface(api, apiName)
 	if err != nil {
 		return nil, fmt.Errorf("generating interface: %w", err)
 	}
+	ifaceFile.Content = prependHeader(genHeader, ifaceFile.Content)
 
 	shimFile, err := g.generateShim(api, apiName)
 	if err != nil {
 		return nil, fmt.Errorf("generating shim: %w", err)
 	}
+	shimFile.Content = prependHeader(genHeader, shimFile.Content)
 
 	implHeader, err := g.generateImplHeader(api, apiName)
 	if err != nil {
 		return nil, fmt.Errorf("generating impl header: %w", err)
 	}
+	implHeader.Content = prependHeader(scaffoldHeader, implHeader.Content)
 
 	implSource, err := g.generateImplSource(api, apiName)
 	if err != nil {
 		return nil, fmt.Errorf("generating impl source: %w", err)
 	}
+	implSource.Content = prependHeader(scaffoldHeader, implSource.Content)
 
 	cmakeFile := g.generateCMakeLists(api, apiName)
+	cmakeFile.Content = prependHeader(scaffoldCMakeHeader, cmakeFile.Content)
 
 	return []*OutputFile{ifaceFile, shimFile, implHeader, implSource, cmakeFile}, nil
 }

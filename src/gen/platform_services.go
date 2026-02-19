@@ -18,6 +18,7 @@ func (g *PlatformServicesGenerator) Name() string { return "impl_platform_servic
 
 func (g *PlatformServicesGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	apiName := ctx.API.API.Name
+	header := GeneratedFileHeaderBlock(ctx, true)
 
 	var files []*OutputFile
 
@@ -31,38 +32,34 @@ func (g *PlatformServicesGenerator) Generate(ctx *Context) ([]*OutputFile, error
 	needsDesktop := targetSet["windows"] || targetSet["linux"] || targetSet["macos"]
 
 	if needsDesktop {
-		files = append(files, g.generateDesktop(apiName))
+		files = append(files, g.generateDesktop(apiName, header))
 	}
 	if targetSet["ios"] {
-		files = append(files, g.generateIOS(apiName))
+		files = append(files, g.generateIOS(apiName, header))
 	}
 	if targetSet["android"] {
-		files = append(files, g.generateAndroid(apiName))
+		files = append(files, g.generateAndroid(apiName, header))
 	}
 	if targetSet["web"] {
-		files = append(files, g.generateWeb(apiName))
+		files = append(files, g.generateWeb(apiName, header))
 	}
 
 	return files, nil
 }
 
-func (g *PlatformServicesGenerator) generateDesktop(apiName string) *OutputFile {
+func (g *PlatformServicesGenerator) generateDesktop(apiName, header string) *OutputFile {
 	var b strings.Builder
-	b.WriteString("/*\n")
-	fmt.Fprintf(&b, " * Desktop platform services for %s.\n", apiName)
-	b.WriteString(" * Stub implementations — fill in with platform-specific behavior.\n")
-	b.WriteString(" */\n\n")
+	b.WriteString(header)
+	fmt.Fprintf(&b, "\n/* Desktop platform services for %s. */\n\n", apiName)
 	b.WriteString("#include <stdint.h>\n\n")
 	writePlatformServiceStubs(&b, apiName)
 	return &OutputFile{Path: "platform_services/desktop.c", Content: []byte(b.String()), Scaffold: true, ProjectFile: true}
 }
 
-func (g *PlatformServicesGenerator) generateIOS(apiName string) *OutputFile {
+func (g *PlatformServicesGenerator) generateIOS(apiName, header string) *OutputFile {
 	var b strings.Builder
-	b.WriteString("/*\n")
-	fmt.Fprintf(&b, " * iOS platform services for %s.\n", apiName)
-	b.WriteString(" * Logging uses os_log; resource functions are stubs.\n")
-	b.WriteString(" */\n\n")
+	b.WriteString(header)
+	fmt.Fprintf(&b, "\n/* iOS platform services for %s. Logging uses os_log. */\n\n", apiName)
 	b.WriteString("#include <stdint.h>\n")
 	b.WriteString("#include <os/log.h>\n\n")
 
@@ -76,12 +73,10 @@ func (g *PlatformServicesGenerator) generateIOS(apiName string) *OutputFile {
 	return &OutputFile{Path: "platform_services/ios.c", Content: []byte(b.String()), Scaffold: true, ProjectFile: true}
 }
 
-func (g *PlatformServicesGenerator) generateAndroid(apiName string) *OutputFile {
+func (g *PlatformServicesGenerator) generateAndroid(apiName, header string) *OutputFile {
 	var b strings.Builder
-	b.WriteString("/*\n")
-	fmt.Fprintf(&b, " * Android platform services for %s.\n", apiName)
-	b.WriteString(" * Logging uses __android_log_print; resource functions are stubs.\n")
-	b.WriteString(" */\n\n")
+	b.WriteString(header)
+	fmt.Fprintf(&b, "\n/* Android platform services for %s. Logging uses __android_log_print. */\n\n", apiName)
 	b.WriteString("#include <stdint.h>\n")
 	b.WriteString("#include <android/log.h>\n\n")
 
@@ -95,12 +90,10 @@ func (g *PlatformServicesGenerator) generateAndroid(apiName string) *OutputFile 
 	return &OutputFile{Path: "platform_services/android.c", Content: []byte(b.String()), Scaffold: true, ProjectFile: true}
 }
 
-func (g *PlatformServicesGenerator) generateWeb(apiName string) *OutputFile {
+func (g *PlatformServicesGenerator) generateWeb(apiName, header string) *OutputFile {
 	var b strings.Builder
-	b.WriteString("/*\n")
-	fmt.Fprintf(&b, " * Web/WASM platform services for %s.\n", apiName)
-	b.WriteString(" * No-op stubs compiled into the WASM binary.\n")
-	b.WriteString(" */\n\n")
+	b.WriteString(header)
+	fmt.Fprintf(&b, "\n/* Web/WASM platform services for %s. No-op stubs. */\n\n", apiName)
 	b.WriteString("#include <stdint.h>\n\n")
 	writePlatformServiceStubs(&b, apiName)
 	return &OutputFile{Path: "platform_services/web.c", Content: []byte(b.String()), Scaffold: true, ProjectFile: true}

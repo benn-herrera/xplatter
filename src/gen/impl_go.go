@@ -23,29 +23,37 @@ func (g *GoImplGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	api := ctx.API
 	apiName := api.API.Name
 
+	genHeader := GeneratedFileHeader(ctx, "//", false)
+	scaffoldHeader := GeneratedFileHeader(ctx, "//", true)
+
 	ifaceFile, err := g.generateInterface(api, apiName)
 	if err != nil {
 		return nil, fmt.Errorf("generating interface: %w", err)
 	}
+	ifaceFile.Content = prependHeader(genHeader, ifaceFile.Content)
 
 	cgoFile, err := g.generateCgo(api, apiName, ctx)
 	if err != nil {
 		return nil, fmt.Errorf("generating cgo shim: %w", err)
 	}
+	cgoFile.Content = prependHeader(genHeader, cgoFile.Content)
 
 	implFile, err := g.generateImpl(api, apiName)
 	if err != nil {
 		return nil, fmt.Errorf("generating stub impl: %w", err)
 	}
+	implFile.Content = prependHeader(scaffoldHeader, implFile.Content)
 
 	files := []*OutputFile{ifaceFile, cgoFile, implFile}
 
 	if len(ctx.ResolvedTypes) > 0 {
 		typesFile := g.generateTypes(ctx.ResolvedTypes, apiName)
+		typesFile.Content = prependHeader(genHeader, typesFile.Content)
 		files = append(files, typesFile)
 	}
 
 	goModFile := g.generateGoMod(api)
+	goModFile.Content = prependHeader(scaffoldHeader, goModFile.Content)
 	files = append(files, goModFile)
 
 	return files, nil
