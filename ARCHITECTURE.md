@@ -15,6 +15,7 @@ It handles mechanistic code generation which requires perfect consistency & repe
   * e.g. if one of the binding generators has to cheat (I'm looking at you WASM) to provide uniform developer experience, cheating is the lesser evil compared to inconsistent or missing coverage.
 * The Pure C ABI is the universal contract at the center of the system. Any implementation language that can export C-compatible functions and compile to WASM with C ABI exports is a valid choice. The code generation system neither knows nor cares what language is on the other side of that boundary.
 * The app project consuming the API does not have to know or care about the implementation language. They get an idiomatic API in the natural language for the app without compromises to performance.
+* This tool should be maximally unopinionated about anything beyond what is absolutely necessary to provide its utility.
 
 ## System Layers
 
