@@ -1,4 +1,4 @@
-# xplatter Examples
+# ![xplatter logo](../../docs/logo_small.png)<br/> xplatter Examples
 
 Hello-world examples demonstrating the full xplatter workflow:
 **YAML API definition -> `xplatter generate` -> hand-written implementation -> build -> run**
