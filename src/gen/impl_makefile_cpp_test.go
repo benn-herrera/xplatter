@@ -86,14 +86,14 @@ func TestCppMakefileGenerator_Content(t *testing.T) {
 		t.Error("missing codegen stamp rule with -o generated")
 	}
 
-	// Include path points to generated/
-	if !strings.Contains(content, "-Igenerated") {
-		t.Error("missing -Igenerated in CXXFLAGS")
+	// Include path derived from GEN_DIR, not hardcoded
+	if !strings.Contains(content, "-I$(GEN_DIR)") {
+		t.Error("missing -I$(GEN_DIR) in CXXFLAGS")
 	}
 
-	// SHIM_SOURCE uses generated/ prefix
-	if !strings.Contains(content, "SHIM_SOURCE    := generated/$(API_NAME)_shim.cpp") {
-		t.Error("missing generated/ prefix on SHIM_SOURCE")
+	// SHIM_SOURCE uses $(GEN_DIR) prefix
+	if !strings.Contains(content, "SHIM_SOURCE    := $(GEN_DIR)$(API_NAME)_shim.cpp") {
+		t.Error("missing $(GEN_DIR) prefix on SHIM_SOURCE")
 	}
 
 	// Clean removes generated/

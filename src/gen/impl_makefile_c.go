@@ -27,7 +27,7 @@ func (g *CMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	// C specific variables
 	b.WriteString("# ── C build configuration ─────────────────────────────────────────────────────\n\n")
 	b.WriteString("CC         ?= cc\n")
-	b.WriteString("CFLAGS     := -Wall -Wextra -std=c11 -I. -Igenerated\n")
+	b.WriteString("CFLAGS     := -Wall -Wextra -std=c11 -I. -I$(GEN_DIR)\n")
 	b.WriteString("LIB_VISIBILITY_FLAGS := -fvisibility=hidden -D$(BUILD_MACRO)\n")
 	b.WriteString("LIB_C_FLAGS := -std=c11 -Wall -Wextra $(LIB_VISIBILITY_FLAGS)\n\n")
 

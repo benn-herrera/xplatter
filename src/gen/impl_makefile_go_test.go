@@ -62,9 +62,12 @@ func TestGoMakefileGenerator_Content(t *testing.T) {
 		t.Error("missing codegen stamp with -o generated flag")
 	}
 
-	// Uses generated/ prefix for bindings
-	if !strings.Contains(content, "GEN_HEADER         := generated/$(API_NAME).h") {
-		t.Error("missing generated/ prefix for GEN_HEADER")
+	// GEN_DIR drives binding file paths
+	if !strings.Contains(content, "GEN_DIR            := generated/") {
+		t.Error("missing GEN_DIR variable")
+	}
+	if !strings.Contains(content, "GEN_HEADER         := $(GEN_DIR)$(API_NAME).h") {
+		t.Error("missing GEN_HEADER using $(GEN_DIR)")
 	}
 }
 

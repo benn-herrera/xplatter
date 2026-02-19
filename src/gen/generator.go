@@ -91,7 +91,7 @@ func GeneratorsForImplLang(implLang string) []string {
 	case "go":
 		return []string{"impl_go", "impl_makefile_go", "impl_platform_services"}
 	case "c":
-		return []string{"impl_makefile_c", "impl_platform_services"}
+		return []string{"impl_c", "impl_makefile_c", "impl_platform_services"}
 	default:
 		return nil
 	}

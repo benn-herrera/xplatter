@@ -65,9 +65,15 @@ func TestCMakefileGenerator_Content(t *testing.T) {
 		t.Error("C Makefile should not have SHIM_SOURCE")
 	}
 
-	// Uses generated/ prefix for bindings
-	if !strings.Contains(content, "GEN_HEADER         := generated/$(API_NAME).h") {
-		t.Error("missing generated/ prefix for GEN_HEADER")
+	// GEN_DIR variable drives include path and binding file paths
+	if !strings.Contains(content, "GEN_DIR            := generated/") {
+		t.Error("missing GEN_DIR variable")
+	}
+	if !strings.Contains(content, "GEN_HEADER         := $(GEN_DIR)$(API_NAME).h") {
+		t.Error("missing GEN_HEADER using $(GEN_DIR)")
+	}
+	if !strings.Contains(content, "-I$(GEN_DIR)") {
+		t.Error("missing -I$(GEN_DIR) in CFLAGS")
 	}
 
 	// Codegen stamp

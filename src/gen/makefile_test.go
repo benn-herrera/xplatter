@@ -116,18 +116,24 @@ func TestMakefileBindingVars(t *testing.T) {
 	MakefileBindingVars(&b, "test_api", "generated/")
 	content := b.String()
 
-	if !strings.Contains(content, "GEN_HEADER         := generated/$(API_NAME).h") {
-		t.Error("missing GEN_HEADER with prefix")
+	if !strings.Contains(content, "GEN_DIR            := generated/") {
+		t.Error("missing GEN_DIR variable with prefix")
 	}
-	if !strings.Contains(content, "GEN_SWIFT_BINDING  := generated/TestApi.swift") {
-		t.Error("missing GEN_SWIFT_BINDING with prefix")
+	if !strings.Contains(content, "GEN_HEADER         := $(GEN_DIR)$(API_NAME).h") {
+		t.Error("missing GEN_HEADER using $(GEN_DIR)")
+	}
+	if !strings.Contains(content, "GEN_SWIFT_BINDING  := $(GEN_DIR)TestApi.swift") {
+		t.Error("missing GEN_SWIFT_BINDING using $(GEN_DIR)")
 	}
 
 	// Test without prefix
 	var b2 strings.Builder
 	MakefileBindingVars(&b2, "test_api", "")
 	content2 := b2.String()
-	if !strings.Contains(content2, "GEN_HEADER         := $(API_NAME).h") {
+	if !strings.Contains(content2, "GEN_DIR            := \n") {
+		t.Error("missing empty GEN_DIR for no-prefix case")
+	}
+	if !strings.Contains(content2, "GEN_HEADER         := $(GEN_DIR)$(API_NAME).h") {
 		t.Error("missing GEN_HEADER without prefix")
 	}
 }

@@ -2,6 +2,8 @@
 
 Go code-gen tool that reads YAML API definitions + FlatBuffers schemas and outputs a C ABI header, platform bindings (Kotlin/JNI, Swift, JS/WASM), and implementation scaffolding (C++, Rust, Go).
 
+The key value proposition is single source of truth definition + single implementation -> deployability across all commercially valuable general purpose platforms, freeing human and AI attention budgets from scaffolding maintenance.
+
 ## Build and Test
 
 ```bash

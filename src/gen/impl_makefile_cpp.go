@@ -27,8 +27,8 @@ func (g *CppMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	b.WriteString("# ── C++ build configuration ───────────────────────────────────────────────────\n\n")
 	b.WriteString("CXX        ?= c++\n")
 	b.WriteString("CC         ?= cc\n")
-	b.WriteString("CXXFLAGS   := -Wall -Wextra -std=c++20 -Igenerated\n")
-	b.WriteString("CFLAGS     := -Wall -Wextra -std=c11 -Igenerated\n")
+	b.WriteString("CXXFLAGS   := -Wall -Wextra -std=c++20 -I$(GEN_DIR)\n")
+	b.WriteString("CFLAGS     := -Wall -Wextra -std=c11 -I$(GEN_DIR)\n")
 	b.WriteString("LIB_VISIBILITY_FLAGS := -fvisibility=hidden -D$(BUILD_MACRO)\n")
 	b.WriteString("LIB_C_FLAGS := -std=c11 -Wall -Wextra $(LIB_VISIBILITY_FLAGS)\n\n")
 
@@ -46,7 +46,7 @@ func (g *CppMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	// Local build
 	b.WriteString("# ── Local build ──────────────────────────────────────────────────────────────\n\n")
 	b.WriteString("IMPL_SOURCES   := $(API_NAME)_impl.cpp\n")
-	b.WriteString("SHIM_SOURCE    := generated/$(API_NAME)_shim.cpp\n\n")
+	b.WriteString("SHIM_SOURCE    := $(GEN_DIR)$(API_NAME)_shim.cpp\n\n")
 
 	b.WriteString("run: $(STAMP)\n")
 	b.WriteString("\t@mkdir -p $(BUILD_DIR)\n")

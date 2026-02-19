@@ -86,11 +86,12 @@ func MakefileTargetConfig(b *strings.Builder) {
 func MakefileBindingVars(b *strings.Builder, apiName, genPrefix string) {
 	pascalName := ToPascalCase(apiName)
 	b.WriteString("# ── Generated binding files ───────────────────────────────────────────────────\n\n")
-	fmt.Fprintf(b, "GEN_HEADER         := %s$(API_NAME).h\n", genPrefix)
-	fmt.Fprintf(b, "GEN_SWIFT_BINDING  := %s%s.swift\n", genPrefix, pascalName)
-	fmt.Fprintf(b, "GEN_KOTLIN_BINDING := %s%s.kt\n", genPrefix, pascalName)
-	fmt.Fprintf(b, "GEN_JS_BINDING     := %s$(API_NAME).js\n", genPrefix)
-	fmt.Fprintf(b, "GEN_JNI_SOURCE     := %s$(API_NAME)_jni.c\n\n", genPrefix)
+	fmt.Fprintf(b, "GEN_DIR            := %s\n", genPrefix)
+	fmt.Fprintf(b, "GEN_HEADER         := $(GEN_DIR)$(API_NAME).h\n")
+	fmt.Fprintf(b, "GEN_SWIFT_BINDING  := $(GEN_DIR)%s.swift\n", pascalName)
+	fmt.Fprintf(b, "GEN_KOTLIN_BINDING := $(GEN_DIR)%s.kt\n", pascalName)
+	fmt.Fprintf(b, "GEN_JS_BINDING     := $(GEN_DIR)$(API_NAME).js\n")
+	fmt.Fprintf(b, "GEN_JNI_SOURCE     := $(GEN_DIR)$(API_NAME)_jni.c\n\n")
 }
 
 // MakefileWASMExports emits the WASM_EXPORTS variable.

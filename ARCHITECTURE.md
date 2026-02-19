@@ -2,17 +2,18 @@
 
 ## What It Is
 
-xplatter is a code generation system that produces complete, ready-to-use API packages for a set of target platforms from a single API definition and implementation. It targets six platforms — Android, iOS, Web, Windows, macOS, and Linux. The implementation language can be C, C++, Rust, Go (front door), or any language that can build for all your target platforms and present a C ABI.
+xplatter is a code generation system that produces complete, ready-to-use API packages for a set of target platforms from a single API definition and implementation. It targets six platforms — Android, iOS, Web, Windows, macOS, and Linux. The implementation language can be C, C++, Rust, Go (front door), or any language that can build for all your target platforms and present a C ABI (e.g. Zig).
 
 It handles mechanistic code generation which requires perfect consistency & repeatability that is particularly ill-suited to AI coding.
 
 ## Core Principles
 
+* The key value proposition is single source of truth definition + single implementation -> deployability across all commercially valuable general purpose platforms, freeing human and AI attention budgets from scaffolding maintenance.
+  * Each of the bindings has its own awkwardness. Some more than others (Kotlin/JNI, WASM)
+  * If it was easy there wouldn't be any point to this project. They're called pain points for a reason.
 * The delivered value to the user is more important than purity.
   * e.g. if one of the binding generators has to cheat (I'm looking at you WASM) to provide uniform developer experience, cheating is the lesser evil compared to inconsistent or missing coverage.
-
 * The Pure C ABI is the universal contract at the center of the system. Any implementation language that can export C-compatible functions and compile to WASM with C ABI exports is a valid choice. The code generation system neither knows nor cares what language is on the other side of that boundary.
-
 * The app project consuming the API does not have to know or care about the implementation language. They get an idiomatic API in the natural language for the app without compromises to performance.
 
 ## System Layers

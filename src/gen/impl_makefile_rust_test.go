@@ -65,9 +65,12 @@ func TestRustMakefileGenerator_Content(t *testing.T) {
 		t.Error("missing codegen stamp with -o generated flag")
 	}
 
-	// Bindings use generated/ prefix
-	if !strings.Contains(content, "GEN_HEADER         := generated/$(API_NAME).h") {
-		t.Error("Rust should have GEN_HEADER with generated/ prefix")
+	// GEN_DIR drives binding file paths
+	if !strings.Contains(content, "GEN_DIR            := generated/") {
+		t.Error("missing GEN_DIR variable")
+	}
+	if !strings.Contains(content, "GEN_HEADER         := $(GEN_DIR)$(API_NAME).h") {
+		t.Error("Rust should have GEN_HEADER using $(GEN_DIR)")
 	}
 }
 

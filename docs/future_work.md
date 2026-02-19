@@ -3,6 +3,7 @@
 ## V2 features (or good for-pay candidates):
   * add an Android/KMP and maybe iOS/KMP binding targets
   * support exporting a typescript binding instead of javascript for web targets.
+  * add front door support for zig as an implementation language
 
 ## Keep an eye on the cost/value of Go as a supported implementation language
   * decision to include it is gut level backed by some experience
