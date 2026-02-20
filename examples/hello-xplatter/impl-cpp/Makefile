@@ -77,17 +77,17 @@ $(STAMP): $(API_DEF)
 	$(XPLATTER) generate --impl-lang cpp -o generated $(API_DEF)
 	@touch $@
 
-.PHONY: run shared-lib clean
+.PHONY: test shared-lib clean
 
 # ── Local build ──────────────────────────────────────────────────────────────
 
 IMPL_SOURCES   := $(API_NAME)_impl.cpp
 SHIM_SOURCE    := generated/$(API_NAME)_shim.cpp
 
-run: $(STAMP)
+test: $(STAMP)
 	@mkdir -p $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -o $(BUILD_DIR)/$(API_NAME) \
-		$(IMPL_SOURCES) $(SHIM_SOURCE) $(PLATFORM_SERVICES)/desktop.c main.cpp
+		$(IMPL_SOURCES) $(SHIM_SOURCE) $(PLATFORM_SERVICES)/desktop.c test.cpp
 	./$(BUILD_DIR)/$(API_NAME)
 
 shared-lib: $(SHARED_LIB)

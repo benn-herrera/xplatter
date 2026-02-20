@@ -75,16 +75,16 @@ $(STAMP): $(API_DEF)
 	$(XPLATTER) generate --impl-lang c -o generated $(API_DEF)
 	@touch $@
 
-.PHONY: run shared-lib clean
+.PHONY: test shared-lib clean
 
 # ── Local build ──────────────────────────────────────────────────────────────
 
 IMPL_SOURCES := $(API_NAME)_impl.c
 
-run: $(STAMP)
+test: $(STAMP)
 	@mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$(API_NAME) \
-		$(IMPL_SOURCES) $(PLATFORM_SERVICES)/desktop.c main.c
+		$(IMPL_SOURCES) $(PLATFORM_SERVICES)/desktop.c test.c
 	./$(BUILD_DIR)/$(API_NAME)
 
 shared-lib: $(SHARED_LIB)
