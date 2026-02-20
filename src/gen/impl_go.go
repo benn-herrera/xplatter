@@ -61,6 +61,9 @@ func (g *GoImplGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	goModFile.Content = prependHeader(scaffoldHeader, goModFile.Content)
 	files = append(files, goModFile)
 
+	gitignoreFile := g.generateGitignore(apiName)
+	files = append(files, gitignoreFile)
+
 	return files, nil
 }
 
@@ -179,7 +182,7 @@ func (g *GoImplGenerator) generateInterface(api *model.APIDefinition, apiName st
 	}
 
 	filename := apiName + "_interface.go"
-	return &OutputFile{Path: filename, Content: []byte(b.String()), ProjectFile: true}, nil
+	return &OutputFile{Path: filename, Content: []byte(b.String())}, nil
 }
 
 // writeGoInterfaceMethod writes a single method signature to the interface definition.
@@ -287,7 +290,7 @@ func (g *GoImplGenerator) generateCgo(api *model.APIDefinition, apiName string, 
 	}
 
 	filename := apiName + "_cgo.go"
-	return &OutputFile{Path: filename, Content: []byte(b.String()), ProjectFile: true}, nil
+	return &OutputFile{Path: filename, Content: []byte(b.String())}, nil
 }
 
 // writeCgoHandleHelpers writes the handle allocation, lookup, and free helpers for the cgo shim.
@@ -743,7 +746,7 @@ func (g *GoImplGenerator) generateTypes(resolved resolver.ResolvedTypes, apiName
 	}
 
 	filename := apiName + "_types.go"
-	return &OutputFile{Path: filename, Content: []byte(b.String()), ProjectFile: true}
+	return &OutputFile{Path: filename, Content: []byte(b.String())}
 }
 
 // collectReturnTypes collects all FlatBuffer types used as method return values.
@@ -800,6 +803,18 @@ func (g *GoImplGenerator) generateGoMod(api *model.APIDefinition) *OutputFile {
 	fmt.Fprintf(&b, "module %s\n\n", moduleName)
 	b.WriteString("go 1.24\n")
 	return &OutputFile{Path: "go.mod", Content: []byte(b.String()), Scaffold: true, ProjectFile: true}
+}
+
+// generateGitignore produces a .gitignore that lists the generated Go source files
+// copied from generated/ into the package root by the Makefile.
+func (g *GoImplGenerator) generateGitignore(apiName string) *OutputFile {
+	var b strings.Builder
+	b.WriteString("# Generated Go sources — copied from generated/ by Makefile; do not edit.\n")
+	fmt.Fprintf(&b, "%s_interface.go\n", apiName)
+	fmt.Fprintf(&b, "%s_cgo.go\n", apiName)
+	fmt.Fprintf(&b, "%s_types.go\n", apiName)
+	fmt.Fprintf(&b, "%s_wasm.go\n", apiName)
+	return &OutputFile{Path: ".gitignore", Content: []byte(b.String()), Scaffold: true, ProjectFile: true}
 }
 
 // --- Package-level utilities ---

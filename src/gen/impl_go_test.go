@@ -16,9 +16,9 @@ func TestGoImplGenerator_Minimal(t *testing.T) {
 
 	// minimal.yaml has only lifecycle (create_engine/destroy_engine) which are
 	// both excluded from the interface. So we get: interface (empty body),
-	// cgo, impl (no struct), types, go.mod = 5 files.
-	if len(files) != 5 {
-		t.Fatalf("expected 5 output files, got %d", len(files))
+	// cgo, impl (no struct), types, go.mod, .gitignore = 6 files.
+	if len(files) != 6 {
+		t.Fatalf("expected 6 output files, got %d", len(files))
 	}
 
 	// Verify filenames
@@ -28,6 +28,7 @@ func TestGoImplGenerator_Minimal(t *testing.T) {
 		"test_api_impl.go",
 		"test_api_types.go",
 		"go.mod",
+		".gitignore",
 	}
 	for i, name := range expectedNames {
 		if files[i].Path != name {
@@ -35,10 +36,11 @@ func TestGoImplGenerator_Minimal(t *testing.T) {
 		}
 	}
 
-	// Verify scaffold flags
+	// Verify scaffold flags — only impl, go.mod, and .gitignore are scaffolds
 	scaffoldFiles := map[string]bool{
 		"test_api_impl.go": true,
 		"go.mod":           true,
+		".gitignore":       true,
 	}
 	for _, f := range files {
 		if scaffoldFiles[f.Path] && !f.Scaffold {
@@ -49,17 +51,19 @@ func TestGoImplGenerator_Minimal(t *testing.T) {
 		}
 	}
 
-	// Verify ProjectFile flags — Go generated files go alongside user code
+	// Verify ProjectFile flags — only scaffold files are ProjectFile
+	// (generated .go files go to generated/ and are copied by Makefile)
 	projectFiles := map[string]bool{
-		"test_api_interface.go": true,
-		"test_api_cgo.go":      true,
-		"test_api_impl.go":     true,
-		"test_api_types.go":    true,
-		"go.mod":               true,
+		"test_api_impl.go": true,
+		"go.mod":           true,
+		".gitignore":       true,
 	}
 	for _, f := range files {
 		if projectFiles[f.Path] && !f.ProjectFile {
 			t.Errorf("%s should be ProjectFile", f.Path)
+		}
+		if !projectFiles[f.Path] && f.ProjectFile {
+			t.Errorf("%s should not be ProjectFile", f.Path)
 		}
 	}
 }
@@ -209,8 +213,8 @@ func TestGoImplGenerator_GoMod(t *testing.T) {
 		t.Fatalf("generation failed: %v", err)
 	}
 
-	// go.mod is the last file
-	gomod := string(files[len(files)-1].Content)
+	// go.mod is the second-to-last file (before .gitignore)
+	gomod := string(files[len(files)-2].Content)
 
 	if !strings.Contains(gomod, "module test-api") {
 		t.Error("missing module name in go.mod")
@@ -229,8 +233,8 @@ func TestGoImplGenerator_Full(t *testing.T) {
 		t.Fatalf("generation failed: %v", err)
 	}
 
-	if len(files) != 5 {
-		t.Fatalf("expected 5 output files, got %d", len(files))
+	if len(files) != 6 {
+		t.Fatalf("expected 6 output files, got %d", len(files))
 	}
 
 	ifaceContent := string(files[0].Content)

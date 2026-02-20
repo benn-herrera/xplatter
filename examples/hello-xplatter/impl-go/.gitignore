@@ -1,0 +1,5 @@
+# Generated Go sources — copied from generated/ by Makefile; do not edit.
+hello_xplatter_interface.go
+hello_xplatter_cgo.go
+hello_xplatter_types.go
+hello_xplatter_wasm.go

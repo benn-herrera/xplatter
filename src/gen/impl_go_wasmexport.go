@@ -54,7 +54,7 @@ func (g *GoWASMImplGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	}
 
 	filename := apiName + "_wasm.go"
-	return []*OutputFile{{Path: filename, Content: []byte(b.String()), ProjectFile: true}}, nil
+	return []*OutputFile{{Path: filename, Content: []byte(b.String())}}, nil
 }
 
 // writeWasmMemoryAllocator writes malloc/free exports for WASM linear memory.

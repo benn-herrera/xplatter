@@ -64,7 +64,11 @@ $(GEN_HEADER): $(STAMP)
 $(STAMP): $(API_DEF)
 	@mkdir -p $(BUILD_DIR)
 	$(XPLATTER) generate --impl-lang go -o generated $(API_DEF)
+	cp generated/$(API_NAME)_*.go .
 	@touch $@
+
+GEN_GO_SOURCES := $(wildcard generated/$(API_NAME)_*.go)
+GEN_GO_COPIES  := $(notdir $(GEN_GO_SOURCES))
 
 .PHONY: run shared-lib clean
 
@@ -82,6 +86,7 @@ $(SHARED_LIB): $(STAMP)
 
 clean:
 	rm -rf generated $(BUILD_DIR) $(DIST_DIR)
+	rm -f $(GEN_GO_COPIES)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # iOS: static libs per arch → lipo → xcframework + SPM package

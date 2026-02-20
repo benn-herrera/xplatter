@@ -131,7 +131,8 @@ All generators follow the same pattern: iterate API interfaces, iterate methods,
 - **Swift FlatBuffer returns** use C struct names (not OpaquePointer).
 - **JS/WASM loader** must call `_initialize()` after WASM instantiation (WASI reactor init for static constructors).
 - **`flatc` is required** — the FlatBuffers compiler must be available. Use `--skip-flatc` for incomplete output without it.
-- **Go generated package name**: API name with underscores removed (e.g., `hello_xplatter` → `helloxplatter`).
+- **Go generated package name**: always `main` (Go impls are built as `c-shared` or `wasip1` binaries, both requiring `package main`).
+- **Go generated files**: go to `generated/` like other languages; the Makefile copies `generated/*_*.go` to the package root for `go build .` (Go can't compile from subdirectories).
 
 ## C ABI Boundary Summary
 

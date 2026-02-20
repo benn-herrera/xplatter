@@ -27,9 +27,9 @@ func TestGoWASMImplGenerator_Basic(t *testing.T) {
 		t.Error("WASM file should not be scaffold (fully generated)")
 	}
 
-	// Go generated files go alongside user code
-	if !files[0].ProjectFile {
-		t.Error("WASM file should be ProjectFile")
+	// Generated Go files go to generated/ (not ProjectFile)
+	if files[0].ProjectFile {
+		t.Error("WASM file should not be ProjectFile (goes to generated/)")
 	}
 }
 

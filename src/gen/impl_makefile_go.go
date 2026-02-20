@@ -28,8 +28,18 @@ func (g *GoMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	b.WriteString("# Ensure codegen runs before any target needs generated files\n")
 	b.WriteString("$(GEN_HEADER): $(STAMP)\n\n")
 
-	// Codegen stamp
-	MakefileCodegenStamp(&b, "go", "-o generated")
+	// Codegen stamp — Go needs generated .go files copied to package root
+	// because `go build .` only compiles files in the current directory.
+	b.WriteString("# ── Codegen ──────────────────────────────────────────────────────────────────\n\n")
+	b.WriteString("$(STAMP): $(API_DEF)\n")
+	b.WriteString("\t@mkdir -p $(BUILD_DIR)\n")
+	b.WriteString("\t$(XPLATTER) generate --impl-lang go -o generated $(API_DEF)\n")
+	b.WriteString("\tcp generated/$(API_NAME)_*.go .\n")
+	b.WriteString("\t@touch $@\n\n")
+
+	// Generated Go source copies (for .gitignore and clean)
+	fmt.Fprintf(&b, "GEN_GO_SOURCES := $(wildcard generated/%s_*.go)\n", apiName)
+	b.WriteString("GEN_GO_COPIES  := $(notdir $(GEN_GO_SOURCES))\n\n")
 
 	// Phony declarations
 	b.WriteString(".PHONY: run shared-lib clean\n\n")
@@ -47,9 +57,10 @@ func (g *GoMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	b.WriteString("$(SHARED_LIB): $(STAMP)\n")
 	b.WriteString("\tgo build -buildmode=c-shared -ldflags='-extldflags \"-Wl,-install_name,@rpath/$(LIB_NAME).$(DYLIB_EXT)\"' -o $(SHARED_LIB) .\n\n")
 
-	// Clean
+	// Clean — also remove copied Go source files from package root
 	b.WriteString("clean:\n")
-	b.WriteString("\trm -rf generated $(BUILD_DIR) $(DIST_DIR)\n\n")
+	b.WriteString("\trm -rf generated $(BUILD_DIR) $(DIST_DIR)\n")
+	b.WriteString("\trm -f $(GEN_GO_COPIES)\n\n")
 
 	// iOS packaging
 	MakefilePackageIOS(&b, func(b *strings.Builder) {
