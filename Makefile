@@ -74,6 +74,8 @@ dist:
 	@rsync -a --exclude='build/' --exclude='generated/' --exclude='dist/' --exclude='target/' --exclude='hello_xplatter.h' --exclude='Cargo.lock' examples $(DIST_PKG)/
 	@cp -r specs $(DIST_PKG)/bin/specs
 	@cp -r docs $(DIST_PKG)/docs
+	# ensure distro schema is up to date.
+	@./xplatter.sh dump_schema -o $(DIST_PKG)/docs/api_definition_schema.json
 	@cp LICENSE.md $(DIST_PKG)/
 	@cp USER_README.md $(DIST_PKG)/README.md
 	@tar -czf $(DIST_PKG).tar.gz -C $(DIST_DIR) $(DIST_NAME)
