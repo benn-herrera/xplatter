@@ -7,6 +7,7 @@
   * a/b implementation swapping? ability to select between two implementations at startup time?
     * would require providing 2 dynamic impl libraries (different backing langs or diff versions from same lang) and start time selection of the dynamic library.
     * worth investigating, but v1 has enough on its plate
+  * generate type names, member names, function names in target language casing conventions (e.g. PascalCase, camelCase, snake_case, etc.)
 
 ## Keep an eye on the cost/value of Go as a supported implementation language
   * decision to include it is gut level backed by some experience
