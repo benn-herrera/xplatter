@@ -42,12 +42,12 @@ test-hello-impl-c: build-xplatter
 
 ## test-hello-impl-cpp: Build and run the hello example C++ implementation
 test-hello-impl-cpp: build-xplatter
-	$(call gen-impl,hello-xplatter/impl-cpp,cpp,-o .)
+	$(call gen-impl,hello-xplatter/impl-cpp,cpp,-o generated)
 	$(MAKE) -C hello-xplatter/impl-cpp XPLATTER=$(XPLATTER_ABS) run
 
 ## test-hello-impl-rust: Build and run the hello example Rust implementation
 test-hello-impl-rust: build-xplatter
-	$(call gen-impl,hello-xplatter/impl-rust,rust,-o .)
+	$(call gen-impl,hello-xplatter/impl-rust,rust,-o generated)
 	$(MAKE) -C hello-xplatter/impl-rust XPLATTER=$(XPLATTER_ABS) run
 
 ## test-hello-impl-go: Build and run the hello example Go implementation
@@ -96,7 +96,7 @@ package-hello-c: build-xplatter
 
 ## package-hello-cpp: Build cross-platform packages for C++ impl
 package-hello-cpp: build-xplatter
-	$(call gen-impl,hello-xplatter/impl-cpp,cpp,-o .)
+	$(call gen-impl,hello-xplatter/impl-cpp,cpp,-o generated)
 	$(MAKE) -C hello-xplatter/impl-cpp XPLATTER=$(XPLATTER_ABS) packages
 
 ## package-hello-go: Build cross-platform packages for Go impl
@@ -106,7 +106,7 @@ package-hello-go: build-xplatter
 
 ## package-hello-rust: Build cross-platform packages for Rust impl
 package-hello-rust: build-xplatter
-	$(call gen-impl,hello-xplatter/impl-rust,rust,-o .)
+	$(call gen-impl,hello-xplatter/impl-rust,rust,-o generated)
 	$(MAKE) -C hello-xplatter/impl-rust XPLATTER=$(XPLATTER_ABS) packages
 
 ## package-hello-all: Build packages for all implementations

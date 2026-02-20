@@ -14,6 +14,9 @@ func TestGoImplGenerator_Minimal(t *testing.T) {
 		t.Fatalf("generation failed: %v", err)
 	}
 
+	// minimal.yaml has only lifecycle (create_engine/destroy_engine) which are
+	// both excluded from the interface. So we get: interface (empty body),
+	// cgo, impl (no struct), types, go.mod = 5 files.
 	if len(files) != 5 {
 		t.Fatalf("expected 5 output files, got %d", len(files))
 	}
@@ -45,9 +48,23 @@ func TestGoImplGenerator_Minimal(t *testing.T) {
 			t.Errorf("%s should not be scaffold", f.Path)
 		}
 	}
+
+	// Verify ProjectFile flags — Go generated files go alongside user code
+	projectFiles := map[string]bool{
+		"test_api_interface.go": true,
+		"test_api_cgo.go":      true,
+		"test_api_impl.go":     true,
+		"test_api_types.go":    true,
+		"go.mod":               true,
+	}
+	for _, f := range files {
+		if projectFiles[f.Path] && !f.ProjectFile {
+			t.Errorf("%s should be ProjectFile", f.Path)
+		}
+	}
 }
 
-func TestGoImplGenerator_InterfaceFile(t *testing.T) {
+func TestGoImplGenerator_InterfaceFile_Minimal(t *testing.T) {
 	ctx := loadTestAPI(t, "minimal.yaml")
 	gen := &GoImplGenerator{}
 
@@ -59,23 +76,20 @@ func TestGoImplGenerator_InterfaceFile(t *testing.T) {
 	content := string(files[0].Content)
 
 	// Package declaration
-	if !strings.Contains(content, "package testapi") {
+	if !strings.Contains(content, "package main") {
 		t.Error("missing package declaration")
 	}
 
-	// Interface definition
-	if !strings.Contains(content, "type Lifecycle interface {") {
-		t.Error("missing Lifecycle interface definition")
+	// minimal.yaml lifecycle has only create_engine and destroy_engine,
+	// both lifecycle methods — interface should be empty (no Lifecycle interface).
+	if strings.Contains(content, "type Lifecycle interface {") {
+		t.Error("Lifecycle interface should be excluded (all methods are lifecycle)")
 	}
-
-	// Method signatures — CreateEngine is fallible with handle return
-	if !strings.Contains(content, "CreateEngine() (uintptr, error)") {
-		t.Error("missing or incorrect CreateEngine signature")
+	if strings.Contains(content, "CreateEngine") {
+		t.Error("CreateEngine should be excluded from interface (it's a create method)")
 	}
-
-	// DestroyEngine is infallible void with handle param
-	if !strings.Contains(content, "DestroyEngine(engine uintptr)") {
-		t.Error("missing or incorrect DestroyEngine signature")
+	if strings.Contains(content, "DestroyEngine") {
+		t.Error("DestroyEngine should be excluded from interface (it's a destroy method)")
 	}
 }
 
@@ -91,7 +105,7 @@ func TestGoImplGenerator_CgoFile(t *testing.T) {
 	content := string(files[1].Content)
 
 	// Package declaration
-	if !strings.Contains(content, "package testapi") {
+	if !strings.Contains(content, "package main") {
 		t.Error("missing package declaration")
 	}
 
@@ -118,9 +132,18 @@ func TestGoImplGenerator_CgoFile(t *testing.T) {
 		t.Error(`missing import "C"`)
 	}
 
-	// sync.Map for handles
-	if !strings.Contains(content, "var handles sync.Map") {
-		t.Error("missing handles sync.Map")
+	// Handle management helpers
+	if !strings.Contains(content, "_handles    sync.Map") {
+		t.Error("missing _handles sync.Map")
+	}
+	if !strings.Contains(content, "_nextHandle atomic.Uintptr") {
+		t.Error("missing _nextHandle atomic.Uintptr")
+	}
+	if !strings.Contains(content, "func _allocHandle(") {
+		t.Error("missing _allocHandle function")
+	}
+	if !strings.Contains(content, "func _freeHandle(") {
+		t.Error("missing _freeHandle function")
 	}
 
 	// //export annotations
@@ -129,6 +152,19 @@ func TestGoImplGenerator_CgoFile(t *testing.T) {
 	}
 	if !strings.Contains(content, "//export test_api_lifecycle_destroy_engine") {
 		t.Error("missing //export for destroy_engine")
+	}
+
+	// Create method delegates via handle map
+	if !strings.Contains(content, "&EngineImpl{}") {
+		t.Error("create_engine should instantiate EngineImpl")
+	}
+	if !strings.Contains(content, "_allocHandle(impl)") {
+		t.Error("create_engine should call _allocHandle")
+	}
+
+	// Destroy method frees handle
+	if !strings.Contains(content, "_freeHandle(uintptr(unsafe.Pointer(engine)))") {
+		t.Error("destroy_engine should call _freeHandle")
 	}
 
 	// unsafe import
@@ -142,7 +178,7 @@ func TestGoImplGenerator_CgoFile(t *testing.T) {
 	}
 }
 
-func TestGoImplGenerator_ImplFile(t *testing.T) {
+func TestGoImplGenerator_ImplFile_Minimal(t *testing.T) {
 	ctx := loadTestAPI(t, "minimal.yaml")
 	gen := &GoImplGenerator{}
 
@@ -154,38 +190,13 @@ func TestGoImplGenerator_ImplFile(t *testing.T) {
 	content := string(files[2].Content)
 
 	// Package declaration
-	if !strings.Contains(content, "package testapi") {
+	if !strings.Contains(content, "package main") {
 		t.Error("missing package declaration")
 	}
 
-	// Struct definition
-	if !strings.Contains(content, "type LifecycleImpl struct{}") {
-		t.Error("missing LifecycleImpl struct")
-	}
-
-	// Interface satisfaction check
-	if !strings.Contains(content, "var _ Lifecycle = (*LifecycleImpl)(nil)") {
-		t.Error("missing interface satisfaction check")
-	}
-
-	// TODO comments
-	if !strings.Contains(content, "// TODO: implement") {
-		t.Error("missing TODO comment in stub")
-	}
-
-	// Stub method for CreateEngine (fallible with return)
-	if !strings.Contains(content, "func (s *LifecycleImpl) CreateEngine() (uintptr, error)") {
-		t.Error("missing or incorrect CreateEngine stub method")
-	}
-
-	// Stub method for DestroyEngine (infallible void)
-	if !strings.Contains(content, "func (s *LifecycleImpl) DestroyEngine(engine uintptr)") {
-		t.Error("missing or incorrect DestroyEngine stub method")
-	}
-
-	// Return values
-	if !strings.Contains(content, "return 0, nil") {
-		t.Error("missing zero return for fallible handle method")
+	// minimal.yaml has only lifecycle methods — no impl struct should be generated
+	if strings.Contains(content, "LifecycleImpl") {
+		t.Error("LifecycleImpl should not exist (all lifecycle methods excluded)")
 	}
 }
 
@@ -226,12 +237,45 @@ func TestGoImplGenerator_Full(t *testing.T) {
 	cgoContent := string(files[1].Content)
 	implContent := string(files[2].Content)
 
-	// Verify multiple interfaces are generated
-	for _, name := range []string{"Lifecycle", "Renderer", "Texture", "Input", "Events"} {
-		iface := "type " + name + " interface {"
-		if !strings.Contains(ifaceContent, iface) {
-			t.Errorf("missing interface: %s", iface)
-		}
+	// Lifecycle interface is excluded (only has create/destroy)
+	if strings.Contains(ifaceContent, "type Lifecycle interface {") {
+		t.Error("Lifecycle interface should be excluded (all methods are lifecycle)")
+	}
+
+	// Renderer interface: create_renderer has handle param so not auto-create,
+	// destroy_renderer is auto-destroy (excluded), begin_frame/end_frame are regular
+	if !strings.Contains(ifaceContent, "type Renderer interface {") {
+		t.Error("missing Renderer interface")
+	}
+	// begin_frame: handle param excluded, error return → error
+	if !strings.Contains(ifaceContent, "BeginFrame() error") {
+		t.Error("missing or incorrect BeginFrame signature (handle excluded, fallible void)")
+	}
+
+	// Texture interface: load_texture_from_path, load_texture_from_buffer (both have handle param),
+	// destroy_texture is excluded
+	if !strings.Contains(ifaceContent, "type Texture interface {") {
+		t.Error("missing Texture interface")
+	}
+
+	// Input interface: push_touch_events has handle param
+	if !strings.Contains(ifaceContent, "type Input interface {") {
+		t.Error("missing Input interface")
+	}
+
+	// Events interface
+	if !strings.Contains(ifaceContent, "type Events interface {") {
+		t.Error("missing Events interface")
+	}
+
+	// String parameter in interface (handle excluded)
+	if !strings.Contains(ifaceContent, "path string") {
+		t.Error("missing string parameter in interface")
+	}
+
+	// Buffer parameter in interface
+	if !strings.Contains(ifaceContent, "data []uint8") {
+		t.Error("missing buffer parameter in interface")
 	}
 
 	// String parameter handling in cgo
@@ -244,22 +288,23 @@ func TestGoImplGenerator_Full(t *testing.T) {
 		t.Error("missing unsafe.Slice for buffer params")
 	}
 
-	// String param in Go interface
-	if !strings.Contains(ifaceContent, "path string") {
-		t.Error("missing string parameter in interface")
+	// Impl structs — Lifecycle excluded (all lifecycle), others present
+	if strings.Contains(implContent, "type LifecycleImpl struct{}") {
+		t.Error("LifecycleImpl should not exist (all lifecycle methods excluded)")
 	}
-
-	// Buffer param in Go interface
-	if !strings.Contains(ifaceContent, "data []uint8") {
-		t.Error("missing buffer parameter in interface")
-	}
-
-	// Multiple impl structs
-	for _, name := range []string{"LifecycleImpl", "RendererImpl", "TextureImpl", "InputImpl", "EventsImpl"} {
+	for _, name := range []string{"RendererImpl", "TextureImpl", "InputImpl", "EventsImpl"} {
 		decl := "type " + name + " struct{}"
 		if !strings.Contains(implContent, decl) {
 			t.Errorf("missing impl struct: %s", decl)
 		}
+	}
+
+	// Cgo shim auto-implements create_engine and destroy_engine
+	if !strings.Contains(cgoContent, "&EngineImpl{}") {
+		t.Error("create_engine should instantiate EngineImpl in cgo shim")
+	}
+	if !strings.Contains(cgoContent, "_freeHandle(uintptr(unsafe.Pointer(engine)))") {
+		t.Error("destroy_engine should call _freeHandle in cgo shim")
 	}
 }
 
@@ -284,8 +329,47 @@ func TestGoImplGenerator_FallibleNoReturn(t *testing.T) {
 
 	ifaceContent := string(files[0].Content)
 
-	// begin_frame: fallible (error) + no return → error
-	if !strings.Contains(ifaceContent, "BeginFrame(renderer uintptr) error") {
-		t.Error("missing or incorrect BeginFrame signature (fallible, no return)")
+	// begin_frame: fallible (error) + no return, handle excluded → error
+	if !strings.Contains(ifaceContent, "BeginFrame() error") {
+		t.Error("missing or incorrect BeginFrame signature (fallible, no return, handle excluded)")
+	}
+}
+
+func TestGoImplGenerator_TypesFile(t *testing.T) {
+	ctx := loadTestAPI(t, "minimal.yaml")
+	gen := &GoImplGenerator{}
+
+	files, err := gen.Generate(ctx)
+	if err != nil {
+		t.Fatalf("generation failed: %v", err)
+	}
+
+	typesContent := string(files[3].Content)
+
+	// Enum constants
+	if !strings.Contains(typesContent, "CommonErrorCode") {
+		t.Error("missing CommonErrorCode enum constants")
+	}
+
+	// minimal.yaml has no FlatBuffer return types, so no Go structs
+	if strings.Contains(typesContent, "type ") {
+		t.Error("should not have struct definitions for minimal.yaml (no FlatBuffer return types)")
+	}
+}
+
+func TestGoImplGenerator_CgoCreateHandleTypedef(t *testing.T) {
+	ctx := loadTestAPI(t, "minimal.yaml")
+	gen := &GoImplGenerator{}
+
+	files, err := gen.Generate(ctx)
+	if err != nil {
+		t.Fatalf("generation failed: %v", err)
+	}
+
+	cgoContent := string(files[1].Content)
+
+	// Verify create_engine uses the correct handle typedef
+	if !strings.Contains(cgoContent, "C.engine_handle") {
+		t.Error("create_engine should use C.engine_handle typedef")
 	}
 }

@@ -468,11 +468,11 @@ func (g *ImplCppGenerator) generateCMakeLists(api *model.APIDefinition, apiName 
 
 	// Collect source files
 	fmt.Fprintf(&b, "add_library(%s SHARED\n", projectName)
-	fmt.Fprintf(&b, "    %s_shim.cpp\n", apiName)
+	fmt.Fprintf(&b, "    generated/%s_shim.cpp\n", apiName)
 	fmt.Fprintf(&b, "    %s_impl.cpp\n", apiName)
 	b.WriteString(")\n\n")
 
-	fmt.Fprintf(&b, "target_include_directories(%s PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})\n", projectName)
+	fmt.Fprintf(&b, "target_include_directories(%s PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/generated)\n", projectName)
 
 	return &OutputFile{
 		Path:        "CMakeLists.txt",

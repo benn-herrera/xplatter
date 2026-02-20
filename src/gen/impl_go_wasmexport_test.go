@@ -21,6 +21,16 @@ func TestGoWASMImplGenerator_Basic(t *testing.T) {
 	if files[0].Path != "test_api_wasm.go" {
 		t.Errorf("expected test_api_wasm.go, got %q", files[0].Path)
 	}
+
+	// No longer a scaffold — fully generated
+	if files[0].Scaffold {
+		t.Error("WASM file should not be scaffold (fully generated)")
+	}
+
+	// Go generated files go alongside user code
+	if !files[0].ProjectFile {
+		t.Error("WASM file should be ProjectFile")
+	}
 }
 
 func TestGoWASMImplGenerator_BuildTagAndPackage(t *testing.T) {
@@ -37,8 +47,8 @@ func TestGoWASMImplGenerator_BuildTagAndPackage(t *testing.T) {
 	if !strings.Contains(content, "//go:build wasip1") {
 		t.Error("missing //go:build wasip1 build tag")
 	}
-	if !strings.Contains(content, "package testapi") {
-		t.Error("missing package testapi declaration")
+	if !strings.Contains(content, "package main") {
+		t.Error("missing package main declaration")
 	}
 }
 
@@ -77,9 +87,6 @@ func TestGoWASMImplGenerator_HandleManagement(t *testing.T) {
 
 	if !strings.Contains(content, "func _allocHandle(") {
 		t.Error("missing _allocHandle")
-	}
-	if !strings.Contains(content, "func _lookupHandle(") {
-		t.Error("missing _lookupHandle")
 	}
 	if !strings.Contains(content, "func _freeHandle(") {
 		t.Error("missing _freeHandle")
@@ -156,7 +163,7 @@ func TestGoWASMImplGenerator_InterfaceExports(t *testing.T) {
 	}
 }
 
-func TestGoWASMImplGenerator_DestroyAutoImpl(t *testing.T) {
+func TestGoWASMImplGenerator_CreateDelegation(t *testing.T) {
 	ctx := loadTestAPI(t, "minimal.yaml")
 	gen := &GoWASMImplGenerator{}
 
@@ -167,8 +174,31 @@ func TestGoWASMImplGenerator_DestroyAutoImpl(t *testing.T) {
 
 	content := string(files[0].Content)
 
-	// destroy_engine has a single handle:Engine param named "engine"
-	// → auto-implemented with _freeHandle(engine)
+	// Create method should instantiate EngineImpl
+	if !strings.Contains(content, "&EngineImpl{}") {
+		t.Error("create_engine should instantiate EngineImpl")
+	}
+	if !strings.Contains(content, "_allocHandle(impl)") {
+		t.Error("create_engine should call _allocHandle")
+	}
+	// Write handle to out_result in WASM32 format
+	if !strings.Contains(content, "*(*uint32)(unsafe.Pointer(out_result))") {
+		t.Error("create_engine should write handle to out_result via unsafe.Pointer")
+	}
+}
+
+func TestGoWASMImplGenerator_DestroyDelegation(t *testing.T) {
+	ctx := loadTestAPI(t, "minimal.yaml")
+	gen := &GoWASMImplGenerator{}
+
+	files, err := gen.Generate(ctx)
+	if err != nil {
+		t.Fatalf("generation failed: %v", err)
+	}
+
+	content := string(files[0].Content)
+
+	// destroy_engine auto-implemented with _freeHandle
 	if !strings.Contains(content, "_freeHandle(engine)") {
 		t.Error("destroy_engine not auto-implemented with _freeHandle(engine)")
 	}
@@ -212,6 +242,11 @@ func TestGoWASMImplGenerator_Full(t *testing.T) {
 
 	content := string(files[0].Content)
 
+	// Create methods auto-implemented
+	if !strings.Contains(content, "&EngineImpl{}") {
+		t.Error("create_engine should instantiate EngineImpl")
+	}
+
 	// Multiple destroy methods auto-implemented
 	if !strings.Contains(content, "_freeHandle(engine)") {
 		t.Error("destroy_engine not auto-implemented")
@@ -224,13 +259,11 @@ func TestGoWASMImplGenerator_Full(t *testing.T) {
 	}
 
 	// String param → uintptr
-	// load_texture_from_path has path string → path uintptr
 	if !strings.Contains(content, "path uintptr") {
 		t.Error("string parameter not mapped to uintptr")
 	}
 
 	// Buffer param → uintptr + uint32
-	// load_texture_from_buffer has data buffer<uint8> → data uintptr, data_len uint32
 	if !strings.Contains(content, "data uintptr") {
 		t.Error("buffer parameter not mapped to uintptr")
 	}
@@ -241,6 +274,11 @@ func TestGoWASMImplGenerator_Full(t *testing.T) {
 	// Platform service imports use the correct api name
 	if !strings.Contains(content, "//go:wasmimport env example_app_engine_log_sink") {
 		t.Error("platform import uses wrong api name")
+	}
+
+	// Regular methods delegate to interface
+	if !strings.Contains(content, "_cstring(") {
+		t.Error("missing _cstring call for string parameter conversion")
 	}
 }
 
@@ -258,5 +296,24 @@ func TestGoWASMImplGenerator_FallibleVoidStub(t *testing.T) {
 	// begin_frame: fallible + no return → returns int32
 	if !strings.Contains(content, "func example_app_engine_renderer_begin_frame(renderer uintptr) int32") {
 		t.Error("begin_frame missing correct signature (fallible void → int32)")
+	}
+}
+
+func TestGoWASMImplGenerator_StringCacheHelpers(t *testing.T) {
+	ctx := loadTestAPI(t, "minimal.yaml")
+	gen := &GoWASMImplGenerator{}
+
+	files, err := gen.Generate(ctx)
+	if err != nil {
+		t.Fatalf("generation failed: %v", err)
+	}
+
+	content := string(files[0].Content)
+
+	if !strings.Contains(content, "_wasmStrCache sync.Map") {
+		t.Error("missing _wasmStrCache sync.Map")
+	}
+	if !strings.Contains(content, "func _wasmCacheStrings(") {
+		t.Error("missing _wasmCacheStrings function")
 	}
 }

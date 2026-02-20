@@ -183,7 +183,7 @@ $(DIST_DIR)/android/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(IMPL_SOURCES) $(SHIM
 		-c -o $(DIST_DIR)/android/obj/$(1)/jni.o $(GEN_JNI_SOURCE)
 	$(NDK_BIN)/$(2)-clang $(LIB_C_FLAGS) -fPIC \
 		-c -o $(DIST_DIR)/android/obj/$(1)/platform.o $(PLATFORM_SERVICES)/android.c
-	$(NDK_BIN)/$(2)-clang++ -shared -llog \
+	$(NDK_BIN)/$(2)-clang++ -shared -static-libstdc++ -llog \
 		$(DIST_DIR)/android/obj/$(1)/impl.o \
 		$(DIST_DIR)/android/obj/$(1)/shim.o \
 		$(DIST_DIR)/android/obj/$(1)/jni.o \

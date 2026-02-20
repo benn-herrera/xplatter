@@ -5,8 +5,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_library(hello-xplatter SHARED
-    hello_xplatter_shim.cpp
+    generated/hello_xplatter_shim.cpp
     hello_xplatter_impl.cpp
 )
 
-target_include_directories(hello-xplatter PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(hello-xplatter PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/generated)

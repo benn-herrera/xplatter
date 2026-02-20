@@ -135,7 +135,7 @@ func (g *CppMakefileGenerator) writeAndroidABIRules(b *strings.Builder) {
 	b.WriteString("\t\t-c -o $(DIST_DIR)/android/obj/$(1)/jni.o $(GEN_JNI_SOURCE)\n")
 	b.WriteString("\t$(NDK_BIN)/$(2)-clang $(LIB_C_FLAGS) -fPIC \\\n")
 	b.WriteString("\t\t-c -o $(DIST_DIR)/android/obj/$(1)/platform.o $(PLATFORM_SERVICES)/android.c\n")
-	b.WriteString("\t$(NDK_BIN)/$(2)-clang++ -shared -llog \\\n")
+	b.WriteString("\t$(NDK_BIN)/$(2)-clang++ -shared -static-libstdc++ -llog \\\n")
 	b.WriteString("\t\t$(DIST_DIR)/android/obj/$(1)/impl.o \\\n")
 	b.WriteString("\t\t$(DIST_DIR)/android/obj/$(1)/shim.o \\\n")
 	b.WriteString("\t\t$(DIST_DIR)/android/obj/$(1)/jni.o \\\n")
