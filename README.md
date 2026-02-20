@@ -15,13 +15,26 @@ Examples would be projects implementing on-device inference, media processing, a
 ### Prerequisites
 
 - **Go 1.25+**
+  - Linux: ```sudo apt install golang```
+  - macOS: ```brew install go ```
+  - Windows: ```winget install GoLang.Go```
 - **flatc** (FlatBuffers compiler — required for per-language struct codegen)
-- **make** (GNU Make)
-  - On Windows
-    - ```winget install -e --id GnuWin32.Make```
-    - OR if Android NDK installed, add ${ANDROID_NDK}/prebuilt/windows-x86_64/bin to PATH
+  - Linux: ```sudo snap install flatbuffers```
+  - macOS: ```brew install flatbuffers```
+  - Windows: ```winget install flatbuffers```
+- **standard build tools**
+  - Linux: ```sudo apt install build-essential clang cmake``` 
+  - macOS:
+    -  Xcode and Xcode command line tools
+    - ```brew install cmake```
+  - Windows:
+    - Gnu make: ```winget install -e --id GnuWin32.Make```
+      - OR if Android NDK installed, add ${ANDROID_NDK}/prebuilt/windows-x86_64/bin to PATH
+    - Install Visual Studio with C++ workload for desktop (not Visual Studio Code)
+      - You may be able to just install the command line SDK but that path has not been tested
+    - ```winget install cmake```
 - npm or python3
-  - just used for running/testing WASM example
+  - only used for running/testing WASM example
   - examples/app-web/serve.sh will use either to start a CLI one-liner local http server to serve up JS and WASM files
   - no virtual env or language-specific project setup needed
 
