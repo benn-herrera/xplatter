@@ -147,6 +147,12 @@ $(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Package.swift: $(DIST_DIR)/ios/$(PASCAL_NAME).
 package-ios: $(DIST_DIR)/ios/$(PASCAL_NAME).xcframework $(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Package.swift $(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Sources/$(PASCAL_NAME)Binding/$(PASCAL_NAME).swift
 	@echo "Packaged iOS: $(DIST_DIR)/ios/"
 
+else
+
+.PHONY: package-ios
+package-ios:
+	@echo "skipping iOS packaging on $(HOST_OS)"
+
 endif
 endif
 

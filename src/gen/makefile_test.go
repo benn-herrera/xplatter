@@ -151,6 +151,34 @@ func TestMakefileCodegenStamp(t *testing.T) {
 	}
 }
 
+func TestMakefilePackageIOS_StubTarget(t *testing.T) {
+	var b strings.Builder
+	MakefilePackageIOS(&b, func(b *strings.Builder) {
+		b.WriteString("# test build arch rule\n\n")
+	})
+	content := b.String()
+
+	// Verify the Darwin conditional exists
+	if !strings.Contains(content, "ifeq ($(HOST_OS),Darwin)") {
+		t.Error("missing HOST_OS Darwin conditional")
+	}
+
+	// Verify the else clause with stub target exists
+	if !strings.Contains(content, "skipping iOS packaging on $(HOST_OS)") {
+		t.Error("missing stub package-ios target in else clause for non-Darwin hosts")
+	}
+
+	// Verify proper nesting: else comes after real target, before endif
+	darwinIdx := strings.Index(content, "ifeq ($(HOST_OS),Darwin)")
+	elseIdx := strings.Index(content, "\nelse\n")
+	if darwinIdx < 0 || elseIdx < 0 {
+		t.Fatal("missing expected conditional structure")
+	}
+	if darwinIdx >= elseIdx {
+		t.Error("else clause should come after Darwin conditional")
+	}
+}
+
 func TestMakefileAggregateTargets(t *testing.T) {
 	var b strings.Builder
 	MakefileAggregateTargets(&b)
