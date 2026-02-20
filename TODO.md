@@ -4,6 +4,14 @@
 * items on the todo list are addressed one encapsulated (## headed) issue at a time in top down order. The task is to be accomplished starting in planning mode and then moving on to execution.
 * when completed they are marked done (## DONE - [description]) and moved to the end of the file for archival purposes
 
+## impl-[language] Makefiles have issues that break building on Linux and Windows
+* UNAME_S is a terrible makefile variable name. It should be HOST_OS
+* Architecture detection is missing - add HOST_ARCH assigned to from ```uname -m```
+* Makefiles should have ```SHELL := /bin/bash``` at the top of the file
+* ios is always included in TARGETS even on non-Darwin hosts
+* NDK download assumes building on macOS - an NDK_HOST_OS and NDK_HOST_ARCH need to be assigned to with values corresponding to the case-sensitive naming convention used in the NDK package download paths.
+* update the impl Makefile generation code, regenerate for impl-[language] projects and modify the generated scaffold Makefiles as needed for the impl examples.
+
 ## _IGNORE THIS LINE AND EVERYTHING BELOW IT IN THIS FILE - STAGING AREA FOR FUTURE WORK_
 
 ## in GC'd languages (Swift, Kotlin, JavaScript)   

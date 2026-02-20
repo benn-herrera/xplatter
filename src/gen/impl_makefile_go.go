@@ -39,7 +39,7 @@ $(STAMP): $(API_DEF)
 `)
 
 	// Generated Go source copies (for .gitignore and clean)
-	fmt.Fprintf(&b, "GEN_GO_SOURCES := $(wildcard generated/%s_*.go)\n", apiName)
+	b.WriteString("GEN_GO_SOURCES := $(wildcard $(GEN_DIR)$(API_NAME)_*.go)\n")
 	b.WriteString("GEN_GO_COPIES  := $(notdir $(GEN_GO_SOURCES))\n\n")
 
 	b.WriteString(`.PHONY: run shared-lib clean

@@ -45,7 +45,7 @@ $(SHARED_LIB): $(STAMP)
 	cargo build --release
 	@mkdir -p $(BUILD_DIR)
 	cp target/release/$(LIB_NAME).$(DYLIB_EXT) $(SHARED_LIB)
-ifeq ($(UNAME_S),Darwin)
+ifeq ($(HOST_OS),Darwin)
 	install_name_tool -id @rpath/$(LIB_NAME).$(DYLIB_EXT) $(SHARED_LIB)
 endif
 

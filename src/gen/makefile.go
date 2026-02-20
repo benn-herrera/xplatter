@@ -49,6 +49,7 @@ func MakefileHeader(b *strings.Builder, ctx *Context, implLang string) {
 	b.WriteString(GeneratedFileHeader(ctx, "#", true))
 	b.WriteString("\n")
 
+	fmt.Fprintf(b, "SHELL := /bin/bash\n")
 	fmt.Fprintf(b, "XPLATTER ?= xplatter\n")
 	fmt.Fprintf(b, "API_DEF  := %s\n", APIDefRelPath(ctx))
 	fmt.Fprintf(b, "IMPL_LANG := %s\n\n", implLang)
@@ -70,13 +71,22 @@ TARGETS ?= ios android web desktop
 
 target_enabled = $(filter $(1),$(TARGETS))
 
-# ── Platform detection ────────────────────────────────────────────────────────
+# ── Host platform detection ────────────────────────────────────────────────────
 
-UNAME_S := $(shell uname -s)
-ifeq ($(UNAME_S),Darwin)
-  DYLIB_EXT := dylib
+HOST_OS   := $(shell uname -s)
+HOST_ARCH := $(shell uname -m)
+ifeq ($(HOST_OS),Darwin)
+  DYLIB_EXT     := dylib
+  NDK_HOST_OS   := darwin
+  NDK_HOST_ARCH := x86_64
 else
-  DYLIB_EXT := so
+  DYLIB_EXT    := so
+  NDK_HOST_OS  := linux
+  ifeq ($(HOST_ARCH),aarch64)
+    NDK_HOST_ARCH := aarch64
+  else
+    NDK_HOST_ARCH := x86_64
+  endif
 endif
 SHARED_LIB := $(BUILD_DIR)/$(LIB_NAME).$(DYLIB_EXT)
 
@@ -84,7 +94,7 @@ SHARED_LIB := $(BUILD_DIR)/$(LIB_NAME).$(DYLIB_EXT)
 
 NDK_VERSION     ?= 29.0.14206865
 NDK             ?= $(HOME)/Library/Android/sdk/ndk/$(NDK_VERSION)
-NDK_BIN         := $(NDK)/toolchains/llvm/prebuilt/darwin-x86_64/bin
+NDK_BIN         := $(NDK)/toolchains/llvm/prebuilt/$(NDK_HOST_OS)-$(NDK_HOST_ARCH)/bin
 ANDROID_MIN_API := 21
 
 # ── iOS ───────────────────────────────────────────────────────────────────────
@@ -132,6 +142,7 @@ func MakefilePackageIOS(b *strings.Builder, buildArchRule func(b *strings.Builde
 # ══════════════════════════════════════════════════════════════════════════════
 
 ifneq ($(call target_enabled,ios),)
+ifeq ($(HOST_OS),Darwin)
 
 `)
 	buildArchRule(b)
@@ -164,6 +175,7 @@ $(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Package.swift: $(DIST_DIR)/ios/$(PASCAL_NAME).
 package-ios: $(DIST_DIR)/ios/$(PASCAL_NAME).xcframework $(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Package.swift $(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Sources/$(PASCAL_NAME)Binding/$(PASCAL_NAME).swift
 	@echo "Packaged iOS: $(DIST_DIR)/ios/"
 
+endif
 endif
 
 `)
