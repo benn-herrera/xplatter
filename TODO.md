@@ -5,12 +5,11 @@
 * when completed they are marked done (## DONE - [description]) and moved to the end of the file for archival purposes
 
 ## impl-[language] Makefiles have issues that break building on Linux and Windows
-* UNAME_S is a terrible makefile variable name. It should be HOST_OS
-* Architecture detection is missing - add HOST_ARCH assigned to from ```uname -m```
-* Makefiles should have ```SHELL := /bin/bash``` at the top of the file
-* ios is always included in TARGETS even on non-Darwin hosts
-* NDK download assumes building on macOS - an NDK_HOST_OS and NDK_HOST_ARCH need to be assigned to with values corresponding to the case-sensitive naming convention used in the NDK package download paths.
-* update the impl Makefile generation code, regenerate for impl-[language] projects and modify the generated scaffold Makefiles as needed for the impl examples.
+* ```make packages``` fails on non-macOS dev hosts because the packages target relies on a missing 'package-ios' target. there needs to be an else clause for the conditional inclusion of the package-ios target that puts in a stub that just echos 'skipping iOS packaging on $(HOST_OS)'
+* update the impl Makefile generation code
+  * regenerate for impl-[language] projects
+  * modify the generated scaffold Makefiles as needed for the impl examples
+    * be sure to preserve the updated assignment to XPLATTER
 
 ## _IGNORE THIS LINE AND EVERYTHING BELOW IT IN THIS FILE - STAGING AREA FOR FUTURE WORK_
 
@@ -34,4 +33,4 @@
 
 ## returning strings only as flatbuffer BoxedString that requires implementer to hold an allocation indefinitely is unacceptably burdensome on xplatter users (API implementers) - think about this problem more carefully.
 
-## DON'T FORGET WINDOWS AND LINUX. MAYBE SPEND A DAY OR SO WORKING ON UNBREAKING EVERYTHING THAT'S BOUND TO BE BONED OVER THERE.
+## DON'T FORGET WINDOWS AND LINUX. MAYBE SPEND A DAY OR SO WORKING ON UNBREAKING EVERYTHING THAT'S BOUND TO BE BORKED OVER THERE.
