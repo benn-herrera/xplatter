@@ -1,5 +1,6 @@
 # examples/Makefile — build and test example implementations and apps
 
+SHELL := /bin/bash
 ROOT_DIR := ..
 HOST_OS  := $(shell uname -s)
 BUILD_XPLATTER_TARGET  := $(shell [[ -d $(ROOT_DIR)/.git ]] && echo build-xplatter-for-dev || echo build-xplatter-in-dist)
