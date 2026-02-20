@@ -5,9 +5,9 @@ Hello-world examples demonstrating the full xplatter workflow:
 
 Each example implements the same simple `Greeter` API in a different implementation language.
 
-## Shared Schemas
+## Shared Specs
 
-`shared_schemas/hello_types.fbs` contains the canonical FlatBuffer schema defining:
+`shared_specs/hello_types.fbs` contains the canonical FlatBuffer schema defining:
 - `Hello.ErrorCode` enum (Ok, InvalidArgument, InternalError)
 - `Hello.Greeting` table (with a `message` field)
 

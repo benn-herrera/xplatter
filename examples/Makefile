@@ -9,7 +9,7 @@ IMPL ?= cpp
 
 # Absolute paths for codegen bootstrap (so cd into impl dirs works)
 XPLATTER_ABS := $(abspath $(ROOT_DIR)/xplatter.sh)
-HELLO_API_ABS := $(abspath hello-xplatter/shared_schemas/hello_xplatter.yaml)
+HELLO_API_ABS := $(abspath hello-xplatter/shared_specs/hello_xplatter.yaml)
 
 # Bootstrap codegen: generates Makefile + platform_services + bindings.
 # Scaffold files (Makefile, platform_services, impl stubs) are only written on first run.

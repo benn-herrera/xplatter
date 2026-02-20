@@ -7,7 +7,7 @@ import (
 )
 
 func TestParseFBSFile_CommonSchema(t *testing.T) {
-	path := filepath.Join("..", "testdata", "schemas", "common.fbs")
+	path := filepath.Join("..", "testdata", "specs", "common.fbs")
 	types, err := ParseFBSFile(path)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

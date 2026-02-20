@@ -4,7 +4,7 @@ api:
   impl_lang: c
 
 flatbuffers:
-  - schemas/hello_types.fbs
+  - specs/hello_types.fbs
 
 handles:
   - name: Greeter

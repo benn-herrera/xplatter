@@ -71,7 +71,7 @@ src/
   resolver/     FlatBuffers schema parsing and type resolution
   validate/     Semantic validation of API definitions
   testdata/     Test YAML definitions and golden/ output files
-schemas/        Top-level FlatBuffers schemas (core_types.fbs, input_events.fbs)
+specs/          Top-level FlatBuffers specs (core_types.fbs, input_events.fbs)
 ```
 
 ## Code Conventions

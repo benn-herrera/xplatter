@@ -690,11 +690,11 @@ api:
     - web
 
 flatbuffers:
-  - schemas/geometry.fbs
-  - schemas/input_events.fbs
-  - schemas/rendering.fbs
-  - schemas/scene.fbs
-  - schemas/common.fbs
+  - specs/geometry.fbs
+  - specs/input_events.fbs
+  - specs/rendering.fbs
+  - specs/scene.fbs
+  - specs/common.fbs
 
 handles:
   - name: Engine

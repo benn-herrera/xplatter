@@ -158,8 +158,8 @@ Array of `.fbs` file paths relative to the API definition file:
 
 ```yaml
 flatbuffers:
-  - schemas/common.fbs
-  - schemas/rendering.fbs
+  - specs/common.fbs
+  - specs/rendering.fbs
 ```
 
 ### `handles` — Opaque Handle Types
@@ -421,9 +421,9 @@ api:
     - web
 
 flatbuffers:
-  - schemas/geometry.fbs
-  - schemas/rendering.fbs
-  - schemas/common.fbs
+  - specs/geometry.fbs
+  - specs/rendering.fbs
+  - specs/common.fbs
 
 handles:
   - name: Engine

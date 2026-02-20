@@ -15,7 +15,7 @@ func minimalAPI() *model.APIDefinition {
 			Version:  "0.1.0",
 			ImplLang: "c",
 		},
-		FlatBuffers: []string{"schemas/common.fbs"},
+		FlatBuffers: []string{"specs/common.fbs"},
 		Handles: []model.HandleDef{
 			{Name: "Engine"},
 		},

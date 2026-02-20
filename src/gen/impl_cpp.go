@@ -82,14 +82,10 @@ func (g *ImplCppGenerator) generateInterface(api *model.APIDefinition, apiName s
 	fmt.Fprintf(&b, "    virtual ~%s() = default;\n\n", className)
 
 	for _, iface := range api.Interfaces {
+		if len(iface.Methods) == 0 {
+			continue
+		}
 		fmt.Fprintf(&b, "    /* %s */\n", iface.Name)
-		for _, ctor := range iface.Constructors {
-			g.writeInterfaceMethod(&b, &ctor)
-		}
-		if handleName, ok := iface.ConstructorHandleName(); ok {
-			destructor := SyntheticDestructor(handleName)
-			g.writeInterfaceMethod(&b, &destructor)
-		}
 		for _, method := range iface.Methods {
 			g.writeInterfaceMethod(&b, &method)
 		}
@@ -334,14 +330,10 @@ func (g *ImplCppGenerator) generateImplHeader(api *model.APIDefinition, apiName 
 	fmt.Fprintf(&b, "    ~%s() override;\n\n", implClassName)
 
 	for _, iface := range api.Interfaces {
+		if len(iface.Methods) == 0 {
+			continue
+		}
 		fmt.Fprintf(&b, "    /* %s */\n", iface.Name)
-		for _, ctor := range iface.Constructors {
-			g.writeImplMethodDecl(&b, &ctor)
-		}
-		if handleName, ok := iface.ConstructorHandleName(); ok {
-			destructor := SyntheticDestructor(handleName)
-			g.writeImplMethodDecl(&b, &destructor)
-		}
 		for _, method := range iface.Methods {
 			g.writeImplMethodDecl(&b, &method)
 		}
@@ -409,15 +401,6 @@ func (g *ImplCppGenerator) generateImplSource(api *model.APIDefinition, apiName 
 
 	// Method stubs
 	for _, iface := range api.Interfaces {
-		for _, ctor := range iface.Constructors {
-			g.writeImplMethodStub(&b, implClassName, &ctor)
-			b.WriteString("\n")
-		}
-		if handleName, ok := iface.ConstructorHandleName(); ok {
-			destructor := SyntheticDestructor(handleName)
-			g.writeImplMethodStub(&b, implClassName, &destructor)
-			b.WriteString("\n")
-		}
 		for _, method := range iface.Methods {
 			g.writeImplMethodStub(&b, implClassName, &method)
 			b.WriteString("\n")

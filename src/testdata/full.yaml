@@ -9,7 +9,7 @@ api:
     - web
 
 flatbuffers:
-  - schemas/common.fbs
+  - specs/common.fbs
 
 handles:
   - name: Engine

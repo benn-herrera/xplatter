@@ -27,11 +27,11 @@ api:
 # Types from these files are referenced by fully-qualified FlatBuffers namespace.
 # All enums, structs, unions, and constants live here.
 flatbuffers:
-  - schemas/geometry.fbs
-  - schemas/input_events.fbs
-  - schemas/rendering.fbs
-  - schemas/scene.fbs
-  - schemas/common.fbs          # ErrorCode, LogLevel, EntityId, etc.
+  - specs/geometry.fbs
+  - specs/input_events.fbs
+  - specs/rendering.fbs
+  - specs/scene.fbs
+  - specs/common.fbs          # ErrorCode, LogLevel, EntityId, etc.
 
 # --- Opaque Handles ---
 # Implementation-managed objects. These are not data types — they

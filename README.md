@@ -109,7 +109,7 @@ src/                    Go source for the code gen tool
   testdata/             Test fixtures and golden files
 examples/               Working hello-world examples in C, C++, Rust, Go
 docs/                   Specifications, schemas, and example definitions
-schemas/                FlatBuffers schema files
+specs/                  FlatBuffers spec files
 ```
 
 ## Documentation

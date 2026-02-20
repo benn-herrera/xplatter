@@ -45,8 +45,8 @@ api:
 
 ```yaml
 flatbuffers:
-  - schemas/common.fbs
-  - schemas/geometry.fbs
+  - specs/common.fbs
+  - specs/geometry.fbs
 ```
 
 A list of FlatBuffers schema file paths (relative to the API definition file). At least one is required. All paths must end in `.fbs`.

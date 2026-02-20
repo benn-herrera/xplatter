@@ -33,9 +33,9 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create directories
-	schemasDir := filepath.Join(initOutput, "schemas")
-	if err := os.MkdirAll(schemasDir, 0755); err != nil {
-		return fmt.Errorf("creating schemas directory: %w", err)
+	specsDir := filepath.Join(initOutput, "specs")
+	if err := os.MkdirAll(specsDir, 0755); err != nil {
+		return fmt.Errorf("creating specs directory: %w", err)
 	}
 
 	// Write starter API definition
@@ -47,7 +47,7 @@ func runInit(cmd *cobra.Command, args []string) error {
   impl_lang: %s
 
 flatbuffers:
-  - schemas/types.fbs
+  - specs/types.fbs
 
 handles:
   - name: Instance
@@ -71,7 +71,7 @@ interfaces:
 	}
 
 	// Write starter FBS schema
-	fbsPath := filepath.Join(schemasDir, "types.fbs")
+	fbsPath := filepath.Join(specsDir, "types.fbs")
 	fbs := `namespace Common;
 
 enum ErrorCode : int32 {

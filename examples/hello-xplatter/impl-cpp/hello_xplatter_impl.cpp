@@ -9,15 +9,6 @@
 HelloXplatterImpl::HelloXplatterImpl() = default;
 HelloXplatterImpl::~HelloXplatterImpl() = default;
 
-/* These lifecycle methods exist on the interface but are never called
-   by the generated shim — create/destroy are handled directly. */
-int32_t HelloXplatterImpl::create_greeter(void** /*out_result*/) {
-    return Hello_ErrorCode_Ok;
-}
-
-void HelloXplatterImpl::destroy_greeter(void* /*greeter*/) {
-}
-
 int32_t HelloXplatterImpl::say_hello(
     void* /*greeter*/,
     std::string_view name,

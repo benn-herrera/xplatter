@@ -2,6 +2,7 @@
 
 ## V2 features (or good for-pay candidates):
   * add an Android/KMP and maybe iOS/KMP binding targets
+  * add C#/.NET as a binding target
   * support exporting a typescript binding instead of javascript for web targets.
   * add front door support for zig as an implementation language
   * a/b implementation swapping? ability to select between two implementations at startup time?

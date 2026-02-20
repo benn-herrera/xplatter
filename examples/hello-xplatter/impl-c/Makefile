@@ -2,7 +2,7 @@
 # This is a scaffold — customize as needed. Regeneration will not overwrite this file.
 
 XPLATTER ?= ../../../xplatter.sh
-API_DEF  := ../shared_schemas/hello_xplatter.yaml
+API_DEF  := ../shared_specs/hello_xplatter.yaml
 IMPL_LANG := c
 
 API_NAME  := hello_xplatter

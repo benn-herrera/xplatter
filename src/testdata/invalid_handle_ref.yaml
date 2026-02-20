@@ -4,7 +4,7 @@ api:
   impl_lang: c
 
 flatbuffers:
-  - schemas/common.fbs
+  - specs/common.fbs
 
 interfaces:
   - name: test

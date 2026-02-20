@@ -104,12 +104,12 @@ func TestImplCppGenerator_InterfaceHeader(t *testing.T) {
 		t.Error("missing virtual destructor")
 	}
 
-	// Pure virtual methods
-	if !strings.Contains(content, "virtual int32_t create_engine(void** out_result) = 0;") {
-		t.Error("missing pure virtual create_engine method")
+	// Lifecycle methods must NOT appear as pure virtual methods in the interface
+	if strings.Contains(content, "virtual int32_t create_engine(") {
+		t.Error("create_engine (lifecycle) must not appear as a virtual method in the interface")
 	}
-	if !strings.Contains(content, "virtual void destroy_engine(void* engine) = 0;") {
-		t.Error("missing pure virtual destroy_engine method")
+	if strings.Contains(content, "virtual void destroy_engine(") {
+		t.Error("destroy_engine (lifecycle) must not appear as a virtual method in the interface")
 	}
 
 	// Factory function declaration
@@ -198,9 +198,12 @@ func TestImplCppGenerator_ImplHeader(t *testing.T) {
 		t.Error("missing destructor declaration")
 	}
 
-	// Override methods
-	if !strings.Contains(content, "override;") {
-		t.Error("missing override specifier on methods")
+	// Lifecycle methods must NOT appear as override methods in the impl header
+	if strings.Contains(content, "create_engine(") {
+		t.Error("create_engine (lifecycle) must not appear as override method in impl header")
+	}
+	if strings.Contains(content, "destroy_engine(") {
+		t.Error("destroy_engine (lifecycle) must not appear as override method in impl header")
 	}
 }
 
@@ -233,12 +236,12 @@ func TestImplCppGenerator_ImplSource(t *testing.T) {
 		t.Error("missing destructor definition")
 	}
 
-	// Method stubs
-	if !strings.Contains(content, "TestApiImpl::create_engine(") {
-		t.Error("missing create_engine stub")
+	// Lifecycle methods must NOT appear as method stubs
+	if strings.Contains(content, "TestApiImpl::create_engine(") {
+		t.Error("create_engine (lifecycle) must not appear as a method stub in impl source")
 	}
-	if !strings.Contains(content, "TestApiImpl::destroy_engine(") {
-		t.Error("missing destroy_engine stub")
+	if strings.Contains(content, "TestApiImpl::destroy_engine(") {
+		t.Error("destroy_engine (lifecycle) must not appear as a method stub in impl source")
 	}
 
 	// Factory function

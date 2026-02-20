@@ -17,10 +17,6 @@ public:
     HelloXplatterImpl();
     ~HelloXplatterImpl() override;
 
-    /* lifecycle — not called by the shim (handled directly) */
-    int32_t create_greeter(void** out_result) override;
-    void destroy_greeter(void* greeter) override;
-
     /* greeter */
     int32_t say_hello(void* greeter, std::string_view name, Hello_Greeting* out_result) override;
 
