@@ -38,22 +38,22 @@ build-xplatter: $(BUILD_XPLATTER_TARGET)
 ## test-hello-impl-c: Build and run the hello example C implementation
 test-hello-impl-c: build-xplatter
 	$(call gen-impl,hello-xplatter/impl-c,c,-o generated)
-	$(MAKE) -C hello-xplatter/impl-c XPLATTER=$(XPLATTER_ABS) run
+	$(MAKE) -C hello-xplatter/impl-c XPLATTER=$(XPLATTER_ABS) test
 
 ## test-hello-impl-cpp: Build and run the hello example C++ implementation
 test-hello-impl-cpp: build-xplatter
 	$(call gen-impl,hello-xplatter/impl-cpp,cpp,-o generated)
-	$(MAKE) -C hello-xplatter/impl-cpp XPLATTER=$(XPLATTER_ABS) run
+	$(MAKE) -C hello-xplatter/impl-cpp XPLATTER=$(XPLATTER_ABS) test
 
 ## test-hello-impl-rust: Build and run the hello example Rust implementation
 test-hello-impl-rust: build-xplatter
 	$(call gen-impl,hello-xplatter/impl-rust,rust,-o generated)
-	$(MAKE) -C hello-xplatter/impl-rust XPLATTER=$(XPLATTER_ABS) run
+	$(MAKE) -C hello-xplatter/impl-rust XPLATTER=$(XPLATTER_ABS) test
 
 ## test-hello-impl-go: Build and run the hello example Go implementation
 test-hello-impl-go: build-xplatter
 	$(call gen-impl,hello-xplatter/impl-go,go,-o generated)
-	$(MAKE) -C hello-xplatter/impl-go XPLATTER=$(XPLATTER_ABS) run
+	$(MAKE) -C hello-xplatter/impl-go XPLATTER=$(XPLATTER_ABS) test
 
 ## test-hello-impls: Run all hello example implementations
 test-hello-impls: test-hello-impl-c test-hello-impl-cpp test-hello-impl-rust test-hello-impl-go
