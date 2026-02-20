@@ -1,4 +1,3 @@
-XPLATTER ?= ../../../xplatter.sh
 IMPL       ?= cpp
 IMPL_DIR   := ../impl-$(IMPL)
 BUILD_DIR  := build
