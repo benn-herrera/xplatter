@@ -27,21 +27,22 @@ func (g *CHeaderGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	b.WriteString(GeneratedFileHeaderBlock(ctx, false))
 	b.WriteString("\n")
 
-	// Include guard
-	fmt.Fprintf(&b, "#ifndef %s\n", guardName)
-	fmt.Fprintf(&b, "#define %s\n\n", guardName)
+	fmt.Fprintf(&b, `#ifndef %[1]s
+#define %[1]s
 
-	// Standard includes
-	b.WriteString("#include <stdint.h>\n")
-	b.WriteString("#include <stdbool.h>\n\n")
+#include <stdint.h>
+#include <stdbool.h>
+
+`, guardName)
 
 	// Symbol visibility export macro
 	writeExportMacro(&b, apiName)
 
-	// C++ compatibility
-	b.WriteString("#ifdef __cplusplus\n")
-	b.WriteString("extern \"C\" {\n")
-	b.WriteString("#endif\n\n")
+	b.WriteString(`#ifdef __cplusplus
+extern "C" {
+#endif
+
+`)
 
 	// Handle typedefs
 	if len(api.Handles) > 0 {
@@ -70,10 +71,11 @@ func (g *CHeaderGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 		b.WriteString("\n")
 	}
 
-	// Close C++ compatibility
-	b.WriteString("#ifdef __cplusplus\n")
-	b.WriteString("}\n")
-	b.WriteString("#endif\n\n")
+	b.WriteString(`#ifdef __cplusplus
+}
+#endif
+
+`)
 
 	fmt.Fprintf(&b, "#endif\n")
 
@@ -86,29 +88,32 @@ func (g *CHeaderGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 func writeExportMacro(b *strings.Builder, apiName string) {
 	exportMacro := ExportMacroName(apiName)
 	buildMacro := BuildMacroName(apiName)
-	b.WriteString("/* Symbol visibility */\n")
-	b.WriteString("#if defined(_WIN32) || defined(_WIN64)\n")
-	fmt.Fprintf(b, "  #ifdef %s\n", buildMacro)
-	fmt.Fprintf(b, "    #define %s __declspec(dllexport)\n", exportMacro)
-	b.WriteString("  #else\n")
-	fmt.Fprintf(b, "    #define %s __declspec(dllimport)\n", exportMacro)
-	b.WriteString("  #endif\n")
-	b.WriteString("#elif defined(__GNUC__) || defined(__clang__)\n")
-	fmt.Fprintf(b, "  #define %s __attribute__((visibility(\"default\")))\n", exportMacro)
-	b.WriteString("#else\n")
-	fmt.Fprintf(b, "  #define %s\n", exportMacro)
-	b.WriteString("#endif\n\n")
+	fmt.Fprintf(b, `/* Symbol visibility */
+#if defined(_WIN32) || defined(_WIN64)
+  #ifdef %[2]s
+    #define %[1]s __declspec(dllexport)
+  #else
+    #define %[1]s __declspec(dllimport)
+  #endif
+#elif defined(__GNUC__) || defined(__clang__)
+  #define %[1]s __attribute__((visibility("default")))
+#else
+  #define %[1]s
+#endif
+
+`, exportMacro, buildMacro)
 }
 
 func writePlatformServices(b *strings.Builder, apiName string) {
-	b.WriteString("/* Platform services — implement these per platform */\n")
-	fmt.Fprintf(b, "void %s_log_sink(int32_t level, const char* tag, const char* message);\n", apiName)
-	fmt.Fprintf(b, "uint32_t %s_resource_count(void);\n", apiName)
-	fmt.Fprintf(b, "int32_t  %s_resource_name(uint32_t index, char* buffer, uint32_t buffer_size);\n", apiName)
-	fmt.Fprintf(b, "int32_t  %s_resource_exists(const char* name);\n", apiName)
-	fmt.Fprintf(b, "uint32_t %s_resource_size(const char* name);\n", apiName)
-	fmt.Fprintf(b, "int32_t  %s_resource_read(const char* name, uint8_t* buffer, uint32_t buffer_size);\n", apiName)
-	b.WriteString("\n")
+	fmt.Fprintf(b, `/* Platform services — implement these per platform */
+void %[1]s_log_sink(int32_t level, const char* tag, const char* message);
+uint32_t %[1]s_resource_count(void);
+int32_t  %[1]s_resource_name(uint32_t index, char* buffer, uint32_t buffer_size);
+int32_t  %[1]s_resource_exists(const char* name);
+uint32_t %[1]s_resource_size(const char* name);
+int32_t  %[1]s_resource_read(const char* name, uint8_t* buffer, uint32_t buffer_size);
+
+`, apiName)
 }
 
 func writeMethodSignature(b *strings.Builder, apiName, ifaceName string, method *model.MethodDef, exportMacro string) {

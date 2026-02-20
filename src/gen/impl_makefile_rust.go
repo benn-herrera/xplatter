@@ -1,7 +1,6 @@
 package gen
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -25,35 +24,36 @@ func (g *RustMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	MakefileBindingVars(&b, apiName, "generated/")
 	MakefileWASMExports(&b, apiName, ctx.API)
 
-	b.WriteString("# Ensure codegen runs before any target needs generated files\n")
-	b.WriteString("$(GEN_HEADER): $(STAMP)\n\n")
+	b.WriteString(`# Ensure codegen runs before any target needs generated files
+$(GEN_HEADER): $(STAMP)
 
-	b.WriteString("LIB_C_FLAGS := -std=c11 -Wall -Wextra -fvisibility=hidden -D$(BUILD_MACRO)\n\n")
+LIB_C_FLAGS := -std=c11 -Wall -Wextra -fvisibility=hidden -D$(BUILD_MACRO)
+
+`)
 
 	// Codegen stamp
 	MakefileCodegenStamp(&b, "rust", "-o generated")
 
-	// Phony declarations
-	b.WriteString(".PHONY: run shared-lib clean\n\n")
+	b.WriteString(`.PHONY: run shared-lib clean
 
-	// Local build
-	b.WriteString("run: $(STAMP)\n")
-	b.WriteString("\tcargo test\n\n")
+run: $(STAMP)
+	cargo test
 
-	// Shared library
-	b.WriteString("shared-lib: $(SHARED_LIB)\n\n")
-	b.WriteString("$(SHARED_LIB): $(STAMP)\n")
-	b.WriteString("\tcargo build --release\n")
-	b.WriteString("\t@mkdir -p $(BUILD_DIR)\n")
-	b.WriteString("\tcp target/release/$(LIB_NAME).$(DYLIB_EXT) $(SHARED_LIB)\n")
-	b.WriteString("ifeq ($(UNAME_S),Darwin)\n")
-	b.WriteString("\tinstall_name_tool -id @rpath/$(LIB_NAME).$(DYLIB_EXT) $(SHARED_LIB)\n")
-	b.WriteString("endif\n\n")
+shared-lib: $(SHARED_LIB)
 
-	// Clean
-	b.WriteString("clean:\n")
-	b.WriteString("\tcargo clean\n")
-	b.WriteString("\trm -rf generated $(BUILD_DIR) $(DIST_DIR) flatbuffers\n\n")
+$(SHARED_LIB): $(STAMP)
+	cargo build --release
+	@mkdir -p $(BUILD_DIR)
+	cp target/release/$(LIB_NAME).$(DYLIB_EXT) $(SHARED_LIB)
+ifeq ($(UNAME_S),Darwin)
+	install_name_tool -id @rpath/$(LIB_NAME).$(DYLIB_EXT) $(SHARED_LIB)
+endif
+
+clean:
+	cargo clean
+	rm -rf generated $(BUILD_DIR) $(DIST_DIR) flatbuffers
+
+`)
 
 	// iOS packaging
 	MakefilePackageIOS(&b, func(b *strings.Builder) {
@@ -82,46 +82,53 @@ func (g *RustMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 }
 
 func (g *RustMakefileGenerator) writeIOSArchRules(b *strings.Builder) {
-	// Macro for building one iOS arch via cargo
-	b.WriteString("# $(1) = arch dir name, $(2) = Rust target triple\n")
-	b.WriteString("define BUILD_IOS_ARCH\n\n")
-	b.WriteString("$(DIST_DIR)/ios/obj/$(1)/$(LIB_NAME).a: $(STAMP)\n")
-	b.WriteString("\t@mkdir -p $$(dir $$@)\n")
-	b.WriteString("\tcargo build --release --target $(2)\n")
-	b.WriteString("\tcp target/$(2)/release/$(LIB_NAME).a $$@\n\n")
-	b.WriteString("endef\n\n")
+	b.WriteString(`# $(1) = arch dir name, $(2) = Rust target triple
+define BUILD_IOS_ARCH
 
-	b.WriteString("$(eval $(call BUILD_IOS_ARCH,ios-arm64,aarch64-apple-ios))\n")
-	b.WriteString("$(eval $(call BUILD_IOS_ARCH,ios-sim-arm64,aarch64-apple-ios-sim))\n")
-	b.WriteString("$(eval $(call BUILD_IOS_ARCH,ios-sim-x86_64,x86_64-apple-ios))\n\n")
+$(DIST_DIR)/ios/obj/$(1)/$(LIB_NAME).a: $(STAMP)
+	@mkdir -p $$(dir $$@)
+	cargo build --release --target $(2)
+	cp target/$(2)/release/$(LIB_NAME).a $$@
+
+endef
+
+$(eval $(call BUILD_IOS_ARCH,ios-arm64,aarch64-apple-ios))
+$(eval $(call BUILD_IOS_ARCH,ios-sim-arm64,aarch64-apple-ios-sim))
+$(eval $(call BUILD_IOS_ARCH,ios-sim-x86_64,x86_64-apple-ios))
+
+`)
 }
 
 func (g *RustMakefileGenerator) writeAndroidABIRules(b *strings.Builder) {
-	// Macro for building one Android ABI via cargo + NDK link
-	b.WriteString("# $(1) = ABI name, $(2) = Rust target triple, $(3) = NDK target prefix\n")
-	b.WriteString("define BUILD_ANDROID_ABI\n\n")
-	b.WriteString("$(DIST_DIR)/android/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(STAMP)\n")
-	b.WriteString("\t@mkdir -p $(DIST_DIR)/android/obj/$(1) $$(dir $$@)\n")
-	b.WriteString("\tPATH=$(NDK_BIN):$$$$PATH cargo build --release --target $(2)\n")
-	b.WriteString("\t$(NDK_BIN)/$(3)-clang $(LIB_C_FLAGS) -fPIC \\\n")
-	b.WriteString("\t\t-Igenerated -c -o $(DIST_DIR)/android/obj/$(1)/jni.o $(GEN_JNI_SOURCE)\n")
-	b.WriteString("\t$(NDK_BIN)/$(3)-clang -shared \\\n")
-	b.WriteString("\t\t-Wl,--whole-archive target/$(2)/release/$(LIB_NAME).a -Wl,--no-whole-archive \\\n")
-	b.WriteString("\t\t$(DIST_DIR)/android/obj/$(1)/jni.o \\\n")
-	b.WriteString("\t\t-ldl -lm -llog \\\n")
-	b.WriteString("\t\t-o $$@\n\n")
-	b.WriteString("endef\n\n")
+	b.WriteString(`# $(1) = ABI name, $(2) = Rust target triple, $(3) = NDK target prefix
+define BUILD_ANDROID_ABI
 
-	b.WriteString("$(eval $(call BUILD_ANDROID_ABI,arm64-v8a,aarch64-linux-android,aarch64-linux-android$(ANDROID_MIN_API)))\n")
-	b.WriteString("$(eval $(call BUILD_ANDROID_ABI,armeabi-v7a,armv7-linux-androideabi,armv7a-linux-androideabi$(ANDROID_MIN_API)))\n")
-	b.WriteString("$(eval $(call BUILD_ANDROID_ABI,x86_64,x86_64-linux-android,x86_64-linux-android$(ANDROID_MIN_API)))\n")
-	b.WriteString("$(eval $(call BUILD_ANDROID_ABI,x86,i686-linux-android,i686-linux-android$(ANDROID_MIN_API)))\n\n")
+$(DIST_DIR)/android/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(STAMP)
+	@mkdir -p $(DIST_DIR)/android/obj/$(1) $$(dir $$@)
+	PATH=$(NDK_BIN):$$$$PATH cargo build --release --target $(2)
+	$(NDK_BIN)/$(3)-clang $(LIB_C_FLAGS) -fPIC \
+		-Igenerated -c -o $(DIST_DIR)/android/obj/$(1)/jni.o $(GEN_JNI_SOURCE)
+	$(NDK_BIN)/$(3)-clang -shared \
+		-Wl,--whole-archive target/$(2)/release/$(LIB_NAME).a -Wl,--no-whole-archive \
+		$(DIST_DIR)/android/obj/$(1)/jni.o \
+		-ldl -lm -llog \
+		-o $$@
+
+endef
+
+$(eval $(call BUILD_ANDROID_ABI,arm64-v8a,aarch64-linux-android,aarch64-linux-android$(ANDROID_MIN_API)))
+$(eval $(call BUILD_ANDROID_ABI,armeabi-v7a,armv7-linux-androideabi,armv7a-linux-androideabi$(ANDROID_MIN_API)))
+$(eval $(call BUILD_ANDROID_ABI,x86_64,x86_64-linux-android,x86_64-linux-android$(ANDROID_MIN_API)))
+$(eval $(call BUILD_ANDROID_ABI,x86,i686-linux-android,i686-linux-android$(ANDROID_MIN_API)))
+
+`)
 }
 
 func (g *RustMakefileGenerator) writeWASMBuildRule(b *strings.Builder) {
-	b.WriteString("$(DIST_DIR)/web/$(API_NAME).wasm: $(STAMP)\n")
-	b.WriteString("\t@mkdir -p $(dir $@)\n")
-	b.WriteString("\tcargo build --release --target wasm32-unknown-unknown\n")
-	fmt.Fprintf(b, "\tcp target/wasm32-unknown-unknown/release/%s.wasm $@\n\n",
-		"$(shell echo $(API_NAME) | tr '-' '_')")
+	b.WriteString(`$(DIST_DIR)/web/$(API_NAME).wasm: $(STAMP)
+	@mkdir -p $(dir $@)
+	cargo build --release --target wasm32-unknown-unknown
+	cp target/wasm32-unknown-unknown/release/$(shell echo $(API_NAME) | tr '-' '_').wasm $@
+
+`)
 }

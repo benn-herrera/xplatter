@@ -45,73 +45,75 @@ func (g *JSWASMGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 // writeModuleHeader writes the top-of-file comment and shared state.
 func writeModuleHeader(b *strings.Builder, ctx *Context, api *model.APIDefinition) {
 	b.WriteString(GeneratedFileHeader(ctx, "//", false))
-	b.WriteString("\n")
+	b.WriteString(`
+const _encoder = new TextEncoder();
+const _decoder = new TextDecoder();
 
-	b.WriteString("const _encoder = new TextEncoder();\n")
-	b.WriteString("const _decoder = new TextDecoder();\n\n")
-	b.WriteString("let _wasm = null;\n\n")
+let _wasm = null;
+
+`)
 }
 
 // writeMemoryHelpers writes malloc/free wrappers for WASM linear memory.
 func writeMemoryHelpers(b *strings.Builder) {
-	b.WriteString("// Memory management helpers\n")
-	b.WriteString("function _malloc(size) {\n")
-	b.WriteString("  return _wasm.exports.malloc(size);\n")
-	b.WriteString("}\n\n")
+	b.WriteString(`// Memory management helpers
+function _malloc(size) {
+  return _wasm.exports.malloc(size);
+}
 
-	b.WriteString("function _free(ptr) {\n")
-	b.WriteString("  _wasm.exports.free(ptr);\n")
-	b.WriteString("}\n\n")
+function _free(ptr) {
+  _wasm.exports.free(ptr);
+}
 
-	b.WriteString("function _memoryBuffer() {\n")
-	b.WriteString("  return _wasm.exports.memory.buffer;\n")
-	b.WriteString("}\n\n")
+function _memoryBuffer() {
+  return _wasm.exports.memory.buffer;
+}
+
+`)
 }
 
 // writeStringMarshalling writes string encode/decode helpers.
 func writeStringMarshalling(b *strings.Builder) {
-	b.WriteString("// String marshalling\n")
+	b.WriteString(`// String marshalling
+function _encodeString(str) {
+  const bytes = _encoder.encode(str);
+  const ptr = _malloc(bytes.length + 1);
+  const dest = new Uint8Array(_memoryBuffer(), ptr, bytes.length + 1);
+  dest.set(bytes);
+  dest[bytes.length] = 0;
+  return ptr;
+}
 
-	// Encode a JS string into WASM memory, returns [ptr, len] (null-terminated).
-	b.WriteString("function _encodeString(str) {\n")
-	b.WriteString("  const bytes = _encoder.encode(str);\n")
-	b.WriteString("  const ptr = _malloc(bytes.length + 1);\n")
-	b.WriteString("  const dest = new Uint8Array(_memoryBuffer(), ptr, bytes.length + 1);\n")
-	b.WriteString("  dest.set(bytes);\n")
-	b.WriteString("  dest[bytes.length] = 0;\n")
-	b.WriteString("  return ptr;\n")
-	b.WriteString("}\n\n")
+function _decodeString(ptr) {
+  const mem = new Uint8Array(_memoryBuffer());
+  let end = ptr;
+  while (mem[end] !== 0) end++;
+  return _decoder.decode(mem.subarray(ptr, end));
+}
 
-	// Decode a null-terminated C string from WASM memory.
-	b.WriteString("function _decodeString(ptr) {\n")
-	b.WriteString("  const mem = new Uint8Array(_memoryBuffer());\n")
-	b.WriteString("  let end = ptr;\n")
-	b.WriteString("  while (mem[end] !== 0) end++;\n")
-	b.WriteString("  return _decoder.decode(mem.subarray(ptr, end));\n")
-	b.WriteString("}\n\n")
+`)
 }
 
 // writeBufferMarshalling writes TypedArray → WASM linear memory helpers.
 func writeBufferMarshalling(b *strings.Builder) {
-	b.WriteString("// Buffer marshalling\n")
+	b.WriteString(`// Buffer marshalling
+function _copyBufferToWasm(typedArray) {
+  const bytes = new Uint8Array(typedArray.buffer, typedArray.byteOffset, typedArray.byteLength);
+  const ptr = _malloc(bytes.length);
+  const dest = new Uint8Array(_memoryBuffer(), ptr, bytes.length);
+  dest.set(bytes);
+  return [ptr, typedArray.length];
+}
 
-	// Copy a TypedArray into WASM memory, returns [ptr, length].
-	b.WriteString("function _copyBufferToWasm(typedArray) {\n")
-	b.WriteString("  const bytes = new Uint8Array(typedArray.buffer, typedArray.byteOffset, typedArray.byteLength);\n")
-	b.WriteString("  const ptr = _malloc(bytes.length);\n")
-	b.WriteString("  const dest = new Uint8Array(_memoryBuffer(), ptr, bytes.length);\n")
-	b.WriteString("  dest.set(bytes);\n")
-	b.WriteString("  return [ptr, typedArray.length];\n")
-	b.WriteString("}\n\n")
+function _readBufferFromWasm(ptr, length, TypedArrayCtor) {
+  const byteSize = length * TypedArrayCtor.BYTES_PER_ELEMENT;
+  const src = new Uint8Array(_memoryBuffer(), ptr, byteSize);
+  const result = new TypedArrayCtor(length);
+  new Uint8Array(result.buffer).set(src);
+  return result;
+}
 
-	// Read WASM memory back into a TypedArray (for ref_mut out-buffers).
-	b.WriteString("function _readBufferFromWasm(ptr, length, TypedArrayCtor) {\n")
-	b.WriteString("  const byteSize = length * TypedArrayCtor.BYTES_PER_ELEMENT;\n")
-	b.WriteString("  const src = new Uint8Array(_memoryBuffer(), ptr, byteSize);\n")
-	b.WriteString("  const result = new TypedArrayCtor(length);\n")
-	b.WriteString("  new Uint8Array(result.buffer).set(src);\n")
-	b.WriteString("  return result;\n")
-	b.WriteString("}\n\n")
+`)
 }
 
 // writeHandleClasses writes wrapper classes for each handle type.
@@ -123,39 +125,36 @@ func writeHandleClasses(b *strings.Builder, api *model.APIDefinition) {
 	b.WriteString("// Handle wrapper classes\n")
 	for _, h := range api.Handles {
 		className := h.Name // Already PascalCase
-		fmt.Fprintf(b, "class %s {\n", className)
-		fmt.Fprintf(b, "  #ptr;\n\n")
+		fmt.Fprintf(b, `class %[1]s {
+  #ptr;
 
-		// Constructor (internal — takes raw pointer)
-		fmt.Fprintf(b, "  /** @internal */\n")
-		fmt.Fprintf(b, "  constructor(ptr) {\n")
-		fmt.Fprintf(b, "    this.#ptr = ptr;\n")
-		fmt.Fprintf(b, "  }\n\n")
+  /** @internal */
+  constructor(ptr) {
+    this.#ptr = ptr;
+  }
 
-		// Raw pointer accessor for internal use
-		fmt.Fprintf(b, "  /** @internal */\n")
-		fmt.Fprintf(b, "  get _ptr() {\n")
-		fmt.Fprintf(b, "    if (this.#ptr === 0) {\n")
-		fmt.Fprintf(b, "      throw new Error('%s has been disposed');\n", className)
-		fmt.Fprintf(b, "    }\n")
-		fmt.Fprintf(b, "    return this.#ptr;\n")
-		fmt.Fprintf(b, "  }\n\n")
+  /** @internal */
+  get _ptr() {
+    if (this.#ptr === 0) {
+      throw new Error('%[1]s has been disposed');
+    }
+    return this.#ptr;
+  }
 
-		// dispose / close
-		fmt.Fprintf(b, "  dispose() {\n")
-		fmt.Fprintf(b, "    this.#ptr = 0;\n")
-		fmt.Fprintf(b, "  }\n\n")
+  dispose() {
+    this.#ptr = 0;
+  }
 
-		fmt.Fprintf(b, "  close() {\n")
-		fmt.Fprintf(b, "    this.dispose();\n")
-		fmt.Fprintf(b, "  }\n\n")
+  close() {
+    this.dispose();
+  }
 
-		// Symbol.dispose for using declarations
-		fmt.Fprintf(b, "  [Symbol.dispose]() {\n")
-		fmt.Fprintf(b, "    this.dispose();\n")
-		fmt.Fprintf(b, "  }\n")
+  [Symbol.dispose]() {
+    this.dispose();
+  }
+}
 
-		fmt.Fprintf(b, "}\n\n")
+`, className)
 	}
 }
 
@@ -163,216 +162,196 @@ func writeHandleClasses(b *strings.Builder, api *model.APIDefinition) {
 // implementation required by GOOS=wasip1 binaries (e.g. Go WASM).
 // Providing these imports is harmless for non-WASI WASM modules (they are never called).
 func writeWASIPolyfill(b *strings.Builder) {
-	b.WriteString("// Minimal WASI snapshot_preview1 polyfill\n")
-	b.WriteString("// Required for GOOS=wasip1 WASM modules (e.g. Go). Harmless for others.\n")
-	b.WriteString("function _buildWasiImports() {\n")
-	b.WriteString("  const ERRNO_SUCCESS = 0;\n")
-	b.WriteString("  const ERRNO_BADF    = 8;\n")
-	b.WriteString("  const ERRNO_NOSYS   = 52;\n")
-	b.WriteString("  return {\n")
+	b.WriteString(`// Minimal WASI snapshot_preview1 polyfill
+// Required for GOOS=wasip1 WASM modules (e.g. Go). Harmless for others.
+function _buildWasiImports() {
+  const ERRNO_SUCCESS = 0;
+  const ERRNO_BADF    = 8;
+  const ERRNO_NOSYS   = 52;
+  return {
+    // fd_write — route fd1→console.log, fd2→console.error, others discarded
+    fd_write(fd, iovsPtr, iovsLen, nwrittenPtr) {
+      const mem  = _memoryBuffer();
+      const view = new DataView(mem);
+      let written = 0;
+      for (let i = 0; i < iovsLen; i++) {
+        const base = iovsPtr + i * 8;
+        const ptr  = view.getUint32(base,     true);
+        const len  = view.getUint32(base + 4, true);
+        if (len > 0 && (fd === 1 || fd === 2)) {
+          const text = new TextDecoder().decode(new Uint8Array(mem, ptr, len));
+          (fd === 2 ? console.error : console.log)(text.replace(/\n$/, ''));
+        }
+        written += len;
+      }
+      view.setUint32(nwrittenPtr, written, true);
+      return ERRNO_SUCCESS;
+    },
+    fd_read:            () => ERRNO_NOSYS,
+    fd_seek:            () => ERRNO_NOSYS,
+    fd_close:           () => ERRNO_SUCCESS,
+    fd_fdstat_get:      () => ERRNO_NOSYS,
+    fd_fdstat_set_flags:() => ERRNO_NOSYS,
+    // fd_prestat_get: BADF signals "no preopened directories"
+    fd_prestat_get:     () => ERRNO_BADF,
+    fd_prestat_dir_name:() => ERRNO_BADF,
+    path_open:          () => ERRNO_NOSYS,
+    path_filestat_get:  () => ERRNO_NOSYS,
+    // environ — empty environment
+    environ_sizes_get(countPtr, bufSizePtr) {
+      const v = new DataView(_memoryBuffer());
+      v.setUint32(countPtr,   0, true);
+      v.setUint32(bufSizePtr, 0, true);
+      return ERRNO_SUCCESS;
+    },
+    environ_get(environPtr) {
+      new DataView(_memoryBuffer()).setUint32(environPtr, 0, true);
+      return ERRNO_SUCCESS;
+    },
+    // args — no command-line arguments
+    args_sizes_get(argcPtr, bufSizePtr) {
+      const v = new DataView(_memoryBuffer());
+      v.setUint32(argcPtr,    0, true);
+      v.setUint32(bufSizePtr, 0, true);
+      return ERRNO_SUCCESS;
+    },
+    args_get(argvPtr) {
+      new DataView(_memoryBuffer()).setUint32(argvPtr, 0, true);
+      return ERRNO_SUCCESS;
+    },
+    // proc_exit — must throw, not no-op: Go places an unreachable instruction
+    // immediately after every proc_exit call site, expecting it to be terminal.
+    // Throwing unwinds the WASM stack cleanly; the loader catches exit code 0
+    // as a successful initialization (main() returning normally).
+    proc_exit: (code) => {
+      const e = new Error('proc_exit:' + code);
+      e.wasiExitCode = code;
+      throw e;
+    },
+    // random_get — use Web Crypto
+    random_get(bufPtr, bufLen) {
+      crypto.getRandomValues(new Uint8Array(_memoryBuffer(), bufPtr, bufLen));
+      return ERRNO_SUCCESS;
+    },
+    // clock_time_get — wall clock in nanoseconds (BigInt)
+    clock_time_get(_clockId, _precision, timePtr) {
+      const ns = BigInt(Date.now()) * 1_000_000n;
+      new DataView(_memoryBuffer()).setBigUint64(timePtr, ns, true);
+      return ERRNO_SUCCESS;
+    },
+    clock_res_get(_clockId, resPtr) {
+      new DataView(_memoryBuffer()).setBigUint64(resPtr, 1_000_000n, true);
+      return ERRNO_SUCCESS;
+    },
+    sched_yield:  () => ERRNO_SUCCESS,
+    poll_oneoff:  () => ERRNO_NOSYS,
+    sock_accept:  () => ERRNO_NOSYS,
+    sock_recv:    () => ERRNO_NOSYS,
+    sock_send:    () => ERRNO_NOSYS,
+    sock_shutdown:() => ERRNO_NOSYS,
+  };
+}
 
-	// fd_write — route fd1→console.log, fd2→console.error, others discarded
-	b.WriteString("    fd_write(fd, iovsPtr, iovsLen, nwrittenPtr) {\n")
-	b.WriteString("      const mem  = _memoryBuffer();\n")
-	b.WriteString("      const view = new DataView(mem);\n")
-	b.WriteString("      let written = 0;\n")
-	b.WriteString("      for (let i = 0; i < iovsLen; i++) {\n")
-	b.WriteString("        const base = iovsPtr + i * 8;\n")
-	b.WriteString("        const ptr  = view.getUint32(base,     true);\n")
-	b.WriteString("        const len  = view.getUint32(base + 4, true);\n")
-	b.WriteString("        if (len > 0 && (fd === 1 || fd === 2)) {\n")
-	b.WriteString("          const text = new TextDecoder().decode(new Uint8Array(mem, ptr, len));\n")
-	b.WriteString("          (fd === 2 ? console.error : console.log)(text.replace(/\\n$/, ''));\n")
-	b.WriteString("        }\n")
-	b.WriteString("        written += len;\n")
-	b.WriteString("      }\n")
-	b.WriteString("      view.setUint32(nwrittenPtr, written, true);\n")
-	b.WriteString("      return ERRNO_SUCCESS;\n")
-	b.WriteString("    },\n")
-
-	// fd_read — no stdin
-	b.WriteString("    fd_read:            () => ERRNO_NOSYS,\n")
-	b.WriteString("    fd_seek:            () => ERRNO_NOSYS,\n")
-	b.WriteString("    fd_close:           () => ERRNO_SUCCESS,\n")
-	b.WriteString("    fd_fdstat_get:      () => ERRNO_NOSYS,\n")
-	b.WriteString("    fd_fdstat_set_flags:() => ERRNO_NOSYS,\n")
-	// fd_prestat_get: BADF signals "no preopened directories"
-	b.WriteString("    fd_prestat_get:     () => ERRNO_BADF,\n")
-	b.WriteString("    fd_prestat_dir_name:() => ERRNO_BADF,\n")
-	b.WriteString("    path_open:          () => ERRNO_NOSYS,\n")
-	b.WriteString("    path_filestat_get:  () => ERRNO_NOSYS,\n")
-
-	// environ — empty environment
-	b.WriteString("    environ_sizes_get(countPtr, bufSizePtr) {\n")
-	b.WriteString("      const v = new DataView(_memoryBuffer());\n")
-	b.WriteString("      v.setUint32(countPtr,   0, true);\n")
-	b.WriteString("      v.setUint32(bufSizePtr, 0, true);\n")
-	b.WriteString("      return ERRNO_SUCCESS;\n")
-	b.WriteString("    },\n")
-	b.WriteString("    environ_get(environPtr) {\n")
-	b.WriteString("      new DataView(_memoryBuffer()).setUint32(environPtr, 0, true);\n")
-	b.WriteString("      return ERRNO_SUCCESS;\n")
-	b.WriteString("    },\n")
-
-	// args — no command-line arguments
-	b.WriteString("    args_sizes_get(argcPtr, bufSizePtr) {\n")
-	b.WriteString("      const v = new DataView(_memoryBuffer());\n")
-	b.WriteString("      v.setUint32(argcPtr,    0, true);\n")
-	b.WriteString("      v.setUint32(bufSizePtr, 0, true);\n")
-	b.WriteString("      return ERRNO_SUCCESS;\n")
-	b.WriteString("    },\n")
-	b.WriteString("    args_get(argvPtr) {\n")
-	b.WriteString("      new DataView(_memoryBuffer()).setUint32(argvPtr, 0, true);\n")
-	b.WriteString("      return ERRNO_SUCCESS;\n")
-	b.WriteString("    },\n")
-
-	// proc_exit — must throw, not no-op: Go places an unreachable instruction
-	// immediately after every proc_exit call site, expecting it to be terminal.
-	// Throwing unwinds the WASM stack cleanly; the loader catches exit code 0
-	// as a successful initialization (main() returning normally).
-	b.WriteString("    proc_exit: (code) => {\n")
-	b.WriteString("      const e = new Error('proc_exit:' + code);\n")
-	b.WriteString("      e.wasiExitCode = code;\n")
-	b.WriteString("      throw e;\n")
-	b.WriteString("    },\n")
-
-	// random_get — use Web Crypto
-	b.WriteString("    random_get(bufPtr, bufLen) {\n")
-	b.WriteString("      crypto.getRandomValues(new Uint8Array(_memoryBuffer(), bufPtr, bufLen));\n")
-	b.WriteString("      return ERRNO_SUCCESS;\n")
-	b.WriteString("    },\n")
-
-	// clock_time_get — wall clock in nanoseconds (BigInt)
-	b.WriteString("    clock_time_get(_clockId, _precision, timePtr) {\n")
-	b.WriteString("      const ns = BigInt(Date.now()) * 1_000_000n;\n")
-	b.WriteString("      new DataView(_memoryBuffer()).setBigUint64(timePtr, ns, true);\n")
-	b.WriteString("      return ERRNO_SUCCESS;\n")
-	b.WriteString("    },\n")
-	b.WriteString("    clock_res_get(_clockId, resPtr) {\n")
-	b.WriteString("      new DataView(_memoryBuffer()).setBigUint64(resPtr, 1_000_000n, true);\n")
-	b.WriteString("      return ERRNO_SUCCESS;\n")
-	b.WriteString("    },\n")
-
-	// sched_yield — no-op
-	b.WriteString("    sched_yield:  () => ERRNO_SUCCESS,\n")
-	// poll_oneoff — not supported
-	b.WriteString("    poll_oneoff:  () => ERRNO_NOSYS,\n")
-	// sock stubs
-	b.WriteString("    sock_accept:  () => ERRNO_NOSYS,\n")
-	b.WriteString("    sock_recv:    () => ERRNO_NOSYS,\n")
-	b.WriteString("    sock_send:    () => ERRNO_NOSYS,\n")
-	b.WriteString("    sock_shutdown:() => ERRNO_NOSYS,\n")
-
-	b.WriteString("  };\n")
-	b.WriteString("}\n\n")
+`)
 }
 
 // writePlatformServiceImports writes the env object builder for WASM imports
 // that provide platform services (logging, resources).
 func writePlatformServiceImports(b *strings.Builder, apiName string) {
-	b.WriteString("// Platform service WASM imports\n")
-	b.WriteString("function _buildPlatformImports(services) {\n")
-	b.WriteString("  services = services || {};\n")
-	b.WriteString("  return {\n")
-	b.WriteString("    env: {\n")
+	fmt.Fprintf(b, `// Platform service WASM imports
+function _buildPlatformImports(services) {
+  services = services || {};
+  return {
+    env: {
+      %[1]s_log_sink: (level, tagPtr, msgPtr) => {
+        if (services.logSink) {
+          services.logSink(level, _decodeString(tagPtr), _decodeString(msgPtr));
+        }
+      },
+      %[1]s_resource_count: () => {
+        return services.resourceCount ? services.resourceCount() : 0;
+      },
+      %[1]s_resource_name: (index, bufferPtr, bufferSize) => {
+        if (!services.resourceName) return -1;
+        const name = services.resourceName(index);
+        if (!name) return -1;
+        const bytes = _encoder.encode(name);
+        if (bytes.length + 1 > bufferSize) return -1;
+        const dest = new Uint8Array(_memoryBuffer(), bufferPtr, bufferSize);
+        dest.set(bytes);
+        dest[bytes.length] = 0;
+        return bytes.length;
+      },
+      %[1]s_resource_exists: (namePtr) => {
+        if (!services.resourceExists) return 0;
+        return services.resourceExists(_decodeString(namePtr)) ? 1 : 0;
+      },
+      %[1]s_resource_size: (namePtr) => {
+        if (!services.resourceSize) return 0;
+        return services.resourceSize(_decodeString(namePtr));
+      },
+      %[1]s_resource_read: (namePtr, bufferPtr, bufferSize) => {
+        if (!services.resourceRead) return -1;
+        const data = services.resourceRead(_decodeString(namePtr));
+        if (!data || data.length > bufferSize) return -1;
+        const dest = new Uint8Array(_memoryBuffer(), bufferPtr, bufferSize);
+        dest.set(new Uint8Array(data.buffer || data));
+        return data.length;
+      },
+    },
+    wasi_snapshot_preview1: _buildWasiImports(),
+  };
+}
 
-	// log_sink
-	fmt.Fprintf(b, "      %s_log_sink: (level, tagPtr, msgPtr) => {\n", apiName)
-	b.WriteString("        if (services.logSink) {\n")
-	b.WriteString("          services.logSink(level, _decodeString(tagPtr), _decodeString(msgPtr));\n")
-	b.WriteString("        }\n")
-	b.WriteString("      },\n")
-
-	// resource_count
-	fmt.Fprintf(b, "      %s_resource_count: () => {\n", apiName)
-	b.WriteString("        return services.resourceCount ? services.resourceCount() : 0;\n")
-	b.WriteString("      },\n")
-
-	// resource_name
-	fmt.Fprintf(b, "      %s_resource_name: (index, bufferPtr, bufferSize) => {\n", apiName)
-	b.WriteString("        if (!services.resourceName) return -1;\n")
-	b.WriteString("        const name = services.resourceName(index);\n")
-	b.WriteString("        if (!name) return -1;\n")
-	b.WriteString("        const bytes = _encoder.encode(name);\n")
-	b.WriteString("        if (bytes.length + 1 > bufferSize) return -1;\n")
-	b.WriteString("        const dest = new Uint8Array(_memoryBuffer(), bufferPtr, bufferSize);\n")
-	b.WriteString("        dest.set(bytes);\n")
-	b.WriteString("        dest[bytes.length] = 0;\n")
-	b.WriteString("        return bytes.length;\n")
-	b.WriteString("      },\n")
-
-	// resource_exists
-	fmt.Fprintf(b, "      %s_resource_exists: (namePtr) => {\n", apiName)
-	b.WriteString("        if (!services.resourceExists) return 0;\n")
-	b.WriteString("        return services.resourceExists(_decodeString(namePtr)) ? 1 : 0;\n")
-	b.WriteString("      },\n")
-
-	// resource_size
-	fmt.Fprintf(b, "      %s_resource_size: (namePtr) => {\n", apiName)
-	b.WriteString("        if (!services.resourceSize) return 0;\n")
-	b.WriteString("        return services.resourceSize(_decodeString(namePtr));\n")
-	b.WriteString("      },\n")
-
-	// resource_read
-	fmt.Fprintf(b, "      %s_resource_read: (namePtr, bufferPtr, bufferSize) => {\n", apiName)
-	b.WriteString("        if (!services.resourceRead) return -1;\n")
-	b.WriteString("        const data = services.resourceRead(_decodeString(namePtr));\n")
-	b.WriteString("        if (!data || data.length > bufferSize) return -1;\n")
-	b.WriteString("        const dest = new Uint8Array(_memoryBuffer(), bufferPtr, bufferSize);\n")
-	b.WriteString("        dest.set(new Uint8Array(data.buffer || data));\n")
-	b.WriteString("        return data.length;\n")
-	b.WriteString("      },\n")
-
-	b.WriteString("    },\n")
-	b.WriteString("    wasi_snapshot_preview1: _buildWasiImports(),\n")
-	b.WriteString("  };\n")
-	b.WriteString("}\n\n")
+`, apiName)
 }
 
 // writeWASMLoader writes the async loader function that instantiates the WASM module.
 func writeWASMLoader(b *strings.Builder, apiName string, api *model.APIDefinition) {
 	loaderName := ToCamelCase("load_" + apiName)
-	fmt.Fprintf(b, "// WASM module loader\n")
-	fmt.Fprintf(b, "async function %s(wasmSource, platformServices) {\n", loaderName)
-	b.WriteString("  const imports = _buildPlatformImports(platformServices);\n")
-	b.WriteString("  let result;\n")
-	b.WriteString("  if (wasmSource instanceof WebAssembly.Module) {\n")
-	b.WriteString("    result = await WebAssembly.instantiate(wasmSource, imports);\n")
-	b.WriteString("    _wasm = { exports: result.exports };\n")
-	b.WriteString("  } else if (wasmSource instanceof Response || typeof wasmSource === 'string') {\n")
-	b.WriteString("    const response = typeof wasmSource === 'string' ? fetch(wasmSource) : wasmSource;\n")
-	b.WriteString("    result = await WebAssembly.instantiateStreaming(response, imports);\n")
-	b.WriteString("    _wasm = result.instance;\n")
-	b.WriteString("  } else if (wasmSource instanceof ArrayBuffer || ArrayBuffer.isView(wasmSource)) {\n")
-	b.WriteString("    const module = await WebAssembly.compile(wasmSource);\n")
-	b.WriteString("    result = await WebAssembly.instantiate(module, imports);\n")
-	b.WriteString("    _wasm = { exports: result.exports };\n")
-	b.WriteString("  } else {\n")
-	b.WriteString("    throw new Error('wasmSource must be a URL string, Response, WebAssembly.Module, or ArrayBuffer');\n")
-	b.WriteString("  }\n")
-	b.WriteString("  // Initialize WASM runtime.\n")
-	b.WriteString("  // Reactor mode (Rust, C/Emscripten): exports _initialize, returns normally.\n")
-	b.WriteString("  // Command mode (Go wasip1): exports _start, which runs main() then calls\n")
-	b.WriteString("  // proc_exit(0). proc_exit throws to unwind the stack; exit code 0 is success.\n")
-	b.WriteString("  if (_wasm.exports._initialize) {\n")
-	b.WriteString("    _wasm.exports._initialize();\n")
-	b.WriteString("  } else if (_wasm.exports._start) {\n")
-	b.WriteString("    try {\n")
-	b.WriteString("      _wasm.exports._start();\n")
-	b.WriteString("    } catch (e) {\n")
-	b.WriteString("      if (!e || e.wasiExitCode !== 0) throw e;\n")
-	b.WriteString("    }\n")
-	b.WriteString("  }\n")
-	b.WriteString("  return {\n")
+	fmt.Fprintf(b, `// WASM module loader
+async function %s(wasmSource, platformServices) {
+  const imports = _buildPlatformImports(platformServices);
+  let result;
+  if (wasmSource instanceof WebAssembly.Module) {
+    result = await WebAssembly.instantiate(wasmSource, imports);
+    _wasm = { exports: result.exports };
+  } else if (wasmSource instanceof Response || typeof wasmSource === 'string') {
+    const response = typeof wasmSource === 'string' ? fetch(wasmSource) : wasmSource;
+    result = await WebAssembly.instantiateStreaming(response, imports);
+    _wasm = result.instance;
+  } else if (wasmSource instanceof ArrayBuffer || ArrayBuffer.isView(wasmSource)) {
+    const module = await WebAssembly.compile(wasmSource);
+    result = await WebAssembly.instantiate(module, imports);
+    _wasm = { exports: result.exports };
+  } else {
+    throw new Error('wasmSource must be a URL string, Response, WebAssembly.Module, or ArrayBuffer');
+  }
+  // Initialize WASM runtime.
+  // Reactor mode (Rust, C/Emscripten): exports _initialize, returns normally.
+  // Command mode (Go wasip1): exports _start, which runs main() then calls
+  // proc_exit(0). proc_exit throws to unwind the stack; exit code 0 is success.
+  if (_wasm.exports._initialize) {
+    _wasm.exports._initialize();
+  } else if (_wasm.exports._start) {
+    try {
+      _wasm.exports._start();
+    } catch (e) {
+      if (!e || e.wasiExitCode !== 0) throw e;
+    }
+  }
+  return {
+`, loaderName)
 
-	// Return an object with all interface namespaces
 	for _, iface := range api.Interfaces {
 		jsName := ToCamelCase(iface.Name)
 		fmt.Fprintf(b, "    %s: _create%s(),\n", jsName, ToPascalCase(iface.Name))
 	}
 
-	b.WriteString("  };\n")
-	b.WriteString("}\n\n")
+	b.WriteString(`  };
+}
+
+`)
 }
 
 // writeInterfaceWrappers writes a factory function for each interface that returns
@@ -380,9 +359,7 @@ func writeWASMLoader(b *strings.Builder, apiName string, api *model.APIDefinitio
 func writeInterfaceWrappers(b *strings.Builder, apiName string, api *model.APIDefinition, resolved resolver.ResolvedTypes) {
 	for _, iface := range api.Interfaces {
 		factoryName := "_create" + ToPascalCase(iface.Name)
-		fmt.Fprintf(b, "// %s interface\n", iface.Name)
-		fmt.Fprintf(b, "function %s() {\n", factoryName)
-		b.WriteString("  return {\n")
+		fmt.Fprintf(b, "// %s interface\nfunction %s() {\n  return {\n", iface.Name, factoryName)
 
 		for i, method := range iface.Methods {
 			writeMethodWrapper(b, apiName, iface.Name, &method, resolved)
@@ -391,8 +368,7 @@ func writeInterfaceWrappers(b *strings.Builder, apiName string, api *model.APIDe
 			}
 		}
 
-		b.WriteString("  };\n")
-		b.WriteString("}\n\n")
+		b.WriteString("  };\n}\n\n")
 	}
 }
 

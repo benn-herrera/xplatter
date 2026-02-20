@@ -27,17 +27,18 @@ func (g *GoWASMImplGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 
 	var b strings.Builder
 
-	// Build tag, generated header, and package declaration
 	b.WriteString("//go:build wasip1\n\n")
 	b.WriteString(GeneratedFileHeader(ctx, "//", false))
-	fmt.Fprintf(&b, "\npackage %s\n\n", pkgName)
+	fmt.Fprintf(&b, `
+package %s
 
-	// Imports
-	b.WriteString("import (\n")
-	b.WriteString("\t\"sync\"\n")
-	b.WriteString("\t\"sync/atomic\"\n")
-	b.WriteString("\t\"unsafe\"\n")
-	b.WriteString(")\n\n")
+import (
+	"sync"
+	"sync/atomic"
+	"unsafe"
+)
+
+`, pkgName)
 
 	writeWasmMemoryAllocator(&b)
 	writeWasmHandleManagement(&b)
@@ -60,98 +61,118 @@ func (g *GoWASMImplGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 // writeWasmMemoryAllocator writes malloc/free exports for WASM linear memory.
 // The sync.Map pins byte slices so the GC does not collect them.
 func writeWasmMemoryAllocator(b *strings.Builder) {
-	b.WriteString("// Memory allocation exports — called by JS binding via malloc/free.\n")
-	b.WriteString("var _wasmAllocs sync.Map\n\n")
-	b.WriteString("//go:wasmexport malloc\n")
-	b.WriteString("func _wasmMalloc(size uint32) uintptr {\n")
-	b.WriteString("\tbuf := make([]byte, size)\n")
-	b.WriteString("\tptr := uintptr(unsafe.Pointer(&buf[0]))\n")
-	b.WriteString("\t_wasmAllocs.Store(ptr, buf)\n")
-	b.WriteString("\treturn ptr\n")
-	b.WriteString("}\n\n")
-	b.WriteString("//go:wasmexport free\n")
-	b.WriteString("func _wasmFree(ptr uintptr) {\n")
-	b.WriteString("\t_wasmAllocs.Delete(ptr)\n")
-	b.WriteString("}\n\n")
+	b.WriteString(`// Memory allocation exports — called by JS binding via malloc/free.
+var _wasmAllocs sync.Map
+
+//go:wasmexport malloc
+func _wasmMalloc(size uint32) uintptr {
+	buf := make([]byte, size)
+	ptr := uintptr(unsafe.Pointer(&buf[0]))
+	_wasmAllocs.Store(ptr, buf)
+	return ptr
+}
+
+//go:wasmexport free
+func _wasmFree(ptr uintptr) {
+	_wasmAllocs.Delete(ptr)
+}
+
+`)
 }
 
 // writeWasmHandleManagement writes handle map helpers mirroring the cgo version.
 func writeWasmHandleManagement(b *strings.Builder) {
-	b.WriteString("// Handle management — maps integer keys to Go interface implementations.\n")
-	b.WriteString("var (\n")
-	b.WriteString("\t_wasmHandles sync.Map\n")
-	b.WriteString("\t_nextHandle  atomic.Uintptr\n")
-	b.WriteString(")\n\n")
-	b.WriteString("func _allocHandle(impl interface{}) uintptr {\n")
-	b.WriteString("\tkey := _nextHandle.Add(1)\n")
-	b.WriteString("\t_wasmHandles.Store(key, impl)\n")
-	b.WriteString("\treturn key\n")
-	b.WriteString("}\n\n")
-	b.WriteString("func _freeHandle(key uintptr) {\n")
-	b.WriteString("\t_wasmHandles.Delete(key)\n")
-	b.WriteString("\t// Free any cached WASM strings for this handle\n")
-	b.WriteString("\tif val, ok := _wasmStrCache.LoadAndDelete(key); ok {\n")
-	b.WriteString("\t\tfor _, ptr := range val.([]uintptr) {\n")
-	b.WriteString("\t\t\t_wasmFree(ptr)\n")
-	b.WriteString("\t\t}\n")
-	b.WriteString("\t}\n")
-	b.WriteString("}\n\n")
+	b.WriteString(`// Handle management — maps integer keys to Go interface implementations.
+var (
+	_wasmHandles sync.Map
+	_nextHandle  atomic.Uintptr
+)
+
+func _allocHandle(impl interface{}) uintptr {
+	key := _nextHandle.Add(1)
+	_wasmHandles.Store(key, impl)
+	return key
+}
+
+func _freeHandle(key uintptr) {
+	_wasmHandles.Delete(key)
+	// Free any cached WASM strings for this handle
+	if val, ok := _wasmStrCache.LoadAndDelete(key); ok {
+		for _, ptr := range val.([]uintptr) {
+			_wasmFree(ptr)
+		}
+	}
+}
+
+`)
 }
 
 // writeWasmCStringHelper writes a helper that reads null-terminated strings from linear memory.
 func writeWasmCStringHelper(b *strings.Builder) {
-	b.WriteString("// _cstring reads a null-terminated C string from WASM linear memory.\n")
-	b.WriteString("func _cstring(ptr uintptr) string {\n")
-	b.WriteString("\tvar n int\n")
-	b.WriteString("\tfor *(*byte)(unsafe.Pointer(ptr + uintptr(n))) != 0 {\n")
-	b.WriteString("\t\tn++\n")
-	b.WriteString("\t}\n")
-	b.WriteString("\treturn string(unsafe.Slice((*byte)(unsafe.Pointer(ptr)), n))\n")
-	b.WriteString("}\n\n")
+	b.WriteString(`// _cstring reads a null-terminated C string from WASM linear memory.
+func _cstring(ptr uintptr) string {
+	var n int
+	for *(*byte)(unsafe.Pointer(ptr + uintptr(n))) != 0 {
+		n++
+	}
+	return string(unsafe.Slice((*byte)(unsafe.Pointer(ptr)), n))
+}
+
+`)
 }
 
 // writeWasmStringCacheHelpers writes helpers for caching WASM string allocations per-handle.
 func writeWasmStringCacheHelpers(b *strings.Builder) {
-	b.WriteString("// WASM string cache — maps handle key → []uintptr of allocated strings.\n")
-	b.WriteString("var _wasmStrCache sync.Map\n\n")
-	b.WriteString("// _wasmCacheStrings allocates null-terminated strings in WASM linear memory\n")
-	b.WriteString("// and caches them for the handle's lifetime (borrowing-only semantics).\n")
-	b.WriteString("func _wasmCacheStrings(handleKey uintptr, ss ...string) []uintptr {\n")
-	b.WriteString("\t// Free previous cache\n")
-	b.WriteString("\tif val, ok := _wasmStrCache.LoadAndDelete(handleKey); ok {\n")
-	b.WriteString("\t\tfor _, ptr := range val.([]uintptr) {\n")
-	b.WriteString("\t\t\t_wasmFree(ptr)\n")
-	b.WriteString("\t\t}\n")
-	b.WriteString("\t}\n")
-	b.WriteString("\tresult := make([]uintptr, len(ss))\n")
-	b.WriteString("\tfor i, s := range ss {\n")
-	b.WriteString("\t\tdata := []byte(s)\n")
-	b.WriteString("\t\tptr := _wasmMalloc(uint32(len(data) + 1))\n")
-	b.WriteString("\t\tbuf := unsafe.Slice((*byte)(unsafe.Pointer(ptr)), len(data)+1)\n")
-	b.WriteString("\t\tcopy(buf, data)\n")
-	b.WriteString("\t\tbuf[len(data)] = 0\n")
-	b.WriteString("\t\tresult[i] = ptr\n")
-	b.WriteString("\t}\n")
-	b.WriteString("\t_wasmStrCache.Store(handleKey, result)\n")
-	b.WriteString("\treturn result\n")
-	b.WriteString("}\n\n")
+	b.WriteString(`// WASM string cache — maps handle key → []uintptr of allocated strings.
+var _wasmStrCache sync.Map
+
+// _wasmCacheStrings allocates null-terminated strings in WASM linear memory
+// and caches them for the handle's lifetime (borrowing-only semantics).
+func _wasmCacheStrings(handleKey uintptr, ss ...string) []uintptr {
+	// Free previous cache
+	if val, ok := _wasmStrCache.LoadAndDelete(handleKey); ok {
+		for _, ptr := range val.([]uintptr) {
+			_wasmFree(ptr)
+		}
+	}
+	result := make([]uintptr, len(ss))
+	for i, s := range ss {
+		data := []byte(s)
+		ptr := _wasmMalloc(uint32(len(data) + 1))
+		buf := unsafe.Slice((*byte)(unsafe.Pointer(ptr)), len(data)+1)
+		copy(buf, data)
+		buf[len(data)] = 0
+		result[i] = ptr
+	}
+	_wasmStrCache.Store(handleKey, result)
+	return result
+}
+
+`)
 }
 
 // writeWasmPlatformImports writes //go:wasmimport declarations for the 6 platform services.
 func writeWasmPlatformImports(b *strings.Builder, apiName string) {
-	b.WriteString("// Platform service imports — provided by the JS binding as WASM imports.\n")
-	fmt.Fprintf(b, "//go:wasmimport env %s_log_sink\n", apiName)
-	fmt.Fprintf(b, "func _platform_log_sink(level int32, tag uintptr, message uintptr)\n\n")
-	fmt.Fprintf(b, "//go:wasmimport env %s_resource_count\n", apiName)
-	fmt.Fprintf(b, "func _platform_resource_count() uint32\n\n")
-	fmt.Fprintf(b, "//go:wasmimport env %s_resource_name\n", apiName)
-	fmt.Fprintf(b, "func _platform_resource_name(index uint32, buffer uintptr, bufferSize uint32) int32\n\n")
-	fmt.Fprintf(b, "//go:wasmimport env %s_resource_exists\n", apiName)
-	fmt.Fprintf(b, "func _platform_resource_exists(name uintptr) int32\n\n")
-	fmt.Fprintf(b, "//go:wasmimport env %s_resource_size\n", apiName)
-	fmt.Fprintf(b, "func _platform_resource_size(name uintptr) uint32\n\n")
-	fmt.Fprintf(b, "//go:wasmimport env %s_resource_read\n", apiName)
-	fmt.Fprintf(b, "func _platform_resource_read(name uintptr, buffer uintptr, bufferSize uint32) int32\n\n")
+	fmt.Fprintf(b, `// Platform service imports — provided by the JS binding as WASM imports.
+//go:wasmimport env %[1]s_log_sink
+func _platform_log_sink(level int32, tag uintptr, message uintptr)
+
+//go:wasmimport env %[1]s_resource_count
+func _platform_resource_count() uint32
+
+//go:wasmimport env %[1]s_resource_name
+func _platform_resource_name(index uint32, buffer uintptr, bufferSize uint32) int32
+
+//go:wasmimport env %[1]s_resource_exists
+func _platform_resource_exists(name uintptr) int32
+
+//go:wasmimport env %[1]s_resource_size
+func _platform_resource_size(name uintptr) uint32
+
+//go:wasmimport env %[1]s_resource_read
+func _platform_resource_read(name uintptr, buffer uintptr, bufferSize uint32) int32
+
+`, apiName)
 }
 
 // writeWasmExportFunc writes a single //go:wasmexport annotated function that
@@ -203,11 +224,11 @@ func writeWasmExportFunc(b *strings.Builder, apiName, ifaceName string, method *
 // writeWasmCreateBody writes the body of a create method in the WASM shim.
 func writeWasmCreateBody(b *strings.Builder, handleName string) {
 	implStruct := ToPascalCase(handleName) + "Impl"
-	fmt.Fprintf(b, "\timpl := &%s{}\n", implStruct)
-	b.WriteString("\tkey := _allocHandle(impl)\n")
-	// In WASM32, handles are uint32 in linear memory
-	b.WriteString("\t*(*uint32)(unsafe.Pointer(out_result)) = uint32(key)\n")
-	b.WriteString("\treturn 0\n")
+	fmt.Fprintf(b, `	impl := &%s{}
+	key := _allocHandle(impl)
+	*(*uint32)(unsafe.Pointer(out_result)) = uint32(key)
+	return 0
+`, implStruct)
 }
 
 // writeWasmDestroyBody writes the body of a destroy method in the WASM shim.
@@ -242,13 +263,11 @@ func writeWasmRegularBody(b *strings.Builder, ifaceName string, method *model.Me
 
 	// Look up impl from handle map
 	fmt.Fprintf(b, "\tval, ok := _wasmHandles.Load(%s)\n", handleParam.Name)
-	b.WriteString("\tif !ok {\n")
 	if hasError {
-		b.WriteString("\t\treturn -1\n")
+		b.WriteString("\tif !ok {\n\t\treturn -1\n\t}\n")
 	} else {
-		b.WriteString("\t\treturn\n")
+		b.WriteString("\tif !ok {\n\t\treturn\n\t}\n")
 	}
-	b.WriteString("\t}\n")
 	fmt.Fprintf(b, "\timpl := val.(%s)\n", goIfaceName)
 
 	// Convert non-handle parameters
@@ -268,10 +287,8 @@ func writeWasmRegularBody(b *strings.Builder, ifaceName string, method *model.Me
 				goVar, goElemType, p.Name, p.Name)
 			callArgs = append(callArgs, goVar)
 		} else if model.IsPrimitive(p.Type) {
-			// Primitive — use directly (WASM types match Go types)
 			callArgs = append(callArgs, p.Name)
 		} else {
-			// FlatBuffer type — pointer into linear memory (TODO: proper marshalling)
 			callArgs = append(callArgs, p.Name)
 		}
 	}
@@ -282,21 +299,16 @@ func writeWasmRegularBody(b *strings.Builder, ifaceName string, method *model.Me
 	switch {
 	case hasError && hasReturn:
 		fmt.Fprintf(b, "\tresult, err := impl.%s(%s)\n", methodName, argStr)
-		b.WriteString("\tif err != nil {\n")
-		b.WriteString("\t\treturn -1\n")
-		b.WriteString("\t}\n")
+		b.WriteString("\tif err != nil {\n\t\treturn -1\n\t}\n")
 		writeWasmReturnMarshal(b, method.Returns.Type, handleParam.Name, resolved)
 		b.WriteString("\treturn 0\n")
 	case hasError && !hasReturn:
 		fmt.Fprintf(b, "\terr := impl.%s(%s)\n", methodName, argStr)
-		b.WriteString("\tif err != nil {\n")
-		b.WriteString("\t\treturn -1\n")
-		b.WriteString("\t}\n")
+		b.WriteString("\tif err != nil {\n\t\treturn -1\n\t}\n")
 		b.WriteString("\treturn 0\n")
 	case !hasError && hasReturn:
 		fmt.Fprintf(b, "\tresult := impl.%s(%s)\n", methodName, argStr)
-		b.WriteString("\t_ = result // TODO: marshal WASM direct return\n")
-		b.WriteString("\treturn 0\n")
+		b.WriteString("\t_ = result // TODO: marshal WASM direct return\n\treturn 0\n")
 	default:
 		fmt.Fprintf(b, "\timpl.%s(%s)\n", methodName, argStr)
 	}
@@ -309,9 +321,7 @@ func writeWasmReturnMarshal(b *strings.Builder, retType string, handleParamName 
 		return
 	}
 	if model.IsPrimitive(retType) {
-		// Write primitive value at out_result
-		goType := primitiveGoType(retType)
-		fmt.Fprintf(b, "\t*(*%s)(unsafe.Pointer(out_result)) = result\n", goType)
+		fmt.Fprintf(b, "\t*(*%s)(unsafe.Pointer(out_result)) = result\n", primitiveGoType(retType))
 		return
 	}
 
@@ -341,7 +351,6 @@ func writeWasmReturnMarshal(b *strings.Builder, retType string, handleParamName 
 	strIdx := 0
 	for _, f := range info.Fields {
 		if f.Type == "string" {
-			// String: write the WASM pointer (uint32)
 			fmt.Fprintf(b, "\t*(*uint32)(unsafe.Pointer(out_result + %d)) = uint32(strPtrs[%d])\n", offset, strIdx)
 			strIdx++
 			offset += 4

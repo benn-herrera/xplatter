@@ -56,30 +56,38 @@ func MakefileHeader(b *strings.Builder, ctx *Context, implLang string) {
 
 // MakefileTargetConfig emits target filtering, NDK, iOS, and platform detection.
 func MakefileTargetConfig(b *strings.Builder) {
-	b.WriteString("# ── Target filtering ──────────────────────────────────────────────────────────\n\n")
-	b.WriteString("TARGETS ?= ios android web desktop\n\n")
-	b.WriteString("target_enabled = $(filter $(1),$(TARGETS))\n\n")
+	b.WriteString(`# ── Target filtering ──────────────────────────────────────────────────────────
 
-	b.WriteString("# ── Platform detection ────────────────────────────────────────────────────────\n\n")
-	b.WriteString("UNAME_S := $(shell uname -s)\n")
-	b.WriteString("ifeq ($(UNAME_S),Darwin)\n")
-	b.WriteString("  DYLIB_EXT := dylib\n")
-	b.WriteString("else\n")
-	b.WriteString("  DYLIB_EXT := so\n")
-	b.WriteString("endif\n")
-	b.WriteString("SHARED_LIB := $(BUILD_DIR)/$(LIB_NAME).$(DYLIB_EXT)\n\n")
+TARGETS ?= ios android web desktop
 
-	b.WriteString("# ── NDK configuration ─────────────────────────────────────────────────────────\n\n")
-	b.WriteString("NDK_VERSION     ?= 29.0.14206865\n")
-	b.WriteString("NDK             ?= $(HOME)/Library/Android/sdk/ndk/$(NDK_VERSION)\n")
-	b.WriteString("NDK_BIN         := $(NDK)/toolchains/llvm/prebuilt/darwin-x86_64/bin\n")
-	b.WriteString("ANDROID_MIN_API := 21\n\n")
+target_enabled = $(filter $(1),$(TARGETS))
 
-	b.WriteString("# ── iOS ───────────────────────────────────────────────────────────────────────\n\n")
-	b.WriteString("IOS_MIN := 15.0\n\n")
+# ── Platform detection ────────────────────────────────────────────────────────
 
-	b.WriteString("# ── Emscripten ────────────────────────────────────────────────────────────────\n\n")
-	b.WriteString("EMCC ?= emcc\n\n")
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+  DYLIB_EXT := dylib
+else
+  DYLIB_EXT := so
+endif
+SHARED_LIB := $(BUILD_DIR)/$(LIB_NAME).$(DYLIB_EXT)
+
+# ── NDK configuration ─────────────────────────────────────────────────────────
+
+NDK_VERSION     ?= 29.0.14206865
+NDK             ?= $(HOME)/Library/Android/sdk/ndk/$(NDK_VERSION)
+NDK_BIN         := $(NDK)/toolchains/llvm/prebuilt/darwin-x86_64/bin
+ANDROID_MIN_API := 21
+
+# ── iOS ───────────────────────────────────────────────────────────────────────
+
+IOS_MIN := 15.0
+
+# ── Emscripten ────────────────────────────────────────────────────────────────
+
+EMCC ?= emcc
+
+`)
 }
 
 // MakefileBindingVars emits variables for generated binding file paths.
@@ -111,167 +119,167 @@ func MakefileCodegenStamp(b *strings.Builder, implLang, outputFlag string) {
 
 // MakefilePackageIOS emits iOS packaging rules: static libs → lipo → xcframework → SPM.
 func MakefilePackageIOS(b *strings.Builder, buildArchRule func(b *strings.Builder)) {
-	b.WriteString("# ══════════════════════════════════════════════════════════════════════════════\n")
-	b.WriteString("# iOS: static libs per arch → lipo → xcframework + SPM package\n")
-	b.WriteString("# ══════════════════════════════════════════════════════════════════════════════\n\n")
-	b.WriteString("ifneq ($(call target_enabled,ios),)\n\n")
+	b.WriteString(`# ══════════════════════════════════════════════════════════════════════════════
+# iOS: static libs per arch → lipo → xcframework + SPM package
+# ══════════════════════════════════════════════════════════════════════════════
 
-	// Emit arch-specific build rules (provided by caller)
+ifneq ($(call target_enabled,ios),)
+
+`)
 	buildArchRule(b)
 
-	// lipo simulator fat lib
-	b.WriteString("$(DIST_DIR)/ios/obj/ios-sim-fat/$(LIB_NAME).a: $(DIST_DIR)/ios/obj/ios-sim-arm64/$(LIB_NAME).a $(DIST_DIR)/ios/obj/ios-sim-x86_64/$(LIB_NAME).a\n")
-	b.WriteString("\t@mkdir -p $(dir $@)\n")
-	b.WriteString("\tlipo -create $^ -output $@\n\n")
+	b.WriteString(`$(DIST_DIR)/ios/obj/ios-sim-fat/$(LIB_NAME).a: $(DIST_DIR)/ios/obj/ios-sim-arm64/$(LIB_NAME).a $(DIST_DIR)/ios/obj/ios-sim-x86_64/$(LIB_NAME).a
+	@mkdir -p $(dir $@)
+	lipo -create $^ -output $@
 
-	// module.modulemap + header
-	b.WriteString("$(DIST_DIR)/ios/headers/module.modulemap: $(GEN_HEADER)\n")
-	b.WriteString("\t@mkdir -p $(DIST_DIR)/ios/headers\n")
-	b.WriteString("\tcp $(GEN_HEADER) $(DIST_DIR)/ios/headers/\n")
-	b.WriteString("\tprintf 'module C$(PASCAL_NAME) {\\n    header \"$(API_NAME).h\"\\n    export *\\n}\\n' > $@\n\n")
+$(DIST_DIR)/ios/headers/module.modulemap: $(GEN_HEADER)
+	@mkdir -p $(DIST_DIR)/ios/headers
+	cp $(GEN_HEADER) $(DIST_DIR)/ios/headers/
+	printf 'module C$(PASCAL_NAME) {\n    header "$(API_NAME).h"\n    export *\n}\n' > $@
 
-	// xcframework
-	b.WriteString("$(DIST_DIR)/ios/$(PASCAL_NAME).xcframework: $(DIST_DIR)/ios/obj/ios-arm64/$(LIB_NAME).a $(DIST_DIR)/ios/obj/ios-sim-fat/$(LIB_NAME).a $(DIST_DIR)/ios/headers/module.modulemap\n")
-	b.WriteString("\trm -rf $@\n")
-	b.WriteString("\txcodebuild -create-xcframework \\\n")
-	b.WriteString("\t\t-library $(DIST_DIR)/ios/obj/ios-arm64/$(LIB_NAME).a -headers $(DIST_DIR)/ios/headers \\\n")
-	b.WriteString("\t\t-library $(DIST_DIR)/ios/obj/ios-sim-fat/$(LIB_NAME).a -headers $(DIST_DIR)/ios/headers \\\n")
-	b.WriteString("\t\t-output $@\n\n")
+$(DIST_DIR)/ios/$(PASCAL_NAME).xcframework: $(DIST_DIR)/ios/obj/ios-arm64/$(LIB_NAME).a $(DIST_DIR)/ios/obj/ios-sim-fat/$(LIB_NAME).a $(DIST_DIR)/ios/headers/module.modulemap
+	rm -rf $@
+	xcodebuild -create-xcframework \
+		-library $(DIST_DIR)/ios/obj/ios-arm64/$(LIB_NAME).a -headers $(DIST_DIR)/ios/headers \
+		-library $(DIST_DIR)/ios/obj/ios-sim-fat/$(LIB_NAME).a -headers $(DIST_DIR)/ios/headers \
+		-output $@
 
-	// Swift binding with import
-	b.WriteString("$(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Sources/$(PASCAL_NAME)Binding/$(PASCAL_NAME).swift: $(GEN_SWIFT_BINDING)\n")
-	b.WriteString("\t@mkdir -p $(dir $@)\n")
-	b.WriteString("\tawk '{print} /^import Foundation$$/{print \"import C$(PASCAL_NAME)\"}' $(GEN_SWIFT_BINDING) > $@\n\n")
+$(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Sources/$(PASCAL_NAME)Binding/$(PASCAL_NAME).swift: $(GEN_SWIFT_BINDING)
+	@mkdir -p $(dir $@)
+	awk '{print} /^import Foundation$$/{print "import C$(PASCAL_NAME)"}' $(GEN_SWIFT_BINDING) > $@
 
-	// Package.swift
-	b.WriteString("$(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Package.swift: $(DIST_DIR)/ios/$(PASCAL_NAME).xcframework\n")
-	b.WriteString("\t@mkdir -p $(dir $@)\n")
-	b.WriteString("\tprintf '// swift-tools-version: 5.9\\nimport PackageDescription\\n\\nlet package = Package(\\n    name: \"$(PASCAL_NAME)Lib\",\\n    platforms: [.iOS(.v15)],\\n    products: [\\n        .library(name: \"$(PASCAL_NAME)Lib\", targets: [\"$(PASCAL_NAME)Binding\"]),\\n    ],\\n    targets: [\\n        .binaryTarget(name: \"C$(PASCAL_NAME)\", path: \"../$(PASCAL_NAME).xcframework\"),\\n        .target(\\n            name: \"$(PASCAL_NAME)Binding\",\\n            dependencies: [\"C$(PASCAL_NAME)\"],\\n            path: \"Sources/$(PASCAL_NAME)Binding\"\\n        ),\\n    ]\\n)\\n' > $@\n\n")
+$(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Package.swift: $(DIST_DIR)/ios/$(PASCAL_NAME).xcframework
+	@mkdir -p $(dir $@)
+	printf '// swift-tools-version: 5.9\nimport PackageDescription\n\nlet package = Package(\n    name: "$(PASCAL_NAME)Lib",\n    platforms: [.iOS(.v15)],\n    products: [\n        .library(name: "$(PASCAL_NAME)Lib", targets: ["$(PASCAL_NAME)Binding"]),\n    ],\n    targets: [\n        .binaryTarget(name: "C$(PASCAL_NAME)", path: "../$(PASCAL_NAME).xcframework"),\n        .target(\n            name: "$(PASCAL_NAME)Binding",\n            dependencies: ["C$(PASCAL_NAME)"],\n            path: "Sources/$(PASCAL_NAME)Binding"\n        ),\n    ]\n)\n' > $@
 
-	// package-ios target
-	b.WriteString(".PHONY: package-ios\n")
-	b.WriteString("package-ios: $(DIST_DIR)/ios/$(PASCAL_NAME).xcframework $(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Package.swift $(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Sources/$(PASCAL_NAME)Binding/$(PASCAL_NAME).swift\n")
-	b.WriteString("\t@echo \"Packaged iOS: $(DIST_DIR)/ios/\"\n\n")
+.PHONY: package-ios
+package-ios: $(DIST_DIR)/ios/$(PASCAL_NAME).xcframework $(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Package.swift $(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Sources/$(PASCAL_NAME)Binding/$(PASCAL_NAME).swift
+	@echo "Packaged iOS: $(DIST_DIR)/ios/"
 
-	b.WriteString("endif\n\n")
+endif
+
+`)
 }
 
 // MakefilePackageAndroid emits Android packaging rules with Gradle module structure.
 func MakefilePackageAndroid(b *strings.Builder, buildABIRule func(b *strings.Builder)) {
-	b.WriteString("# ══════════════════════════════════════════════════════════════════════════════\n")
-	b.WriteString("# Android: native libs per ABI + Kotlin binding + Gradle module\n")
-	b.WriteString("# ══════════════════════════════════════════════════════════════════════════════\n\n")
-	b.WriteString("ifneq ($(call target_enabled,android),)\n\n")
+	b.WriteString(`# ══════════════════════════════════════════════════════════════════════════════
+# Android: native libs per ABI + Kotlin binding + Gradle module
+# ══════════════════════════════════════════════════════════════════════════════
 
-	// Emit ABI-specific build rules (provided by caller)
+ifneq ($(call target_enabled,android),)
+
+`)
 	buildABIRule(b)
 
-	b.WriteString("ANDROID_NATIVE_LIBS := \\\n")
-	b.WriteString("\t$(DIST_DIR)/android/src/main/jniLibs/arm64-v8a/$(LIB_NAME).so \\\n")
-	b.WriteString("\t$(DIST_DIR)/android/src/main/jniLibs/armeabi-v7a/$(LIB_NAME).so \\\n")
-	b.WriteString("\t$(DIST_DIR)/android/src/main/jniLibs/x86_64/$(LIB_NAME).so \\\n")
-	b.WriteString("\t$(DIST_DIR)/android/src/main/jniLibs/x86/$(LIB_NAME).so\n\n")
+	b.WriteString(`ANDROID_NATIVE_LIBS := \
+	$(DIST_DIR)/android/src/main/jniLibs/arm64-v8a/$(LIB_NAME).so \
+	$(DIST_DIR)/android/src/main/jniLibs/armeabi-v7a/$(LIB_NAME).so \
+	$(DIST_DIR)/android/src/main/jniLibs/x86_64/$(LIB_NAME).so \
+	$(DIST_DIR)/android/src/main/jniLibs/x86/$(LIB_NAME).so
 
-	// Kotlin binding into Gradle source set
-	b.WriteString("ANDROID_KOTLIN_PKG := $(subst _,/,$(API_NAME))\n\n")
+ANDROID_KOTLIN_PKG := $(subst _,/,$(API_NAME))
 
-	b.WriteString("$(DIST_DIR)/android/src/main/kotlin/$(ANDROID_KOTLIN_PKG)/$(PASCAL_NAME).kt: $(GEN_KOTLIN_BINDING)\n")
-	b.WriteString("\t@mkdir -p $(dir $@)\n")
-	b.WriteString("\tcp $(GEN_KOTLIN_BINDING) $@\n\n")
+$(DIST_DIR)/android/src/main/kotlin/$(ANDROID_KOTLIN_PKG)/$(PASCAL_NAME).kt: $(GEN_KOTLIN_BINDING)
+	@mkdir -p $(dir $@)
+	cp $(GEN_KOTLIN_BINDING) $@
 
-	// build.gradle.kts
-	b.WriteString("$(DIST_DIR)/android/build.gradle.kts:\n")
-	b.WriteString("\t@mkdir -p $(dir $@)\n")
-	b.WriteString("\tprintf 'plugins {\\n    id(\"com.android.library\")\\n    id(\"org.jetbrains.kotlin.android\")\\n}\\n\\nandroid {\\n    namespace = \"$(subst _,.,$(API_NAME))\"\\n    compileSdk = 34\\n    defaultConfig {\\n        minSdk = $(ANDROID_MIN_API)\\n    }\\n}\\n' > $@\n\n")
+$(DIST_DIR)/android/build.gradle.kts:
+	@mkdir -p $(dir $@)
+	printf 'plugins {\n    id("com.android.library")\n    id("org.jetbrains.kotlin.android")\n}\n\nandroid {\n    namespace = "$(subst _,.,$(API_NAME))"\n    compileSdk = 34\n    defaultConfig {\n        minSdk = $(ANDROID_MIN_API)\n    }\n}\n' > $@
 
-	// AndroidManifest.xml
-	b.WriteString("$(DIST_DIR)/android/src/main/AndroidManifest.xml:\n")
-	b.WriteString("\t@mkdir -p $(dir $@)\n")
-	b.WriteString("\tprintf '<?xml version=\"1.0\" encoding=\"utf-8\"?>\\n<manifest />\\n' > $@\n\n")
+$(DIST_DIR)/android/src/main/AndroidManifest.xml:
+	@mkdir -p $(dir $@)
+	printf '<?xml version="1.0" encoding="utf-8"?>\n<manifest />\n' > $@
 
-	// package-android target
-	b.WriteString(".PHONY: package-android\n")
-	b.WriteString("package-android: $(ANDROID_NATIVE_LIBS) $(DIST_DIR)/android/src/main/kotlin/$(ANDROID_KOTLIN_PKG)/$(PASCAL_NAME).kt $(DIST_DIR)/android/build.gradle.kts $(DIST_DIR)/android/src/main/AndroidManifest.xml\n")
-	b.WriteString("\t@echo \"Packaged Android: $(DIST_DIR)/android/\"\n\n")
+.PHONY: package-android
+package-android: $(ANDROID_NATIVE_LIBS) $(DIST_DIR)/android/src/main/kotlin/$(ANDROID_KOTLIN_PKG)/$(PASCAL_NAME).kt $(DIST_DIR)/android/build.gradle.kts $(DIST_DIR)/android/src/main/AndroidManifest.xml
+	@echo "Packaged Android: $(DIST_DIR)/android/"
 
-	b.WriteString("endif\n\n")
+endif
+
+`)
 }
 
 // MakefilePackageWeb emits Web/WASM packaging rules with package.json.
 func MakefilePackageWeb(b *strings.Builder, buildWASMRule func(b *strings.Builder)) {
-	b.WriteString("# ══════════════════════════════════════════════════════════════════════════════\n")
-	b.WriteString("# Web: WASM + JS binding + package.json\n")
-	b.WriteString("# ══════════════════════════════════════════════════════════════════════════════\n\n")
-	b.WriteString("ifneq ($(call target_enabled,web),)\n\n")
+	b.WriteString(`# ══════════════════════════════════════════════════════════════════════════════
+# Web: WASM + JS binding + package.json
+# ══════════════════════════════════════════════════════════════════════════════
 
-	// Emit WASM build rule (provided by caller)
+ifneq ($(call target_enabled,web),)
+
+`)
 	buildWASMRule(b)
 
-	// JS binding
-	b.WriteString("$(DIST_DIR)/web/$(API_NAME).js: $(GEN_JS_BINDING)\n")
-	b.WriteString("\t@mkdir -p $(dir $@)\n")
-	b.WriteString("\tcp $(GEN_JS_BINDING) $@\n\n")
+	b.WriteString(`$(DIST_DIR)/web/$(API_NAME).js: $(GEN_JS_BINDING)
+	@mkdir -p $(dir $@)
+	cp $(GEN_JS_BINDING) $@
 
-	// package.json
-	b.WriteString("$(DIST_DIR)/web/package.json:\n")
-	b.WriteString("\t@mkdir -p $(dir $@)\n")
-	b.WriteString("\tprintf '{\\n  \"name\": \"$(API_NAME)\",\\n  \"version\": \"0.1.0\",\\n  \"type\": \"module\",\\n  \"main\": \"$(API_NAME).js\"\\n}\\n' > $@\n\n")
+$(DIST_DIR)/web/package.json:
+	@mkdir -p $(dir $@)
+	printf '{\n  "name": "$(API_NAME)",\n  "version": "0.1.0",\n  "type": "module",\n  "main": "$(API_NAME).js"\n}\n' > $@
 
-	// package-web target
-	b.WriteString(".PHONY: package-web\n")
-	b.WriteString("package-web: $(DIST_DIR)/web/$(API_NAME).wasm $(DIST_DIR)/web/$(API_NAME).js $(DIST_DIR)/web/package.json\n")
-	b.WriteString("\t@echo \"Packaged Web: $(DIST_DIR)/web/\"\n\n")
+.PHONY: package-web
+package-web: $(DIST_DIR)/web/$(API_NAME).wasm $(DIST_DIR)/web/$(API_NAME).js $(DIST_DIR)/web/package.json
+	@echo "Packaged Web: $(DIST_DIR)/web/"
 
-	b.WriteString("endif\n\n")
+endif
+
+`)
 }
 
 // MakefilePackageDesktop emits Desktop packaging rules.
 func MakefilePackageDesktop(b *strings.Builder) {
-	b.WriteString("# ══════════════════════════════════════════════════════════════════════════════\n")
-	b.WriteString("# Desktop: C header + Swift binding + shared library\n")
-	b.WriteString("# ══════════════════════════════════════════════════════════════════════════════\n\n")
-	b.WriteString("ifneq ($(call target_enabled,desktop),)\n\n")
+	b.WriteString(`# ══════════════════════════════════════════════════════════════════════════════
+# Desktop: C header + Swift binding + shared library
+# ══════════════════════════════════════════════════════════════════════════════
 
-	b.WriteString("$(DIST_DIR)/desktop/include/$(API_NAME).h: $(GEN_HEADER)\n")
-	b.WriteString("\t@mkdir -p $(dir $@)\n")
-	b.WriteString("\tcp $(GEN_HEADER) $@\n\n")
+ifneq ($(call target_enabled,desktop),)
 
-	b.WriteString("$(DIST_DIR)/desktop/include/$(PASCAL_NAME).swift: $(GEN_SWIFT_BINDING)\n")
-	b.WriteString("\t@mkdir -p $(dir $@)\n")
-	b.WriteString("\tcp $(GEN_SWIFT_BINDING) $@\n\n")
+$(DIST_DIR)/desktop/include/$(API_NAME).h: $(GEN_HEADER)
+	@mkdir -p $(dir $@)
+	cp $(GEN_HEADER) $@
 
-	b.WriteString("$(DIST_DIR)/desktop/lib/$(LIB_NAME).$(DYLIB_EXT): $(SHARED_LIB)\n")
-	b.WriteString("\t@mkdir -p $(dir $@)\n")
-	b.WriteString("\tcp $(SHARED_LIB) $@\n\n")
+$(DIST_DIR)/desktop/include/$(PASCAL_NAME).swift: $(GEN_SWIFT_BINDING)
+	@mkdir -p $(dir $@)
+	cp $(GEN_SWIFT_BINDING) $@
 
-	b.WriteString(".PHONY: package-desktop\n")
-	b.WriteString("package-desktop: $(STAMP) $(DIST_DIR)/desktop/include/$(API_NAME).h $(DIST_DIR)/desktop/include/$(PASCAL_NAME).swift $(DIST_DIR)/desktop/lib/$(LIB_NAME).$(DYLIB_EXT)\n")
-	b.WriteString("\t@echo \"Packaged Desktop: $(DIST_DIR)/desktop/\"\n\n")
+$(DIST_DIR)/desktop/lib/$(LIB_NAME).$(DYLIB_EXT): $(SHARED_LIB)
+	@mkdir -p $(dir $@)
+	cp $(SHARED_LIB) $@
 
-	b.WriteString("endif\n\n")
+.PHONY: package-desktop
+package-desktop: $(STAMP) $(DIST_DIR)/desktop/include/$(API_NAME).h $(DIST_DIR)/desktop/include/$(PASCAL_NAME).swift $(DIST_DIR)/desktop/lib/$(LIB_NAME).$(DYLIB_EXT)
+	@echo "Packaged Desktop: $(DIST_DIR)/desktop/"
+
+endif
+
+`)
 }
 
 // MakefileAggregateTargets emits the aggregate packages target and clean.
 func MakefileAggregateTargets(b *strings.Builder) {
-	b.WriteString("# ══════════════════════════════════════════════════════════════════════════════\n")
-	b.WriteString("# Aggregate targets\n")
-	b.WriteString("# ══════════════════════════════════════════════════════════════════════════════\n\n")
+	b.WriteString(`# ══════════════════════════════════════════════════════════════════════════════
+# Aggregate targets
+# ══════════════════════════════════════════════════════════════════════════════
 
-	b.WriteString("PACKAGE_TARGETS :=\n")
-	b.WriteString("ifneq ($(call target_enabled,ios),)\n")
-	b.WriteString("PACKAGE_TARGETS += package-ios\n")
-	b.WriteString("endif\n")
-	b.WriteString("ifneq ($(call target_enabled,android),)\n")
-	b.WriteString("PACKAGE_TARGETS += package-android\n")
-	b.WriteString("endif\n")
-	b.WriteString("ifneq ($(call target_enabled,web),)\n")
-	b.WriteString("PACKAGE_TARGETS += package-web\n")
-	b.WriteString("endif\n")
-	b.WriteString("ifneq ($(call target_enabled,desktop),)\n")
-	b.WriteString("PACKAGE_TARGETS += package-desktop\n")
-	b.WriteString("endif\n\n")
+PACKAGE_TARGETS :=
+ifneq ($(call target_enabled,ios),)
+PACKAGE_TARGETS += package-ios
+endif
+ifneq ($(call target_enabled,android),)
+PACKAGE_TARGETS += package-android
+endif
+ifneq ($(call target_enabled,web),)
+PACKAGE_TARGETS += package-web
+endif
+ifneq ($(call target_enabled,desktop),)
+PACKAGE_TARGETS += package-desktop
+endif
 
-	b.WriteString(".PHONY: packages build\n")
-	b.WriteString("packages: $(PACKAGE_TARGETS)\n")
-	b.WriteString("build: packages\n")
+.PHONY: packages build
+packages: $(PACKAGE_TARGETS)
+build: packages
+`)
 }

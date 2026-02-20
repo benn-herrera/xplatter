@@ -69,18 +69,18 @@ func (g *RustImplGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 
 // generateCargoToml produces the Cargo.toml package manifest.
 func (g *RustImplGenerator) generateCargoToml(api *model.APIDefinition, apiName string) *OutputFile {
-	var b strings.Builder
-	fmt.Fprintf(&b, "[package]\n")
-	fmt.Fprintf(&b, "name = %q\n", apiName)
-	fmt.Fprintf(&b, "version = %q\n", api.API.Version)
-	fmt.Fprintf(&b, "edition = \"2021\"\n")
-	b.WriteString("\n")
-	fmt.Fprintf(&b, "[lib]\n")
-	fmt.Fprintf(&b, "crate-type = [\"cdylib\", \"staticlib\", \"rlib\"]\n")
+	content := fmt.Sprintf(`[package]
+name = %q
+version = %q
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+`, apiName, api.API.Version)
 
 	return &OutputFile{
 		Path:        "Cargo.toml",
-		Content:     []byte(b.String()),
+		Content:     []byte(content),
 		Scaffold:    true,
 		ProjectFile: true,
 	}
@@ -91,14 +91,14 @@ func (g *RustImplGenerator) generateCargoToml(api *model.APIDefinition, apiName 
 func (g *RustImplGenerator) generateLibRs(apiName string, hasTypes bool) *OutputFile {
 	var b strings.Builder
 	if hasTypes {
-		fmt.Fprintf(&b, "#[path = \"../generated/%s_types.rs\"]\n", apiName)
-		fmt.Fprintf(&b, "pub mod %s_types;\n", apiName)
+		fmt.Fprintf(&b, "#[path = \"../generated/%[1]s_types.rs\"]\npub mod %[1]s_types;\n", apiName)
 	}
-	fmt.Fprintf(&b, "#[path = \"../generated/%s_trait.rs\"]\n", apiName)
-	fmt.Fprintf(&b, "pub mod %s_trait;\n", apiName)
-	fmt.Fprintf(&b, "#[path = \"../generated/%s_ffi.rs\"]\n", apiName)
-	fmt.Fprintf(&b, "pub mod %s_ffi;\n", apiName)
-	fmt.Fprintf(&b, "pub mod %s_impl;\n", apiName)
+	fmt.Fprintf(&b, `#[path = "../generated/%[1]s_trait.rs"]
+pub mod %[1]s_trait;
+#[path = "../generated/%[1]s_ffi.rs"]
+pub mod %[1]s_ffi;
+pub mod %[1]s_impl;
+`, apiName)
 
 	return &OutputFile{
 		Path:        "src/lib.rs",
@@ -173,9 +173,7 @@ func (g *RustImplGenerator) generateImpl(api *model.APIDefinition, apiName strin
 	}
 	fmt.Fprintf(&b, "use crate::%s_trait::*;\n\n", apiName)
 
-	// Collect all trait names this struct implements.
-	b.WriteString("/// Main implementation struct.\n")
-	b.WriteString("pub struct Impl;\n\n")
+	b.WriteString("/// Main implementation struct.\npub struct Impl;\n\n")
 
 	for _, iface := range api.Interfaces {
 		traitName := ToPascalCase(iface.Name)
@@ -221,40 +219,31 @@ func (g *RustImplGenerator) generateTypes(resolved resolver.ResolvedTypes, apiNa
 	sort.Strings(structNames)
 	sort.Strings(tableNames)
 
-	// Enums
 	for _, name := range enumNames {
 		info := resolved[name]
 		rustName := rustFlatBufferType(name)
 		baseType := rustPrimitiveType(info.BaseType)
-		fmt.Fprintf(&b, "#[repr(%s)]\n", baseType)
-		b.WriteString("#[derive(Debug, Clone, Copy, PartialEq, Eq)]\n")
-		fmt.Fprintf(&b, "pub enum %s {\n", rustName)
+		fmt.Fprintf(&b, "#[repr(%s)]\n#[derive(Debug, Clone, Copy, PartialEq, Eq)]\npub enum %s {\n", baseType, rustName)
 		for _, val := range info.EnumValues {
 			fmt.Fprintf(&b, "    %s = %d,\n", val.Name, val.Value)
 		}
 		b.WriteString("}\n\n")
 	}
 
-	// Structs
 	for _, name := range structNames {
 		info := resolved[name]
 		rustName := rustFlatBufferType(name)
-		b.WriteString("#[repr(C)]\n")
-		b.WriteString("#[derive(Debug, Clone, Copy)]\n")
-		fmt.Fprintf(&b, "pub struct %s {\n", rustName)
+		fmt.Fprintf(&b, "#[repr(C)]\n#[derive(Debug, Clone, Copy)]\npub struct %s {\n", rustName)
 		for _, f := range info.Fields {
 			fmt.Fprintf(&b, "    pub %s: %s,\n", f.Name, fbsFieldToRustType(f.Type))
 		}
 		b.WriteString("}\n\n")
 	}
 
-	// Tables
 	for _, name := range tableNames {
 		info := resolved[name]
 		rustName := rustFlatBufferType(name)
-		b.WriteString("#[repr(C)]\n")
-		b.WriteString("#[derive(Debug)]\n")
-		fmt.Fprintf(&b, "pub struct %s {\n", rustName)
+		fmt.Fprintf(&b, "#[repr(C)]\n#[derive(Debug)]\npub struct %s {\n", rustName)
 		for _, f := range info.Fields {
 			fmt.Fprintf(&b, "    pub %s: %s,\n", f.Name, fbsFieldToRustType(f.Type))
 		}
@@ -505,19 +494,20 @@ func writeFFIBody(b *strings.Builder, method *model.MethodDef, ifaceName string)
 
 	switch {
 	case hasError && hasReturn:
-		// Match on Result, write out_result on success, return error code
-		fmt.Fprintf(b, "    match %s {\n", call)
-		b.WriteString("        Ok(val) => {\n")
-		b.WriteString("            *out_result = val;\n")
-		b.WriteString("            0\n")
-		b.WriteString("        }\n")
-		b.WriteString("        Err(e) => e as i32,\n")
-		b.WriteString("    }\n")
+		fmt.Fprintf(b, `    match %s {
+        Ok(val) => {
+            *out_result = val;
+            0
+        }
+        Err(e) => e as i32,
+    }
+`, call)
 	case hasError && !hasReturn:
-		fmt.Fprintf(b, "    match %s {\n", call)
-		b.WriteString("        Ok(()) => 0,\n")
-		b.WriteString("        Err(e) => e as i32,\n")
-		b.WriteString("    }\n")
+		fmt.Fprintf(b, `    match %s {
+        Ok(()) => 0,
+        Err(e) => e as i32,
+    }
+`, call)
 	case !hasError && hasReturn:
 		fmt.Fprintf(b, "    %s\n", call)
 	default:

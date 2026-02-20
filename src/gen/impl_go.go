@@ -261,21 +261,18 @@ func (g *GoImplGenerator) generateCgo(api *model.APIDefinition, apiName string, 
 	b.WriteString("\n")
 
 	// cgo preamble — local C typedefs instead of #include (avoids prototype conflicts)
-	fmt.Fprintf(&b, "/*\n")
-	b.WriteString("#include <stdint.h>\n")
-	b.WriteString("#include <stdbool.h>\n")
-	b.WriteString("#include <stdlib.h>\n")
-	b.WriteString("\n")
+	b.WriteString("/*\n#include <stdint.h>\n#include <stdbool.h>\n#include <stdlib.h>\n\n")
 	WriteCTypedefs(&b, api.Handles, ctx.ResolvedTypes)
-	fmt.Fprintf(&b, "*/\n")
-	b.WriteString("import \"C\"\n")
-	b.WriteString("\n")
-	b.WriteString("import (\n")
-	b.WriteString("\t\"sync\"\n")
-	b.WriteString("\t\"sync/atomic\"\n")
-	b.WriteString("\t\"unsafe\"\n")
-	b.WriteString(")\n")
-	b.WriteString("\n")
+	b.WriteString(`*/
+import "C"
+
+import (
+	"sync"
+	"sync/atomic"
+	"unsafe"
+)
+
+`)
 
 	// Handle management
 	writeCgoHandleHelpers(&b)
@@ -295,45 +292,47 @@ func (g *GoImplGenerator) generateCgo(api *model.APIDefinition, apiName string, 
 
 // writeCgoHandleHelpers writes the handle allocation, lookup, and free helpers for the cgo shim.
 func writeCgoHandleHelpers(b *strings.Builder) {
-	b.WriteString("// Handle management: maps integer keys to Go interface implementations.\n")
-	b.WriteString("var (\n")
-	b.WriteString("\t_handles    sync.Map\n")
-	b.WriteString("\t_nextHandle atomic.Uintptr\n")
-	b.WriteString("\t_cstrCache  sync.Map // handle key → []*C.char for borrowing-only lifetime\n")
-	b.WriteString(")\n\n")
+	b.WriteString(`// Handle management: maps integer keys to Go interface implementations.
+var (
+	_handles    sync.Map
+	_nextHandle atomic.Uintptr
+	_cstrCache  sync.Map // handle key → []*C.char for borrowing-only lifetime
+)
 
-	b.WriteString("func _allocHandle(impl interface{}) uintptr {\n")
-	b.WriteString("\tkey := _nextHandle.Add(1)\n")
-	b.WriteString("\t_handles.Store(key, impl)\n")
-	b.WriteString("\treturn key\n")
-	b.WriteString("}\n\n")
+func _allocHandle(impl interface{}) uintptr {
+	key := _nextHandle.Add(1)
+	_handles.Store(key, impl)
+	return key
+}
 
-	b.WriteString("func _freeHandle(key uintptr) {\n")
-	b.WriteString("\t_handles.Delete(key)\n")
-	b.WriteString("\t// Free any cached C strings for this handle\n")
-	b.WriteString("\tif val, ok := _cstrCache.LoadAndDelete(key); ok {\n")
-	b.WriteString("\t\tfor _, cs := range val.([]*C.char) {\n")
-	b.WriteString("\t\t\tC.free(unsafe.Pointer(cs))\n")
-	b.WriteString("\t\t}\n")
-	b.WriteString("\t}\n")
-	b.WriteString("}\n\n")
+func _freeHandle(key uintptr) {
+	_handles.Delete(key)
+	// Free any cached C strings for this handle
+	if val, ok := _cstrCache.LoadAndDelete(key); ok {
+		for _, cs := range val.([]*C.char) {
+			C.free(unsafe.Pointer(cs))
+		}
+	}
+}
 
-	b.WriteString("// _cacheStrings allocates C strings and caches them for the handle's lifetime.\n")
-	b.WriteString("// Previous cache for this handle is freed first (borrowing-only semantics).\n")
-	b.WriteString("func _cacheStrings(handleKey uintptr, ss ...string) []*C.char {\n")
-	b.WriteString("\t// Free previous cache\n")
-	b.WriteString("\tif val, ok := _cstrCache.LoadAndDelete(handleKey); ok {\n")
-	b.WriteString("\t\tfor _, cs := range val.([]*C.char) {\n")
-	b.WriteString("\t\t\tC.free(unsafe.Pointer(cs))\n")
-	b.WriteString("\t\t}\n")
-	b.WriteString("\t}\n")
-	b.WriteString("\tresult := make([]*C.char, len(ss))\n")
-	b.WriteString("\tfor i, s := range ss {\n")
-	b.WriteString("\t\tresult[i] = C.CString(s)\n")
-	b.WriteString("\t}\n")
-	b.WriteString("\t_cstrCache.Store(handleKey, result)\n")
-	b.WriteString("\treturn result\n")
-	b.WriteString("}\n\n")
+// _cacheStrings allocates C strings and caches them for the handle's lifetime.
+// Previous cache for this handle is freed first (borrowing-only semantics).
+func _cacheStrings(handleKey uintptr, ss ...string) []*C.char {
+	// Free previous cache
+	if val, ok := _cstrCache.LoadAndDelete(handleKey); ok {
+		for _, cs := range val.([]*C.char) {
+			C.free(unsafe.Pointer(cs))
+		}
+	}
+	result := make([]*C.char, len(ss))
+	for i, s := range ss {
+		result[i] = C.CString(s)
+	}
+	_cstrCache.Store(handleKey, result)
+	return result
+}
+
+`)
 }
 
 // writeCgoExportFunc writes an //export annotated cgo function that delegates to the Go interface.
@@ -470,18 +469,12 @@ func writeCgoRegularBody(b *strings.Builder, ifaceName string, method *model.Met
 	switch {
 	case hasError && hasReturn:
 		fmt.Fprintf(b, "\tresult, err := impl.%s(%s)\n", methodName, argStr)
-		b.WriteString("\tif err != nil {\n")
-		b.WriteString("\t\treturn -1\n")
-		b.WriteString("\t}\n")
-		// Marshal return value to C out_result
+		b.WriteString("\tif err != nil {\n\t\treturn -1\n\t}\n")
 		writeCgoReturnMarshal(b, method.Returns.Type, resolved)
 		b.WriteString("\treturn 0\n")
 	case hasError && !hasReturn:
 		fmt.Fprintf(b, "\terr := impl.%s(%s)\n", methodName, argStr)
-		b.WriteString("\tif err != nil {\n")
-		b.WriteString("\t\treturn -1\n")
-		b.WriteString("\t}\n")
-		b.WriteString("\treturn 0\n")
+		b.WriteString("\tif err != nil {\n\t\treturn -1\n\t}\n\treturn 0\n")
 	case !hasError && hasReturn:
 		fmt.Fprintf(b, "\tresult := impl.%s(%s)\n", methodName, argStr)
 		writeCgoReturnMarshalDirect(b, method.Returns.Type)
@@ -808,13 +801,13 @@ func (g *GoImplGenerator) generateGoMod(api *model.APIDefinition) *OutputFile {
 // generateGitignore produces a .gitignore that lists the generated Go source files
 // copied from generated/ into the package root by the Makefile.
 func (g *GoImplGenerator) generateGitignore(apiName string) *OutputFile {
-	var b strings.Builder
-	b.WriteString("# Generated Go sources — copied from generated/ by Makefile; do not edit.\n")
-	fmt.Fprintf(&b, "%s_interface.go\n", apiName)
-	fmt.Fprintf(&b, "%s_cgo.go\n", apiName)
-	fmt.Fprintf(&b, "%s_types.go\n", apiName)
-	fmt.Fprintf(&b, "%s_wasm.go\n", apiName)
-	return &OutputFile{Path: ".gitignore", Content: []byte(b.String()), Scaffold: true, ProjectFile: true}
+	content := fmt.Sprintf(`# Generated Go sources — copied from generated/ by Makefile; do not edit.
+%[1]s_interface.go
+%[1]s_cgo.go
+%[1]s_types.go
+%[1]s_wasm.go
+`, apiName)
+	return &OutputFile{Path: ".gitignore", Content: []byte(content), Scaffold: true, ProjectFile: true}
 }
 
 // --- Package-level utilities ---

@@ -64,18 +64,17 @@ func (g *ImplCppGenerator) generateInterface(api *model.APIDefinition, apiName s
 
 	var b strings.Builder
 
-	// Include guard
-	fmt.Fprintf(&b, "#ifndef %s\n", guardName)
-	fmt.Fprintf(&b, "#define %s\n\n", guardName)
+	fmt.Fprintf(&b, `#ifndef %[1]s
+#define %[1]s
 
-	// Standard includes
-	b.WriteString("#include <stdint.h>\n")
-	b.WriteString("#include <stdbool.h>\n")
-	b.WriteString("#include <cstddef>\n")
-	b.WriteString("#include <string_view>\n")
-	b.WriteString("#include <span>\n")
-	// Include the C header for FlatBuffer type definitions
-	fmt.Fprintf(&b, "#include \"%s.h\"\n\n", apiName)
+#include <stdint.h>
+#include <stdbool.h>
+#include <cstddef>
+#include <string_view>
+#include <span>
+#include "%[2]s.h"
+
+`, guardName, apiName)
 
 	// Abstract class
 	fmt.Fprintf(&b, "class %s {\n", className)
@@ -232,14 +231,13 @@ func (g *ImplCppGenerator) writeShimFunction(b *strings.Builder, api *model.APID
 	fmt.Fprintf(b, "%s %s %s(%s) {\n", exportMacro, returnType, funcName, cParamStr)
 
 	if isCreate {
-		// Create method: call factory, cast to handle, store in out_result
-		_ = handleName
-		fmt.Fprintf(b, "    %s* instance = create_%s_instance();\n", className, apiName)
-		fmt.Fprintf(b, "    if (!instance) {\n")
-		fmt.Fprintf(b, "        return -1;\n")
-		fmt.Fprintf(b, "    }\n")
-		fmt.Fprintf(b, "    *out_result = reinterpret_cast<%s>(instance);\n", HandleTypedefName(handleName))
-		fmt.Fprintf(b, "    return 0;\n")
+		fmt.Fprintf(b, `    %[1]s* instance = create_%[2]s_instance();
+    if (!instance) {
+        return -1;
+    }
+    *out_result = reinterpret_cast<%[3]s>(instance);
+    return 0;
+`, className, apiName, HandleTypedefName(handleName))
 	} else if isDestroy {
 		// Destroy method: cast handle back to interface, delete
 		paramName := method.Parameters[0].Name
@@ -386,14 +384,15 @@ func (g *ImplCppGenerator) generateImplSource(api *model.APIDefinition, apiName 
 
 	fmt.Fprintf(&b, "#include \"%s_impl.h\"\n\n", apiName)
 
-	// Constructor / destructor
-	fmt.Fprintf(&b, "%s::%s() {\n", implClassName, implClassName)
-	b.WriteString("    // TODO: implement\n")
-	b.WriteString("}\n\n")
+	fmt.Fprintf(&b, `%[1]s::%[1]s() {
+    // TODO: implement
+}
 
-	fmt.Fprintf(&b, "%s::~%s() {\n", implClassName, implClassName)
-	b.WriteString("    // TODO: implement\n")
-	b.WriteString("}\n\n")
+%[1]s::~%[1]s() {
+    // TODO: implement
+}
+
+`, implClassName)
 
 	// Method stubs
 	for _, iface := range api.Interfaces {
@@ -461,18 +460,19 @@ func (g *ImplCppGenerator) generateCMakeLists(api *model.APIDefinition, apiName 
 	projectName := strings.ReplaceAll(apiName, "_", "-")
 	var b strings.Builder
 
-	b.WriteString("cmake_minimum_required(VERSION 3.15)\n")
-	fmt.Fprintf(&b, "project(%s VERSION %s LANGUAGES CXX)\n\n", projectName, api.API.Version)
-	b.WriteString("set(CMAKE_CXX_STANDARD 20)\n")
-	b.WriteString("set(CMAKE_CXX_STANDARD_REQUIRED ON)\n\n")
+	fmt.Fprintf(&b, `cmake_minimum_required(VERSION 3.15)
+project(%[1]s VERSION %[2]s LANGUAGES CXX)
 
-	// Collect source files
-	fmt.Fprintf(&b, "add_library(%s SHARED\n", projectName)
-	fmt.Fprintf(&b, "    generated/%s_shim.cpp\n", apiName)
-	fmt.Fprintf(&b, "    %s_impl.cpp\n", apiName)
-	b.WriteString(")\n\n")
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-	fmt.Fprintf(&b, "target_include_directories(%s PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/generated)\n", projectName)
+add_library(%[1]s SHARED
+    generated/%[3]s_shim.cpp
+    %[3]s_impl.cpp
+)
+
+target_include_directories(%[1]s PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/generated)
+`, projectName, api.API.Version, apiName)
 
 	return &OutputFile{
 		Path:        "CMakeLists.txt",
