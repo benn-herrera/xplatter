@@ -68,9 +68,9 @@ $(STAMP): $(API_DEF)
 	$(XPLATTER) generate --impl-lang rust -o generated $(API_DEF)
 	@touch $@
 
-.PHONY: run shared-lib clean
+.PHONY: test shared-lib clean
 
-run: $(STAMP)
+test: $(STAMP)
 	cargo test
 
 shared-lib: $(SHARED_LIB)
