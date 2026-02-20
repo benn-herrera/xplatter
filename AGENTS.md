@@ -67,7 +67,7 @@ src/
     *_test.go      Golden-file tests for each generator
   model/        API model types (APIDefinition, InterfaceDef, MethodDef, etc.)
     api.go         Type classification: IsPrimitive, IsString, IsBuffer, IsHandle, IsFlatBufferType
-  loader/       YAML loading + JSON Schema validation
+  loader/       YAML loading + JSON Schema validation (schema is the `schemaJSON` string literal in schema.go — the authoritative source)
   resolver/     FlatBuffers schema parsing and type resolution
   validate/     Semantic validation of API definitions
   testdata/     Test YAML definitions and golden/ output files
@@ -150,5 +150,5 @@ All generators follow the same pattern: iterate API interfaces, iterate methods,
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — system layers, design rationale, data flow
 - [docs/DETAILED_SPEC.md](./docs/DETAILED_SPEC.md) — complete codegen specification (all generators, type mappings, output files, naming rules)
 - [docs/api_definition_spec.md](./docs/api_definition_spec.md) — YAML API definition format
-- [docs/api_definition_schema.json](./docs/api_definition_schema.json) — JSON Schema for validation
+- [docs/api_definition_schema.json](./docs/api_definition_schema.json) — JSON Schema for validation (generated from the embedded schema in `src/loader/schema.go`; **never edit this file directly** — update `schemaJSON` in `schema.go` then run `xplatter dump_schema -o docs/api_definition_schema.json`)
 - [docs/example_api_definition.yaml](./docs/example_api_definition.yaml) — working example API definition

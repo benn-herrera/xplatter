@@ -361,11 +361,37 @@ func writeInterfaceWrappers(b *strings.Builder, apiName string, api *model.APIDe
 		factoryName := "_create" + ToPascalCase(iface.Name)
 		fmt.Fprintf(b, "// %s interface\nfunction %s() {\n  return {\n", iface.Name, factoryName)
 
-		for i, method := range iface.Methods {
-			writeMethodWrapper(b, apiName, iface.Name, &method, resolved)
-			if i < len(iface.Methods)-1 {
+		// Constructors
+		totalMethods := len(iface.Constructors)
+		if handleName, ok := iface.ConstructorHandleName(); ok {
+			_ = handleName
+			totalMethods++ // auto-destructor
+		}
+		totalMethods += len(iface.Methods)
+
+		idx := 0
+		for i := range iface.Constructors {
+			writeMethodWrapper(b, apiName, iface.Name, &iface.Constructors[i], resolved)
+			if idx < totalMethods-1 {
 				b.WriteString("\n")
 			}
+			idx++
+		}
+		// Auto-destructor
+		if handleName, ok := iface.ConstructorHandleName(); ok {
+			destructor := SyntheticDestructor(handleName)
+			writeMethodWrapper(b, apiName, iface.Name, &destructor, resolved)
+			if idx < totalMethods-1 {
+				b.WriteString("\n")
+			}
+			idx++
+		}
+		for i := range iface.Methods {
+			writeMethodWrapper(b, apiName, iface.Name, &iface.Methods[i], resolved)
+			if idx < totalMethods-1 {
+				b.WriteString("\n")
+			}
+			idx++
 		}
 
 		b.WriteString("  };\n}\n\n")

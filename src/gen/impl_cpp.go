@@ -83,6 +83,13 @@ func (g *ImplCppGenerator) generateInterface(api *model.APIDefinition, apiName s
 
 	for _, iface := range api.Interfaces {
 		fmt.Fprintf(&b, "    /* %s */\n", iface.Name)
+		for _, ctor := range iface.Constructors {
+			g.writeInterfaceMethod(&b, &ctor)
+		}
+		if handleName, ok := iface.ConstructorHandleName(); ok {
+			destructor := SyntheticDestructor(handleName)
+			g.writeInterfaceMethod(&b, &destructor)
+		}
 		for _, method := range iface.Methods {
 			g.writeInterfaceMethod(&b, &method)
 		}
@@ -149,8 +156,16 @@ func (g *ImplCppGenerator) generateShim(api *model.APIDefinition, apiName string
 
 	for _, iface := range api.Interfaces {
 		fmt.Fprintf(&b, "/* %s */\n", iface.Name)
+		for _, ctor := range iface.Constructors {
+			g.writeShimCreate(&b, apiName, iface.Name, className, &ctor)
+			b.WriteString("\n")
+		}
+		if handleName, ok := iface.ConstructorHandleName(); ok {
+			g.writeShimDestroy(&b, apiName, iface.Name, className, handleName)
+			b.WriteString("\n")
+		}
 		for _, method := range iface.Methods {
-			g.writeShimFunction(&b, api, apiName, iface.Name, className, &method)
+			g.writeShimFunction(&b, apiName, iface.Name, className, &method)
 			b.WriteString("\n")
 		}
 	}
@@ -163,44 +178,53 @@ func (g *ImplCppGenerator) generateShim(api *model.APIDefinition, apiName string
 	}, nil
 }
 
-// writeShimFunction writes a single extern "C" function that delegates to the interface.
-func (g *ImplCppGenerator) writeShimFunction(b *strings.Builder, api *model.APIDefinition, apiName, ifaceName, className string, method *model.MethodDef) {
+// writeShimCreate writes a constructor shim: instantiates the impl and returns it as a handle.
+func (g *ImplCppGenerator) writeShimCreate(b *strings.Builder, apiName, ifaceName, className string, ctor *model.MethodDef) {
+	funcName := CABIFunctionName(apiName, ifaceName, ctor.Name)
+	handleName, _ := model.IsHandle(ctor.Returns.Type)
+
+	var cParams []string
+	for _, p := range ctor.Parameters {
+		cParams = append(cParams, formatCParam(&p)...)
+	}
+	cParams = append(cParams, COutParamType(ctor.Returns.Type)+" out_result")
+
+	cParamStr := strings.Join(cParams, ", ")
+	if cParamStr == "" {
+		cParamStr = "void"
+	}
+
+	exportMacro := ExportMacroName(apiName)
+	fmt.Fprintf(b, "%s int32_t %s(%s) {\n", exportMacro, funcName, cParamStr)
+	fmt.Fprintf(b, `    %[1]s* instance = create_%[2]s_instance();
+    if (!instance) {
+        return -1;
+    }
+    *out_result = reinterpret_cast<%[3]s>(instance);
+    return 0;
+`, className, apiName, HandleTypedefName(handleName))
+	b.WriteString("}\n")
+}
+
+// writeShimDestroy writes a destructor shim: casts handle back to interface and deletes.
+func (g *ImplCppGenerator) writeShimDestroy(b *strings.Builder, apiName, ifaceName, className, handleName string) {
+	destructor := SyntheticDestructor(handleName)
+	funcName := CABIFunctionName(apiName, ifaceName, destructor.Name)
+	paramName := destructor.Parameters[0].Name
+	handleType := HandleTypedefName(handleName)
+
+	exportMacro := ExportMacroName(apiName)
+	fmt.Fprintf(b, "%s void %s(%s %s) {\n", exportMacro, funcName, handleType, paramName)
+	fmt.Fprintf(b, "    %s* instance = reinterpret_cast<%s*>(%s);\n", className, className, paramName)
+	fmt.Fprintf(b, "    delete instance;\n")
+	b.WriteString("}\n")
+}
+
+// writeShimFunction writes a regular extern "C" shim that delegates to the interface.
+func (g *ImplCppGenerator) writeShimFunction(b *strings.Builder, apiName, ifaceName, className string, method *model.MethodDef) {
 	funcName := CABIFunctionName(apiName, ifaceName, method.Name)
 	hasError := method.Error != ""
 	hasReturn := method.Returns != nil
-
-	// Check if this is a create method: returns a handle, is fallible, and has
-	// no handle input parameters (pure factory — no existing handle to delegate through).
-	isCreate := false
-	isDestroy := false
-	var handleName string
-	if hasReturn {
-		if hn, ok := model.IsHandle(method.Returns.Type); ok {
-			if hasError {
-				hasHandleInput := false
-				for _, p := range method.Parameters {
-					if _, ok := model.IsHandle(p.Type); ok {
-						hasHandleInput = true
-						break
-					}
-				}
-				if !hasHandleInput {
-					isCreate = true
-					handleName = hn
-				}
-			}
-		}
-	}
-
-	// Check if this is a destroy method: takes a handle param, void return, no error
-	if !hasError && !hasReturn && len(method.Parameters) >= 1 {
-		if hn, ok := model.IsHandle(method.Parameters[0].Type); ok {
-			if strings.HasPrefix(method.Name, "destroy") {
-				isDestroy = true
-				handleName = hn
-			}
-		}
-	}
 
 	// Build C parameter list
 	var cParams []string
@@ -229,25 +253,7 @@ func (g *ImplCppGenerator) writeShimFunction(b *strings.Builder, api *model.APID
 
 	exportMacro := ExportMacroName(apiName)
 	fmt.Fprintf(b, "%s %s %s(%s) {\n", exportMacro, returnType, funcName, cParamStr)
-
-	if isCreate {
-		fmt.Fprintf(b, `    %[1]s* instance = create_%[2]s_instance();
-    if (!instance) {
-        return -1;
-    }
-    *out_result = reinterpret_cast<%[3]s>(instance);
-    return 0;
-`, className, apiName, HandleTypedefName(handleName))
-	} else if isDestroy {
-		// Destroy method: cast handle back to interface, delete
-		paramName := method.Parameters[0].Name
-		fmt.Fprintf(b, "    %s* instance = reinterpret_cast<%s*>(%s);\n", className, className, paramName)
-		fmt.Fprintf(b, "    delete instance;\n")
-	} else {
-		// Regular method: find the handle parameter, cast it, and call the method
-		g.writeShimDelegation(b, className, method)
-	}
-
+	g.writeShimDelegation(b, className, method)
 	b.WriteString("}\n")
 }
 
@@ -329,6 +335,13 @@ func (g *ImplCppGenerator) generateImplHeader(api *model.APIDefinition, apiName 
 
 	for _, iface := range api.Interfaces {
 		fmt.Fprintf(&b, "    /* %s */\n", iface.Name)
+		for _, ctor := range iface.Constructors {
+			g.writeImplMethodDecl(&b, &ctor)
+		}
+		if handleName, ok := iface.ConstructorHandleName(); ok {
+			destructor := SyntheticDestructor(handleName)
+			g.writeImplMethodDecl(&b, &destructor)
+		}
 		for _, method := range iface.Methods {
 			g.writeImplMethodDecl(&b, &method)
 		}
@@ -396,6 +409,15 @@ func (g *ImplCppGenerator) generateImplSource(api *model.APIDefinition, apiName 
 
 	// Method stubs
 	for _, iface := range api.Interfaces {
+		for _, ctor := range iface.Constructors {
+			g.writeImplMethodStub(&b, implClassName, &ctor)
+			b.WriteString("\n")
+		}
+		if handleName, ok := iface.ConstructorHandleName(); ok {
+			destructor := SyntheticDestructor(handleName)
+			g.writeImplMethodStub(&b, implClassName, &destructor)
+			b.WriteString("\n")
+		}
 		for _, method := range iface.Methods {
 			g.writeImplMethodStub(&b, implClassName, &method)
 			b.WriteString("\n")

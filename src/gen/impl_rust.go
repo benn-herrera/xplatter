@@ -119,6 +119,12 @@ func (g *RustImplGenerator) generateTrait(api *model.APIDefinition, apiName stri
 	b.WriteString("\n")
 
 	for _, iface := range api.Interfaces {
+		// Only emit the trait if there are regular methods.
+		// Constructors and destructor are handled by the FFI shim directly.
+		if len(iface.Methods) == 0 {
+			continue
+		}
+
 		traitName := ToPascalCase(iface.Name)
 		fmt.Fprintf(&b, "/// %s interface methods.\n", traitName)
 		fmt.Fprintf(&b, "pub trait %s {\n", traitName)
@@ -151,6 +157,17 @@ func (g *RustImplGenerator) generateFFI(api *model.APIDefinition, apiName string
 	for _, iface := range api.Interfaces {
 		fmt.Fprintf(&b, "// %s\n", iface.Name)
 
+		// Constructor shims
+		for _, ctor := range iface.Constructors {
+			writeFFIConstructor(&b, apiName, iface.Name, &ctor)
+			b.WriteString("\n")
+		}
+		// Auto-destructor shim
+		if handleName, ok := iface.ConstructorHandleName(); ok {
+			writeFFIDestructor(&b, apiName, iface.Name, handleName)
+			b.WriteString("\n")
+		}
+		// Regular method shims
 		for _, method := range iface.Methods {
 			writeFFIFunction(&b, apiName, iface.Name, &method)
 			b.WriteString("\n")
@@ -173,9 +190,15 @@ func (g *RustImplGenerator) generateImpl(api *model.APIDefinition, apiName strin
 	}
 	fmt.Fprintf(&b, "use crate::%s_trait::*;\n\n", apiName)
 
-	b.WriteString("/// Main implementation struct.\npub struct Impl;\n\n")
+	b.WriteString("/// Main implementation struct. Add per-instance fields as needed.\npub struct Impl;\n\n")
+	b.WriteString("impl Impl {\n    pub fn new() -> Self { Impl }\n}\n\n")
 
 	for _, iface := range api.Interfaces {
+		// Only emit impl block when there are regular methods (trait only covers those).
+		if len(iface.Methods) == 0 {
+			continue
+		}
+
 		traitName := ToPascalCase(iface.Name)
 		fmt.Fprintf(&b, "impl %s for Impl {\n", traitName)
 
@@ -379,6 +402,40 @@ func rustTraitReturnType(method *model.MethodDef) string {
 
 // --- FFI helpers ---
 
+// writeFFIConstructor writes an extern "C" shim that creates a new Impl and returns it as a handle.
+func writeFFIConstructor(b *strings.Builder, apiName, ifaceName string, ctor *model.MethodDef) {
+	funcName := CABIFunctionName(apiName, ifaceName, ctor.Name)
+	handleName, _ := model.IsHandle(ctor.Returns.Type)
+
+	var params []string
+	for _, p := range ctor.Parameters {
+		params = append(params, ffiParams(&p)...)
+	}
+	params = append(params, fmt.Sprintf("out_result: %s", ffiOutParamType(ctor.Returns.Type)))
+
+	fmt.Fprintf(b, "#[no_mangle]\n")
+	fmt.Fprintf(b, "pub unsafe extern \"C\" fn %s(%s) -> i32 {\n", funcName, strings.Join(params, ", "))
+	fmt.Fprintf(b, "    let impl_box = Box::new(Impl::new());\n")
+	fmt.Fprintf(b, "    *out_result = Box::into_raw(impl_box) as *mut c_void;\n")
+	_ = handleName
+	b.WriteString("    0\n")
+	b.WriteString("}\n")
+}
+
+// writeFFIDestructor writes an extern "C" shim that deallocates a handle.
+func writeFFIDestructor(b *strings.Builder, apiName, ifaceName, handleName string) {
+	destructor := SyntheticDestructor(handleName)
+	funcName := CABIFunctionName(apiName, ifaceName, destructor.Name)
+	paramName := destructor.Parameters[0].Name
+
+	fmt.Fprintf(b, "#[no_mangle]\n")
+	fmt.Fprintf(b, "pub unsafe extern \"C\" fn %s(%s: *mut c_void) {\n", funcName, paramName)
+	fmt.Fprintf(b, "    if !%s.is_null() {\n", paramName)
+	fmt.Fprintf(b, "        drop(Box::from_raw(%s as *mut Impl));\n", paramName)
+	fmt.Fprintf(b, "    }\n")
+	b.WriteString("}\n")
+}
+
 // writeFFIFunction writes a single #[no_mangle] extern "C" shim function.
 func writeFFIFunction(b *strings.Builder, apiName, ifaceName string, method *model.MethodDef) {
 	funcName := CABIFunctionName(apiName, ifaceName, method.Name)
@@ -481,15 +538,26 @@ func writeFFIBody(b *strings.Builder, method *model.MethodDef, ifaceName string)
 		writeParamConversion(b, &p)
 	}
 
+	// Find the first handle parameter to use as the self receiver.
+	// The Impl is stored as the opaque handle, so we cast it to *mut Impl.
+	selfExpr := "&Impl"
+	for _, p := range method.Parameters {
+		if _, ok := model.IsHandle(p.Type); ok {
+			fmt.Fprintf(b, "    let _self = &*(%s as *mut Impl);\n", p.Name)
+			selfExpr = "_self"
+			break
+		}
+	}
+
 	// Build the call expression
 	traitName := ToPascalCase(ifaceName)
 	var callArgs []string
 	for _, p := range method.Parameters {
 		callArgs = append(callArgs, rustConvertedArgName(&p))
 	}
-	call := fmt.Sprintf("%s::%s(&Impl, %s)", traitName, method.Name, strings.Join(callArgs, ", "))
+	call := fmt.Sprintf("%s::%s(%s, %s)", traitName, method.Name, selfExpr, strings.Join(callArgs, ", "))
 	if len(method.Parameters) == 0 {
-		call = fmt.Sprintf("%s::%s(&Impl)", traitName, method.Name)
+		call = fmt.Sprintf("%s::%s(%s)", traitName, method.Name, selfExpr)
 	}
 
 	switch {

@@ -48,6 +48,14 @@ import (
 
 	for _, iface := range api.Interfaces {
 		fmt.Fprintf(&b, "/* %s */\n\n", iface.Name)
+		for _, ctor := range iface.Constructors {
+			writeWasmConstructorFunc(&b, apiName, iface.Name, &ctor)
+			b.WriteString("\n")
+		}
+		if handleName, ok := iface.ConstructorHandleName(); ok {
+			writeWasmDestructorFunc(&b, apiName, iface.Name, handleName)
+			b.WriteString("\n")
+		}
 		for _, method := range iface.Methods {
 			writeWasmExportFunc(&b, apiName, iface.Name, &method, ctx.ResolvedTypes)
 			b.WriteString("\n")
@@ -175,6 +183,41 @@ func _platform_resource_read(name uintptr, buffer uintptr, bufferSize uint32) in
 `, apiName)
 }
 
+// writeWasmConstructorFunc writes a //go:wasmexport constructor that allocates a handle.
+func writeWasmConstructorFunc(b *strings.Builder, apiName, ifaceName string, ctor *model.MethodDef) {
+	funcName := CABIFunctionName(apiName, ifaceName, ctor.Name)
+	handleName, _ := model.IsHandle(ctor.Returns.Type)
+	implStruct := ToPascalCase(handleName) + "Impl"
+
+	var wasmParams []string
+	for _, p := range ctor.Parameters {
+		wasmParams = append(wasmParams, goWasmExportParams(&p)...)
+	}
+	wasmParams = append(wasmParams, "out_result uintptr")
+
+	fmt.Fprintf(b, "//go:wasmexport %s\n", funcName)
+	paramStr := strings.Join(wasmParams, ", ")
+	fmt.Fprintf(b, "func %s(%s) int32 {\n", funcName, paramStr)
+	fmt.Fprintf(b, `	impl := &%s{}
+	key := _allocHandle(impl)
+	*(*uint32)(unsafe.Pointer(out_result)) = uint32(key)
+	return 0
+`, implStruct)
+	b.WriteString("}\n")
+}
+
+// writeWasmDestructorFunc writes a //go:wasmexport destructor that frees a handle.
+func writeWasmDestructorFunc(b *strings.Builder, apiName, ifaceName, handleName string) {
+	destructor := SyntheticDestructor(handleName)
+	funcName := CABIFunctionName(apiName, ifaceName, destructor.Name)
+	paramName := destructor.Parameters[0].Name
+
+	fmt.Fprintf(b, "//go:wasmexport %s\n", funcName)
+	fmt.Fprintf(b, "func %s(%s uint32) {\n", funcName, paramName)
+	fmt.Fprintf(b, "\t_freeHandle(uintptr(%s))\n", paramName)
+	b.WriteString("}\n")
+}
+
 // writeWasmExportFunc writes a single //go:wasmexport annotated function that
 // delegates to the Go interface.
 func writeWasmExportFunc(b *strings.Builder, apiName, ifaceName string, method *model.MethodDef, resolved resolver.ResolvedTypes) {
@@ -209,31 +252,9 @@ func writeWasmExportFunc(b *strings.Builder, apiName, ifaceName string, method *
 		fmt.Fprintf(b, "func %s(%s) {\n", funcName, paramStr)
 	}
 
-	// Body: detect lifecycle vs regular and delegate appropriately
-	if handleName, ok := isGoCreateMethod(method); ok {
-		writeWasmCreateBody(b, handleName)
-	} else if handleParamName, ok := isGoDestroyMethod(method); ok {
-		writeWasmDestroyBody(b, handleParamName)
-	} else {
-		writeWasmRegularBody(b, ifaceName, method, resolved)
-	}
+	writeWasmRegularBody(b, ifaceName, method, resolved)
 
 	b.WriteString("}\n")
-}
-
-// writeWasmCreateBody writes the body of a create method in the WASM shim.
-func writeWasmCreateBody(b *strings.Builder, handleName string) {
-	implStruct := ToPascalCase(handleName) + "Impl"
-	fmt.Fprintf(b, `	impl := &%s{}
-	key := _allocHandle(impl)
-	*(*uint32)(unsafe.Pointer(out_result)) = uint32(key)
-	return 0
-`, implStruct)
-}
-
-// writeWasmDestroyBody writes the body of a destroy method in the WASM shim.
-func writeWasmDestroyBody(b *strings.Builder, handleParamName string) {
-	fmt.Fprintf(b, "\t_freeHandle(%s)\n", handleParamName)
 }
 
 // writeWasmRegularBody writes the body of a regular method in the WASM shim,

@@ -75,25 +75,16 @@ func TestRustImplGenerator_TraitDefinition(t *testing.T) {
 
 	trait := string(files[0].Content)
 
-	// Trait declaration
-	if !strings.Contains(trait, "pub trait Lifecycle {") {
-		t.Error("missing trait declaration for Lifecycle")
+	// minimal.yaml: lifecycle interface has only constructors (no methods),
+	// so no Lifecycle trait is emitted — constructors are handled by FFI shims.
+	if strings.Contains(trait, "pub trait Lifecycle {") {
+		t.Error("lifecycle trait should not be emitted: lifecycle interface has no methods")
 	}
-
-	// Fallible method with handle return: Result<*mut c_void, ErrorCode>
-	if !strings.Contains(trait, "fn create_engine") {
-		t.Error("missing create_engine method in trait")
+	if strings.Contains(trait, "fn create_engine") {
+		t.Error("create_engine should not appear in trait: it is a constructor handled by FFI shim")
 	}
-	if !strings.Contains(trait, "Result<*mut c_void, CommonErrorCode>") {
-		t.Error("missing Result<*mut c_void, CommonErrorCode> return type")
-	}
-
-	// Infallible void method with handle param
-	if !strings.Contains(trait, "fn destroy_engine") {
-		t.Error("missing destroy_engine method in trait")
-	}
-	if !strings.Contains(trait, "engine: *mut c_void") {
-		t.Error("missing handle parameter type *mut c_void")
+	if strings.Contains(trait, "fn destroy_engine") {
+		t.Error("destroy_engine should not appear in trait: it is an auto-destructor handled by FFI shim")
 	}
 
 	// Auto-gen comment
@@ -136,23 +127,20 @@ func TestRustImplGenerator_FFIShim(t *testing.T) {
 		t.Error("missing destroy_engine FFI function name")
 	}
 
-	// Fallible with return: out_result parameter
+	// Constructor shim: Box::new(Impl::new()) pattern (no match — constructors always succeed at the FFI level)
+	if !strings.Contains(ffi, "Box::new(Impl::new())") {
+		t.Error("missing Box::new(Impl::new()) in constructor shim")
+	}
+	if !strings.Contains(ffi, "Box::into_raw") {
+		t.Error("missing Box::into_raw in constructor shim")
+	}
 	if !strings.Contains(ffi, "out_result: *mut *mut c_void") {
-		t.Error("missing out_result parameter for fallible+return method")
+		t.Error("missing out_result parameter for constructor")
 	}
 
-	// Result match pattern
-	if !strings.Contains(ffi, "match") {
-		t.Error("missing match expression in FFI shim")
-	}
-	if !strings.Contains(ffi, "Ok(val)") {
-		t.Error("missing Ok(val) arm in FFI match")
-	}
-	if !strings.Contains(ffi, "Err(e)") {
-		t.Error("missing Err(e) arm in FFI match")
-	}
-	if !strings.Contains(ffi, "*out_result = val") {
-		t.Error("missing out_result write in Ok arm")
+	// Destructor shim: Box::from_raw pattern
+	if !strings.Contains(ffi, "Box::from_raw") {
+		t.Error("missing Box::from_raw in destructor shim")
 	}
 }
 
@@ -167,27 +155,14 @@ func TestRustImplGenerator_StubImpl(t *testing.T) {
 
 	impl := string(files[2].Content)
 
-	// Struct declaration
+	// Struct declaration always present
 	if !strings.Contains(impl, "pub struct Impl;") {
 		t.Error("missing Impl struct declaration")
 	}
 
-	// Trait impl block
-	if !strings.Contains(impl, "impl Lifecycle for Impl {") {
-		t.Error("missing impl Lifecycle for Impl block")
-	}
-
-	// todo!() macro in method bodies
-	if !strings.Contains(impl, "todo!()") {
-		t.Error("missing todo!() macro in stub methods")
-	}
-
-	// TODO comment
-	if !strings.Contains(impl, "// TODO: implement create_engine") {
-		t.Error("missing TODO comment for create_engine")
-	}
-	if !strings.Contains(impl, "// TODO: implement destroy_engine") {
-		t.Error("missing TODO comment for destroy_engine")
+	// minimal.yaml: lifecycle has only constructors (no methods), so no impl block
+	if strings.Contains(impl, "impl Lifecycle for Impl {") {
+		t.Error("lifecycle impl block should not be emitted: no methods in lifecycle interface")
 	}
 }
 
@@ -296,13 +271,16 @@ func TestRustImplGenerator_FullAPI(t *testing.T) {
 		t.Error("missing std::slice::from_raw_parts in FFI for buffer")
 	}
 
-	// Multiple traits
+	// Multiple traits: lifecycle has no methods (only constructor), so no Lifecycle trait.
+	// renderer, texture, input, events have methods → traits emitted.
 	expectedTraits := []string{
-		"pub trait Lifecycle {",
 		"pub trait Renderer {",
 		"pub trait Texture {",
 		"pub trait Input {",
 		"pub trait Events {",
+	}
+	if strings.Contains(trait, "pub trait Lifecycle {") {
+		t.Error("Lifecycle trait should not be emitted: lifecycle interface has only constructors")
 	}
 	for _, expected := range expectedTraits {
 		if !strings.Contains(trait, expected) {

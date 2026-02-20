@@ -114,16 +114,22 @@ func BuildMacroName(apiName string) string {
 	return UpperSnakeCase(apiName) + "_BUILD"
 }
 
-// CollectErrorTypes returns deduplicated error type names used across all methods.
+// CollectErrorTypes returns deduplicated error type names used across all methods and constructors.
 func CollectErrorTypes(api *model.APIDefinition) []string {
 	seen := map[string]bool{}
 	var result []string
+	collect := func(errType string) {
+		if errType != "" && !seen[errType] {
+			seen[errType] = true
+			result = append(result, errType)
+		}
+	}
 	for _, iface := range api.Interfaces {
+		for _, ctor := range iface.Constructors {
+			collect(ctor.Error)
+		}
 		for _, method := range iface.Methods {
-			if method.Error != "" && !seen[method.Error] {
-				seen[method.Error] = true
-				result = append(result, method.Error)
-			}
+			collect(method.Error)
 		}
 	}
 	return result
@@ -184,20 +190,31 @@ func prependHeader(header string, content []byte) []byte {
 	return []byte(header + "\n" + string(content))
 }
 
-// FindDestroyInfo looks for a destroy/release method for a handle type,
-// returning the interface and method names.
-func FindDestroyInfo(api *model.APIDefinition, handleName string) (ifaceName, methodName string, found bool) {
-	snake := model.HandleToSnake(handleName)
-	for _, iface := range api.Interfaces {
-		for _, method := range iface.Methods {
-			if (method.Name == "destroy_"+snake || method.Name == "release_"+snake) &&
-				len(method.Parameters) == 1 {
-				hName, ok := model.IsHandle(method.Parameters[0].Type)
-				if ok && hName == handleName {
-					return iface.Name, method.Name, true
-				}
-			}
-		}
+// DestructorMethodName returns the auto-generated destructor method name for a handle.
+// e.g., handleName "Greeter" → "destroy_greeter"
+func DestructorMethodName(handleName string) string {
+	return "destroy_" + model.HandleToSnake(handleName)
+}
+
+// DestructorParam returns the single ParameterDef for an auto-generated destructor.
+func DestructorParam(handleName string) model.ParameterDef {
+	return model.ParameterDef{
+		Name: model.HandleToSnake(handleName),
+		Type: "handle:" + handleName,
 	}
-	return "", "", false
+}
+
+// InterfaceHasConstructors reports whether an interface has constructor declarations.
+func InterfaceHasConstructors(iface *model.InterfaceDef) bool {
+	return len(iface.Constructors) > 0
+}
+
+// SyntheticDestructor returns a synthesized MethodDef for the auto-destructor of a handle.
+func SyntheticDestructor(handleName string) model.MethodDef {
+	return model.MethodDef{
+		Name: DestructorMethodName(handleName),
+		Parameters: []model.ParameterDef{
+			DestructorParam(handleName),
+		},
+	}
 }

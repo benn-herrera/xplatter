@@ -43,10 +43,19 @@ func (g *ImplCGenerator) generateImplSource(api *model.APIDefinition, apiName st
 	b.WriteString("#include <string.h>\n")
 	b.WriteString("\n")
 
-	// Per-handle struct typedefs and function stubs
+	// Per-interface function stubs: constructors, auto-destructor, then methods
 	for _, iface := range api.Interfaces {
-		for _, method := range iface.Methods {
-			g.writeMethodStub(&b, apiName, iface.Name, &method)
+		for i := range iface.Constructors {
+			g.writeMethodStub(&b, apiName, iface.Name, &iface.Constructors[i])
+			b.WriteString("\n")
+		}
+		if handleName, ok := iface.ConstructorHandleName(); ok {
+			destructor := SyntheticDestructor(handleName)
+			g.writeMethodStub(&b, apiName, iface.Name, &destructor)
+			b.WriteString("\n")
+		}
+		for i := range iface.Methods {
+			g.writeMethodStub(&b, apiName, iface.Name, &iface.Methods[i])
 			b.WriteString("\n")
 		}
 	}

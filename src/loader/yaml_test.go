@@ -34,8 +34,11 @@ func TestLoadAPIDefinition_Minimal(t *testing.T) {
 	if len(def.Interfaces) != 1 {
 		t.Errorf("expected 1 interface, got %d", len(def.Interfaces))
 	}
-	if len(def.Interfaces[0].Methods) != 2 {
-		t.Errorf("expected 2 methods, got %d", len(def.Interfaces[0].Methods))
+	if len(def.Interfaces[0].Constructors) != 1 {
+		t.Errorf("expected 1 constructor, got %d", len(def.Interfaces[0].Constructors))
+	}
+	if def.Interfaces[0].Constructors[0].Name != "create_engine" {
+		t.Errorf("expected constructor name 'create_engine', got %q", def.Interfaces[0].Constructors[0].Name)
 	}
 }
 

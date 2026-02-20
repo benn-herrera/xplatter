@@ -199,8 +199,8 @@ func TestGoWASMImplGenerator_DestroyDelegation(t *testing.T) {
 	content := string(files[0].Content)
 
 	// destroy_engine auto-implemented with _freeHandle
-	if !strings.Contains(content, "_freeHandle(engine)") {
-		t.Error("destroy_engine not auto-implemented with _freeHandle(engine)")
+	if !strings.Contains(content, "_freeHandle(uintptr(engine))") {
+		t.Error("destroy_engine not auto-implemented with _freeHandle(uintptr(engine))")
 	}
 }
 
@@ -247,16 +247,11 @@ func TestGoWASMImplGenerator_Full(t *testing.T) {
 		t.Error("create_engine should instantiate EngineImpl")
 	}
 
-	// Multiple destroy methods auto-implemented
-	if !strings.Contains(content, "_freeHandle(engine)") {
+	// Destroy auto-implemented for lifecycle interface (has constructors:)
+	if !strings.Contains(content, "_freeHandle(uintptr(engine))") {
 		t.Error("destroy_engine not auto-implemented")
 	}
-	if !strings.Contains(content, "_freeHandle(renderer)") {
-		t.Error("destroy_renderer not auto-implemented")
-	}
-	if !strings.Contains(content, "_freeHandle(texture)") {
-		t.Error("destroy_texture not auto-implemented")
-	}
+	// renderer and texture use old-style create methods (with handle params) so no auto-destructor
 
 	// String param → uintptr
 	if !strings.Contains(content, "path uintptr") {

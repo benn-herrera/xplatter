@@ -67,49 +67,6 @@ func (g *GoImplGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	return files, nil
 }
 
-// --- Lifecycle detection helpers ---
-
-// isGoCreateMethod detects a create/factory method: returns a handle, is fallible,
-// and has no handle input parameters.
-func isGoCreateMethod(method *model.MethodDef) (handleName string, ok bool) {
-	if method.Returns == nil || method.Error == "" {
-		return "", false
-	}
-	hn, isHandle := model.IsHandle(method.Returns.Type)
-	if !isHandle {
-		return "", false
-	}
-	for _, p := range method.Parameters {
-		if _, ok := model.IsHandle(p.Type); ok {
-			return "", false
-		}
-	}
-	return hn, true
-}
-
-// isGoDestroyMethod detects a destroy method: single handle parameter, void return, no error.
-func isGoDestroyMethod(method *model.MethodDef) (handleParamName string, ok bool) {
-	if method.Error != "" || method.Returns != nil {
-		return "", false
-	}
-	if len(method.Parameters) != 1 {
-		return "", false
-	}
-	p := method.Parameters[0]
-	_, isHandle := model.IsHandle(p.Type)
-	if !isHandle {
-		return "", false
-	}
-	return p.Name, true
-}
-
-// isGoLifecycleMethod returns true if the method is a create or destroy lifecycle method.
-func isGoLifecycleMethod(method *model.MethodDef) bool {
-	_, isCreate := isGoCreateMethod(method)
-	_, isDestroy := isGoDestroyMethod(method)
-	return isCreate || isDestroy
-}
-
 // goReturnStructName returns the Go struct name for a FlatBuffer return type.
 // e.g., "Hello.Greeting" -> "HelloGreeting"
 func goReturnStructName(t string) string {
@@ -159,14 +116,8 @@ func (g *GoImplGenerator) generateInterface(api *model.APIDefinition, apiName st
 	b.WriteString("\n")
 
 	for _, iface := range api.Interfaces {
-		// Collect non-lifecycle methods for this interface
-		var methods []model.MethodDef
-		for _, method := range iface.Methods {
-			if !isGoLifecycleMethod(&method) {
-				methods = append(methods, method)
-			}
-		}
-		if len(methods) == 0 {
+		// Interface only includes regular methods (constructors/destructor are shim-handled).
+		if len(iface.Methods) == 0 {
 			continue
 		}
 
@@ -175,7 +126,7 @@ func (g *GoImplGenerator) generateInterface(api *model.APIDefinition, apiName st
 			fmt.Fprintf(&b, "// %s %s\n", ifaceName, iface.Description)
 		}
 		fmt.Fprintf(&b, "type %s interface {\n", ifaceName)
-		for _, method := range methods {
+		for _, method := range iface.Methods {
 			writeGoInterfaceMethod(&b, &method, resolved)
 		}
 		b.WriteString("}\n\n")
@@ -277,9 +228,20 @@ import (
 	// Handle management
 	writeCgoHandleHelpers(&b)
 
-	// Export functions for each interface method.
+	// Export functions for each interface.
 	for _, iface := range api.Interfaces {
 		fmt.Fprintf(&b, "/* %s */\n\n", iface.Name)
+		// Constructors
+		for _, ctor := range iface.Constructors {
+			writeCgoConstructorFunc(&b, apiName, iface.Name, &ctor)
+			b.WriteString("\n")
+		}
+		// Auto-destructor
+		if handleName, ok := iface.ConstructorHandleName(); ok {
+			writeCgoDestructorFunc(&b, apiName, iface.Name, handleName)
+			b.WriteString("\n")
+		}
+		// Regular methods
 		for _, method := range iface.Methods {
 			writeCgoExportFunc(&b, apiName, iface.Name, &method, ctx.ResolvedTypes)
 			b.WriteString("\n")
@@ -335,6 +297,42 @@ func _cacheStrings(handleKey uintptr, ss ...string) []*C.char {
 `)
 }
 
+// writeCgoConstructorFunc writes an //export annotated cgo constructor that allocates a handle.
+func writeCgoConstructorFunc(b *strings.Builder, apiName, ifaceName string, ctor *model.MethodDef) {
+	funcName := CABIFunctionName(apiName, ifaceName, ctor.Name)
+	handleName, _ := model.IsHandle(ctor.Returns.Type)
+	handleTypedef := HandleTypedefName(handleName)
+	implStruct := ToPascalCase(handleName) + "Impl"
+
+	var cParams []string
+	for _, p := range ctor.Parameters {
+		cParams = append(cParams, goCgoParam(&p)...)
+	}
+	cParams = append(cParams, "out_result *C."+handleTypedef)
+
+	fmt.Fprintf(b, "//export %s\n", funcName)
+	paramStr := strings.Join(cParams, ", ")
+	fmt.Fprintf(b, "func %s(%s) C.int32_t {\n", funcName, paramStr)
+	fmt.Fprintf(b, "\timpl := &%s{}\n", implStruct)
+	b.WriteString("\tkey := _allocHandle(impl)\n")
+	fmt.Fprintf(b, "\t*out_result = (C.%s)(unsafe.Pointer(key))\n", handleTypedef)
+	b.WriteString("\treturn 0\n")
+	b.WriteString("}\n")
+}
+
+// writeCgoDestructorFunc writes an //export annotated cgo destructor that frees a handle.
+func writeCgoDestructorFunc(b *strings.Builder, apiName, ifaceName, handleName string) {
+	destructor := SyntheticDestructor(handleName)
+	funcName := CABIFunctionName(apiName, ifaceName, destructor.Name)
+	handleTypedef := HandleTypedefName(handleName)
+	paramName := destructor.Parameters[0].Name
+
+	fmt.Fprintf(b, "//export %s\n", funcName)
+	fmt.Fprintf(b, "func %s(%s C.%s) {\n", funcName, paramName, handleTypedef)
+	fmt.Fprintf(b, "\t_freeHandle(uintptr(unsafe.Pointer(%s)))\n", paramName)
+	b.WriteString("}\n")
+}
+
 // writeCgoExportFunc writes an //export annotated cgo function that delegates to the Go interface.
 func writeCgoExportFunc(b *strings.Builder, apiName, ifaceName string, method *model.MethodDef, resolved resolver.ResolvedTypes) {
 	funcName := CABIFunctionName(apiName, ifaceName, method.Name)
@@ -372,31 +370,9 @@ func writeCgoExportFunc(b *strings.Builder, apiName, ifaceName string, method *m
 		fmt.Fprintf(b, "func %s(%s) {\n", funcName, paramStr)
 	}
 
-	// Body: detect lifecycle vs regular and delegate appropriately
-	if handleName, ok := isGoCreateMethod(method); ok {
-		writeCgoCreateBody(b, handleName)
-	} else if handleParamName, ok := isGoDestroyMethod(method); ok {
-		writeCgoDestroyBody(b, handleParamName)
-	} else {
-		writeCgoRegularBody(b, ifaceName, method, resolved)
-	}
+	writeCgoRegularBody(b, ifaceName, method, resolved)
 
 	b.WriteString("}\n")
-}
-
-// writeCgoCreateBody writes the body of a create method in the cgo shim.
-func writeCgoCreateBody(b *strings.Builder, handleName string) {
-	implStruct := ToPascalCase(handleName) + "Impl"
-	handleTypedef := HandleTypedefName(handleName)
-	fmt.Fprintf(b, "\timpl := &%s{}\n", implStruct)
-	b.WriteString("\tkey := _allocHandle(impl)\n")
-	fmt.Fprintf(b, "\t*out_result = (C.%s)(unsafe.Pointer(key))\n", handleTypedef)
-	b.WriteString("\treturn 0\n")
-}
-
-// writeCgoDestroyBody writes the body of a destroy method in the cgo shim.
-func writeCgoDestroyBody(b *strings.Builder, handleParamName string) {
-	fmt.Fprintf(b, "\t_freeHandle(uintptr(unsafe.Pointer(%s)))\n", handleParamName)
 }
 
 // writeCgoRegularBody writes the body of a regular method in the cgo shim,
@@ -592,14 +568,8 @@ func (g *GoImplGenerator) generateImpl(api *model.APIDefinition, apiName string,
 	b.WriteString("\n")
 
 	for _, iface := range api.Interfaces {
-		// Collect non-lifecycle methods
-		var methods []model.MethodDef
-		for _, method := range iface.Methods {
-			if !isGoLifecycleMethod(&method) {
-				methods = append(methods, method)
-			}
-		}
-		if len(methods) == 0 {
+		// Impl stub only includes regular methods; constructors/destructor are shim-handled.
+		if len(iface.Methods) == 0 {
 			continue
 		}
 
@@ -612,7 +582,7 @@ func (g *GoImplGenerator) generateImpl(api *model.APIDefinition, apiName string,
 		// Verify interface satisfaction.
 		fmt.Fprintf(&b, "var _ %s = (*%s)(nil)\n\n", ifaceName, structName)
 
-		for _, method := range methods {
+		for _, method := range iface.Methods {
 			writeGoStubMethod(&b, structName, &method, resolved)
 			b.WriteString("\n")
 		}
@@ -742,10 +712,15 @@ func (g *GoImplGenerator) generateTypes(resolved resolver.ResolvedTypes, apiName
 	return &OutputFile{Path: filename, Content: []byte(b.String())}
 }
 
-// collectReturnTypes collects all FlatBuffer types used as method return values.
+// collectReturnTypes collects all FlatBuffer types used as method or constructor return values.
 func collectReturnTypes(api *model.APIDefinition) map[string]bool {
 	types := make(map[string]bool)
 	for _, iface := range api.Interfaces {
+		for _, ctor := range iface.Constructors {
+			if ctor.Returns != nil && model.IsFlatBufferType(ctor.Returns.Type) {
+				types[ctor.Returns.Type] = true
+			}
+		}
 		for _, method := range iface.Methods {
 			if method.Returns != nil && model.IsFlatBufferType(method.Returns.Type) {
 				types[method.Returns.Type] = true

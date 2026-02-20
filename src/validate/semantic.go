@@ -8,6 +8,14 @@ import (
 	"github.com/benn-herrera/xplatter/resolver"
 )
 
+// isValidConstructorName returns true if name is "create" or "create_<snake>".
+func isValidConstructorName(name string) bool {
+	if name == "create" {
+		return true
+	}
+	return strings.HasPrefix(name, "create_") && len(name) > len("create_")
+}
+
 // ValidationError represents a single semantic validation error.
 type ValidationError struct {
 	Path    string // e.g., "interfaces[0].methods[1].returns.type"
@@ -71,16 +79,75 @@ func Validate(def *model.APIDefinition, resolvedTypes resolver.ResolvedTypes) *V
 		}
 		ifaceSeen[iface.Name] = true
 
-		// Check for duplicate method names within interface
-		methodSeen := make(map[string]bool)
+		// Collect all names within this interface to detect collisions
+		allNames := make(map[string]bool)
+
+		// Validate constructors
+		var constructorHandleName string
+		for j, ctor := range iface.Constructors {
+			ctorPath := fmt.Sprintf("%s.constructors[%d]", ifacePath, j)
+			if !isValidConstructorName(ctor.Name) {
+				result.addError(ctorPath+".name", fmt.Sprintf("constructor name %q must be \"create\" or start with \"create_\"", ctor.Name))
+			}
+			if allNames[ctor.Name] {
+				result.addError(ctorPath+".name", fmt.Sprintf("duplicate name %q in interface %q", ctor.Name, iface.Name))
+			}
+			allNames[ctor.Name] = true
+
+			// Constructor must be fallible
+			if ctor.Error == "" {
+				result.addError(ctorPath+".error", fmt.Sprintf("constructor %q must declare an error type", ctor.Name))
+			}
+			// Constructor must return a handle
+			if ctor.Returns == nil {
+				result.addError(ctorPath+".returns", fmt.Sprintf("constructor %q must return a handle type", ctor.Name))
+			} else if hn, ok := model.IsHandle(ctor.Returns.Type); !ok {
+				result.addError(ctorPath+".returns.type", fmt.Sprintf("constructor %q must return a handle type, got %q", ctor.Name, ctor.Returns.Type))
+			} else {
+				// All constructors in an interface must return the same handle
+				if constructorHandleName == "" {
+					constructorHandleName = hn
+				} else if hn != constructorHandleName {
+					result.addError(ctorPath+".returns.type", fmt.Sprintf("constructor %q returns handle %q but interface already has constructors returning %q; all constructors must return the same handle type", ctor.Name, hn, constructorHandleName))
+				}
+				// Validate the handle is defined
+				if !handleNames[hn] {
+					result.addError(ctorPath+".returns.type", fmt.Sprintf("handle %q not defined in handles section", hn))
+				}
+			}
+			// Constructor must not take handle-typed input parameters
+			for k, param := range ctor.Parameters {
+				paramPath := fmt.Sprintf("%s.parameters[%d]", ctorPath, k)
+				if hn, ok := model.IsHandle(param.Type); ok {
+					result.addError(paramPath+".type", fmt.Sprintf("constructor %q must not take handle parameter %q of type handle:%s", ctor.Name, param.Name, hn))
+				}
+				validateParamType(result, paramPath, &param, handleNames, resolvedTypes)
+			}
+			// Validate error type
+			if ctor.Error != "" && resolvedTypes != nil {
+				info, ok := resolvedTypes[ctor.Error]
+				if !ok {
+					result.addError(ctorPath+".error", fmt.Sprintf("error type %q not found in FlatBuffers schemas", ctor.Error))
+				} else if info.Kind != resolver.TypeKindEnum {
+					result.addError(ctorPath+".error", fmt.Sprintf("error type %q must be an enum, got %s", ctor.Error, info.Kind))
+				}
+			}
+		}
+
+		// Check for duplicate method names within interface (and collision with constructors)
 		for j, method := range iface.Methods {
 			methodPath := fmt.Sprintf("%s.methods[%d]", ifacePath, j)
-			if methodSeen[method.Name] {
-				result.addError(methodPath+".name", fmt.Sprintf("duplicate method name %q in interface %q", method.Name, iface.Name))
+			if allNames[method.Name] {
+				result.addError(methodPath+".name", fmt.Sprintf("duplicate name %q in interface %q", method.Name, iface.Name))
 			}
-			methodSeen[method.Name] = true
+			allNames[method.Name] = true
 
 			validateMethod(result, methodPath, &method, handleNames, resolvedTypes)
+		}
+
+		// Interface must have at least one constructor or at least one method
+		if len(iface.Constructors) == 0 && len(iface.Methods) == 0 {
+			result.addError(ifacePath, fmt.Sprintf("interface %q must have at least one constructor or method", iface.Name))
 		}
 	}
 

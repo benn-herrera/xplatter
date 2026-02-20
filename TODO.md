@@ -35,3 +35,7 @@
 
 ## architecture question: do we want to allow for interface inheritance?
 * complexity cost vs. flexibility benefit?
+
+## schemas is not the right name for the subdirectory holding the api-defining yaml and fbs files.
+* rename schemas dirs to specs
+* rename shared_schemas dir to shared_specs

@@ -65,6 +65,16 @@ extern "C" {
 	exportMacro := ExportMacroName(apiName)
 	for _, iface := range api.Interfaces {
 		fmt.Fprintf(&b, "/* %s */\n", iface.Name)
+		// Constructor methods
+		for _, ctor := range iface.Constructors {
+			writeMethodSignature(&b, apiName, iface.Name, &ctor, exportMacro)
+		}
+		// Auto-generated destructor (when constructors are present)
+		if handleName, ok := iface.ConstructorHandleName(); ok {
+			destructor := SyntheticDestructor(handleName)
+			writeMethodSignature(&b, apiName, iface.Name, &destructor, exportMacro)
+		}
+		// Regular methods
 		for _, method := range iface.Methods {
 			writeMethodSignature(&b, apiName, iface.Name, &method, exportMacro)
 		}

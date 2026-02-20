@@ -24,17 +24,12 @@ handles:
 interfaces:
   - name: lifecycle
     description: "Engine creation, configuration, and teardown"
-    methods:
+    constructors:
       - name: create_engine
         description: "Create and initialize the engine instance"
         returns:
           type: handle:Engine
         error: Common.ErrorCode
-      - name: destroy_engine
-        description: "Shut down and release all engine resources"
-        parameters:
-          - name: engine
-            type: handle:Engine
 
   - name: renderer
     description: "Rendering context and frame management"

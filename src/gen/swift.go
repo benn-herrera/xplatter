@@ -94,41 +94,60 @@ func writeSwiftHandleClass(b *strings.Builder, handle model.HandleDef, api *mode
 	fmt.Fprintf(b, "        self.handle = handle\n")
 	fmt.Fprintf(b, "    }\n\n")
 
-	// Find the destroy method for this handle
-	if destroyIface, destroyMethodName, found := FindDestroyInfo(api, handle.Name); found {
-		destroyFunc := CABIFunctionName(apiName, destroyIface, destroyMethodName)
-		fmt.Fprintf(b, "    deinit {\n")
-		fmt.Fprintf(b, "        %s(handle)\n", destroyFunc)
-		fmt.Fprintf(b, "    }\n\n")
+	// Find the interface that owns this handle's lifecycle and emit deinit.
+	// Primary: interface has constructors → auto-destructor name derived from handle.
+	// Fallback: interface has an explicit destroy_<handle> method in methods: section.
+	deinitEmitted := false
+	expectedDestroyName := DestructorMethodName(handle.Name)
+	for _, iface := range api.Interfaces {
+		if deinitEmitted {
+			break
+		}
+		if ifaceHandleName, ok := iface.ConstructorHandleName(); ok && ifaceHandleName == handle.Name {
+			destroyFunc := CABIFunctionName(apiName, iface.Name, expectedDestroyName)
+			fmt.Fprintf(b, "    deinit {\n")
+			fmt.Fprintf(b, "        %s(handle)\n", destroyFunc)
+			fmt.Fprintf(b, "    }\n\n")
+			deinitEmitted = true
+			break
+		}
+		// Fallback: look for an explicit destroy_<handle> in methods
+		for _, method := range iface.Methods {
+			if method.Name == expectedDestroyName {
+				destroyFunc := CABIFunctionName(apiName, iface.Name, method.Name)
+				fmt.Fprintf(b, "    deinit {\n")
+				fmt.Fprintf(b, "        %s(handle)\n", destroyFunc)
+				fmt.Fprintf(b, "    }\n\n")
+				deinitEmitted = true
+				break
+			}
+		}
 	}
 
-	// Find factory methods that return this handle type
+	// Constructor methods become static factory methods
 	for _, iface := range api.Interfaces {
-		for _, method := range iface.Methods {
-			if method.Returns != nil {
-				if hName, ok := model.IsHandle(method.Returns.Type); ok && hName == handle.Name {
-					// Skip destroy methods
-					if isDestroyMethod(&method, handle.Name) {
-						continue
-					}
-					writeSwiftFactoryMethod(b, apiName, iface.Name, &method, className, resolved)
+		for _, ctor := range iface.Constructors {
+			if ctor.Returns != nil {
+				if hName, ok := model.IsHandle(ctor.Returns.Type); ok && hName == handle.Name {
+					writeSwiftFactoryMethod(b, apiName, iface.Name, &ctor, className, resolved)
+				}
+			}
+		}
+		// Also check regular methods that return this handle type (e.g. create_renderer that takes
+		// an engine handle as a dependency — can't be a constructor, stays in methods)
+		for i := range iface.Methods {
+			m := &iface.Methods[i]
+			if m.Returns != nil {
+				if hName, ok := model.IsHandle(m.Returns.Type); ok && hName == handle.Name {
+					writeSwiftFactoryMethod(b, apiName, iface.Name, m, className, resolved)
 				}
 			}
 		}
 	}
 
-	// Find instance methods (first param is this handle, not returning a new handle or returning non-handle)
+	// Find instance methods (first param is this handle)
 	for _, iface := range api.Interfaces {
 		for _, method := range iface.Methods {
-			if isDestroyMethod(&method, handle.Name) {
-				continue
-			}
-			// Skip factory methods (already written above)
-			if method.Returns != nil {
-				if hName, ok := model.IsHandle(method.Returns.Type); ok && hName == handle.Name {
-					continue
-				}
-			}
 			// Check if first param is this handle
 			if len(method.Parameters) > 0 {
 				if hName, ok := model.IsHandle(method.Parameters[0].Type); ok && hName == handle.Name {
@@ -143,21 +162,6 @@ func writeSwiftHandleClass(b *strings.Builder, handle model.HandleDef, api *mode
 	_ = handleSnake
 	_ = handleCType
 }
-
-// isDestroyMethod returns true if the method looks like a destroy/release method for the given handle.
-func isDestroyMethod(method *model.MethodDef, handleName string) bool {
-	if !strings.HasPrefix(method.Name, "destroy") {
-		return false
-	}
-	if len(method.Parameters) != 1 {
-		return false
-	}
-	if hName, ok := model.IsHandle(method.Parameters[0].Type); ok && hName == handleName {
-		return true
-	}
-	return false
-}
-
 
 // writeSwiftFactoryMethod writes a static factory method that creates a handle.
 func writeSwiftFactoryMethod(b *strings.Builder, apiName, ifaceName string, method *model.MethodDef, className string, resolved resolver.ResolvedTypes) {
@@ -262,7 +266,8 @@ func writeSwiftInstanceMethod(b *strings.Builder, apiName, ifaceName string, met
 // writeSwiftFreeFunctions writes free functions that don't belong to any handle class.
 func writeSwiftFreeFunctions(b *strings.Builder, api *model.APIDefinition, resolved resolver.ResolvedTypes) {
 	// Collect methods that are not associated with any handle
-	// (no handle as first param, not returning a handle, not a destroy method)
+	// (no handle as first param, not returning a handle)
+	// Constructors/destructors are always handle-related and are never free functions.
 	handleNames := map[string]bool{}
 	for _, h := range api.Handles {
 		handleNames[h.Name] = true
@@ -288,14 +293,6 @@ func writeSwiftFreeFunctions(b *strings.Builder, api *model.APIDefinition, resol
 			if len(method.Parameters) > 0 {
 				if hName, ok := model.IsHandle(method.Parameters[0].Type); ok && handleNames[hName] {
 					isHandleRelated = true
-				}
-			}
-
-			// Check if it's a destroy method
-			for _, h := range api.Handles {
-				if isDestroyMethod(&method, h.Name) {
-					isHandleRelated = true
-					break
 				}
 			}
 

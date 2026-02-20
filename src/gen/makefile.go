@@ -13,6 +13,14 @@ import (
 func ComputeWASMExports(apiName string, api *model.APIDefinition) string {
 	exports := []string{`"_malloc"`, `"_free"`}
 	for _, iface := range api.Interfaces {
+		for _, ctor := range iface.Constructors {
+			fn := "_" + CABIFunctionName(apiName, iface.Name, ctor.Name)
+			exports = append(exports, `"`+fn+`"`)
+		}
+		if handleName, ok := iface.ConstructorHandleName(); ok {
+			fn := "_" + CABIFunctionName(apiName, iface.Name, DestructorMethodName(handleName))
+			exports = append(exports, `"`+fn+`"`)
+		}
 		for _, method := range iface.Methods {
 			fn := "_" + CABIFunctionName(apiName, iface.Name, method.Name)
 			exports = append(exports, `"`+fn+`"`)

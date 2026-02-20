@@ -66,16 +66,36 @@ var schemaJSON = `{
     },
     "interface_definition": {
       "type": "object",
-      "required": ["name", "methods"],
+      "required": ["name"],
       "additionalProperties": false,
       "properties": {
         "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
         "description": { "type": "string" },
+        "constructors": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/constructor_definition" },
+          "minItems": 1
+        },
         "methods": {
           "type": "array",
           "items": { "$ref": "#/$defs/method_definition" },
           "minItems": 1
         }
+      }
+    },
+    "constructor_definition": {
+      "type": "object",
+      "required": ["name", "returns", "error"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "pattern": "^create(_[a-z][a-z0-9_]*)?$" },
+        "description": { "type": "string" },
+        "parameters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/parameter_definition" }
+        },
+        "returns": { "$ref": "#/$defs/return_definition" },
+        "error": { "type": "string", "pattern": "^[A-Z][a-zA-Z0-9]*(\\.[A-Z][a-zA-Z0-9]*)*$" }
       }
     },
     "method_definition": {
@@ -141,6 +161,9 @@ func init() {
 		panic(fmt.Sprintf("failed to compile schema: %v", err))
 	}
 }
+
+// SchemaJSON returns the embedded API definition JSON Schema string.
+func SchemaJSON() string { return schemaJSON }
 
 // ValidateSchema validates raw YAML bytes against the API definition JSON Schema.
 func ValidateSchema(yamlData []byte) error {

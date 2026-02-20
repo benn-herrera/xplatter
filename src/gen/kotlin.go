@@ -65,7 +65,7 @@ func generateKotlinFile(api *model.APIDefinition, resolved resolver.ResolvedType
 	}
 
 	// Singleton object for the native library and methods without handles
-	writeKotlinNativeObject(&b, api, pascalName, packageName)
+	writeKotlinNativeObject(&b, api, pascalName)
 
 	return b.String(), nil
 }
@@ -96,15 +96,23 @@ func writeKotlinHandleClass(b *strings.Builder, h model.HandleDef, api *model.AP
 	for _, iface := range api.Interfaces {
 		for _, method := range iface.Methods {
 			if isInstanceMethod(method, h.Name) {
-				writeKotlinInstanceMethod(b, api.API.Name, iface.Name, &method, h.Name, pascalName)
+				writeKotlinInstanceMethod(b, iface.Name, &method, pascalName)
 			}
 		}
 	}
 
-	// AutoCloseable close method — find the destroy method if it exists
-	if ifaceName, methodName, found := FindDestroyInfo(api, h.Name); found {
+	// AutoCloseable close method — find the interface that constructs this handle
+	destructorIfaceName := ""
+	for i := range api.Interfaces {
+		if ifaceHandleName, ok := api.Interfaces[i].ConstructorHandleName(); ok && ifaceHandleName == h.Name {
+			destructorIfaceName = api.Interfaces[i].Name
+			break
+		}
+	}
+	if destructorIfaceName != "" {
+		destroyMethodName := DestructorMethodName(h.Name)
 		fmt.Fprintf(b, "    override fun close() {\n")
-		fmt.Fprintf(b, "        %s.%s(handle)\n", pascalName, jniNativeMethodName(ifaceName, methodName))
+		fmt.Fprintf(b, "        %s.%s(handle)\n", pascalName, jniNativeMethodName(destructorIfaceName, destroyMethodName))
 		fmt.Fprintf(b, "    }\n")
 	} else {
 		fmt.Fprintf(b, "    override fun close() { }\n")
@@ -125,14 +133,7 @@ func isInstanceMethod(method model.MethodDef, handleName string) bool {
 
 
 // writeKotlinInstanceMethod writes a Kotlin method on a handle wrapper class.
-func writeKotlinInstanceMethod(b *strings.Builder, apiName, ifaceName string, method *model.MethodDef, handleName, pascalName string) {
-	// Skip destroy methods (handled by close())
-	snake := model.HandleToSnake(handleName)
-	if (method.Name == "destroy_"+snake || method.Name == "release_"+snake) &&
-		len(method.Parameters) == 1 {
-		return
-	}
-
+func writeKotlinInstanceMethod(b *strings.Builder, ifaceName string, method *model.MethodDef, pascalName string) {
 	methodName := ToCamelCase(method.Name)
 	nativeName := jniNativeMethodName(ifaceName, method.Name)
 	hasError := method.Error != ""
@@ -206,26 +207,40 @@ func writeKotlinInstanceMethod(b *strings.Builder, apiName, ifaceName string, me
 }
 
 // writeKotlinNativeObject writes the companion/singleton object containing native methods
-// and factory functions (methods that don't take a handle as first param, or create handles).
-func writeKotlinNativeObject(b *strings.Builder, api *model.APIDefinition, pascalName, packageName string) {
+// and factory functions (constructors and non-instance methods).
+func writeKotlinNativeObject(b *strings.Builder, api *model.APIDefinition, pascalName string) {
 	fmt.Fprintf(b, "object %s {\n", pascalName)
 	fmt.Fprintf(b, "    init {\n")
 	fmt.Fprintf(b, "        System.loadLibrary(\"%s\")\n", api.API.Name)
 	fmt.Fprintf(b, "    }\n\n")
 
-	// Factory methods (methods that return handles without a handle as first param)
+	// Factory methods: explicit constructors from each interface
 	for _, iface := range api.Interfaces {
-		for _, method := range iface.Methods {
-			if !isAnyInstanceMethod(method, api) {
-				writeKotlinFactoryMethod(b, api.API.Name, iface.Name, &method, pascalName)
+		for i := range iface.Constructors {
+			writeKotlinFactoryMethod(b, iface.Name, &iface.Constructors[i], pascalName)
+		}
+	}
+
+	// Non-lifecycle, non-instance methods (namespace-style static methods)
+	for _, iface := range api.Interfaces {
+		for i := range iface.Methods {
+			if !isAnyInstanceMethod(iface.Methods[i], api) {
+				writeKotlinFactoryMethod(b, iface.Name, &iface.Methods[i], pascalName)
 			}
 		}
 	}
 
-	// JNI native method declarations
+	// JNI native method declarations: constructors, auto-destructor, then regular methods
 	for _, iface := range api.Interfaces {
-		for _, method := range iface.Methods {
-			writeKotlinNativeDecl(b, iface.Name, &method)
+		for i := range iface.Constructors {
+			writeKotlinNativeDecl(b, iface.Name, &iface.Constructors[i])
+		}
+		if handleName, ok := iface.ConstructorHandleName(); ok {
+			destructor := SyntheticDestructor(handleName)
+			writeKotlinNativeDecl(b, iface.Name, &destructor)
+		}
+		for i := range iface.Methods {
+			writeKotlinNativeDecl(b, iface.Name, &iface.Methods[i])
 		}
 	}
 
@@ -247,7 +262,7 @@ func isAnyInstanceMethod(method model.MethodDef, api *model.APIDefinition) bool 
 }
 
 // writeKotlinFactoryMethod writes a top-level factory method (e.g., createEngine).
-func writeKotlinFactoryMethod(b *strings.Builder, apiName, ifaceName string, method *model.MethodDef, pascalName string) {
+func writeKotlinFactoryMethod(b *strings.Builder, ifaceName string, method *model.MethodDef, pascalName string) {
 	methodName := ToCamelCase(method.Name)
 	nativeName := jniNativeMethodName(ifaceName, method.Name)
 	hasError := method.Error != ""
@@ -365,11 +380,18 @@ func generateJNIFile(api *model.APIDefinition, resolved resolver.ResolvedTypes, 
 	fmt.Fprintf(&b, "    }\n")
 	fmt.Fprintf(&b, "}\n\n")
 
-	// Generate JNI functions for each method
+	// Generate JNI functions: constructors, auto-destructor, then regular methods
 	for _, iface := range api.Interfaces {
 		fmt.Fprintf(&b, "/* %s */\n", iface.Name)
-		for _, method := range iface.Methods {
-			writeJNIFunction(&b, apiName, iface.Name, &method, jniClassPath, resolved, packageName)
+		for i := range iface.Constructors {
+			writeJNIFunction(&b, apiName, iface.Name, &iface.Constructors[i], jniClassPath, resolved, packageName)
+		}
+		if handleName, ok := iface.ConstructorHandleName(); ok {
+			destructor := SyntheticDestructor(handleName)
+			writeJNIFunction(&b, apiName, iface.Name, &destructor, jniClassPath, resolved, packageName)
+		}
+		for i := range iface.Methods {
+			writeJNIFunction(&b, apiName, iface.Name, &iface.Methods[i], jniClassPath, resolved, packageName)
 		}
 		b.WriteString("\n")
 	}
@@ -799,15 +821,21 @@ func jniFBSFieldDescriptor(fieldType string) string {
 func writeKotlinFBSDataClasses(b *strings.Builder, resolved resolver.ResolvedTypes, api *model.APIDefinition) {
 	seen := map[string]bool{}
 	var fbTypes []string
-	for _, iface := range api.Interfaces {
-		for _, method := range iface.Methods {
-			if isFlatBufferReturn(&method) {
-				t := method.Returns.Type
-				if !seen[t] {
-					seen[t] = true
-					fbTypes = append(fbTypes, t)
-				}
+	collectFBReturn := func(method *model.MethodDef) {
+		if isFlatBufferReturn(method) {
+			t := method.Returns.Type
+			if !seen[t] {
+				seen[t] = true
+				fbTypes = append(fbTypes, t)
 			}
+		}
+	}
+	for _, iface := range api.Interfaces {
+		for i := range iface.Constructors {
+			collectFBReturn(&iface.Constructors[i])
+		}
+		for i := range iface.Methods {
+			collectFBReturn(&iface.Methods[i])
 		}
 	}
 

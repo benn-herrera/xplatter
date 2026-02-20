@@ -2,229 +2,128 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://xplatter.dev/schemas/api-definition/v1",
   "title": "xplatter API Definition",
-  "description": "Schema for xplatter API definition YAML files. Defines the API surface (handles, interfaces, methods) for cross-platform code generation. All data types (structs, enums, unions, constants) are defined in FlatBuffers schemas, not in this file.",
+  "description": "Schema for xplatter API definition YAML files.",
   "type": "object",
   "required": ["api", "flatbuffers", "interfaces"],
   "additionalProperties": false,
   "properties": {
-    "api": {
-      "$ref": "#/$defs/api_metadata"
-    },
+    "api": { "$ref": "#/$defs/api_metadata" },
     "flatbuffers": {
       "type": "array",
-      "description": "List of FlatBuffers schema file paths. Types from these files are referenced by fully-qualified FlatBuffers namespace.",
-      "items": {
-        "type": "string",
-        "pattern": "\\.fbs$"
-      },
+      "items": { "type": "string", "pattern": "\\.fbs$" },
       "minItems": 1
     },
     "handles": {
       "type": "array",
-      "description": "Opaque handle definitions. Implementation-managed objects represented as typed void* at the C ABI level. Each handle follows create/destroy lifecycle semantics.",
-      "items": {
-        "$ref": "#/$defs/handle_definition"
-      }
+      "items": { "$ref": "#/$defs/handle_definition" }
     },
     "interfaces": {
       "type": "array",
-      "description": "Grouped collections of related methods. Each interface generates C ABI functions named <api_name>_<interface>_<method>.",
-      "items": {
-        "$ref": "#/$defs/interface_definition"
-      },
+      "items": { "$ref": "#/$defs/interface_definition" },
       "minItems": 1
     }
   },
-
   "$defs": {
-
     "api_metadata": {
       "type": "object",
-      "description": "API metadata.",
       "required": ["name", "version", "impl_lang"],
       "additionalProperties": false,
       "properties": {
-        "name": {
-          "type": "string",
-          "description": "API name. Used as a prefix in generated C ABI function names.",
-          "pattern": "^[a-z][a-z0-9_]*$"
-        },
-        "version": {
-          "type": "string",
-          "description": "Semantic version of the API.",
-          "pattern": "^\\d+\\.\\d+\\.\\d+$"
-        },
-        "description": {
-          "type": "string",
-          "description": "Human-readable description of the API."
-        },
-        "impl_lang": {
-          "type": "string",
-          "description": "Implementation language for generated interface and stub files. 'cpp' generates abstract classes with pure virtual methods and a C ABI shim. 'rust' generates trait definitions with skeleton impls and a C ABI shim. 'go' generates interface types with cgo-annotated stub functions and a C ABI shim. 'c' generates only the C API header — use this for pure C implementations or any language not in the front-door path (the consumer implements the C ABI functions directly).",
-          "enum": ["cpp", "rust", "go", "c"]
-        },
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "description": { "type": "string" },
+        "impl_lang": { "type": "string", "enum": ["cpp", "rust", "go", "c"] },
         "targets": {
           "type": "array",
-          "description": "Subset of platform binding targets to generate. If omitted, all targets are generated.",
-          "items": {
-            "type": "string",
-            "enum": ["android", "ios", "web", "windows", "macos", "linux"]
-          },
+          "items": { "type": "string", "enum": ["android", "ios", "web", "windows", "macos", "linux"] },
           "minItems": 1,
           "uniqueItems": true
         }
       }
     },
-
     "handle_definition": {
       "type": "object",
-      "description": "An opaque handle type. C ABI: typedef struct <name>_s* <name>_handle;",
       "required": ["name"],
       "additionalProperties": false,
       "properties": {
-        "name": {
-          "type": "string",
-          "description": "Handle type name. PascalCase.",
-          "pattern": "^[A-Z][a-zA-Z0-9]*$"
-        },
-        "description": {
-          "type": "string",
-          "description": "Human-readable description of what this handle represents."
-        }
+        "name": { "type": "string", "pattern": "^[A-Z][a-zA-Z0-9]*$" },
+        "description": { "type": "string" }
       }
     },
-
     "interface_definition": {
       "type": "object",
-      "description": "A group of related methods.",
-      "required": ["name", "methods"],
+      "required": ["name"],
       "additionalProperties": false,
       "properties": {
-        "name": {
-          "type": "string",
-          "description": "Interface name. snake_case. Used in C ABI function naming.",
-          "pattern": "^[a-z][a-z0-9_]*$"
-        },
-        "description": {
-          "type": "string",
-          "description": "Human-readable description of this interface group."
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "description": { "type": "string" },
+        "constructors": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/constructor_definition" },
+          "minItems": 1
         },
         "methods": {
           "type": "array",
-          "items": {
-            "$ref": "#/$defs/method_definition"
-          },
+          "items": { "$ref": "#/$defs/method_definition" },
           "minItems": 1
         }
       }
     },
-
+    "constructor_definition": {
+      "type": "object",
+      "required": ["name", "returns", "error"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "pattern": "^create(_[a-z][a-z0-9_]*)?$" },
+        "description": { "type": "string" },
+        "parameters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/parameter_definition" }
+        },
+        "returns": { "$ref": "#/$defs/return_definition" },
+        "error": { "type": "string", "pattern": "^[A-Z][a-zA-Z0-9]*(\\.[A-Z][a-zA-Z0-9]*)*$" }
+      }
+    },
     "method_definition": {
       "type": "object",
-      "description": "A single API method. Generates a C ABI function: <api_name>_<interface>_<method>(...).",
       "required": ["name"],
       "additionalProperties": false,
       "properties": {
-        "name": {
-          "type": "string",
-          "description": "Method name. snake_case.",
-          "pattern": "^[a-z][a-z0-9_]*$"
-        },
-        "description": {
-          "type": "string",
-          "description": "Human-readable description of this method. Include performance characteristics (e.g. 'hot path') where relevant."
-        },
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "description": { "type": "string" },
         "parameters": {
           "type": "array",
-          "description": "Ordered list of input parameters.",
-          "items": {
-            "$ref": "#/$defs/parameter_definition"
-          }
+          "items": { "$ref": "#/$defs/parameter_definition" }
         },
-        "returns": {
-          "$ref": "#/$defs/return_definition"
-        },
-        "error": {
-          "type": "string",
-          "description": "FlatBuffers enum type used as the error return. When specified, the C ABI function returns this type and any return value becomes a final out-parameter pointer.",
-          "$ref": "#/$defs/flatbuffer_type_pattern"
-        }
+        "returns": { "$ref": "#/$defs/return_definition" },
+        "error": { "type": "string", "pattern": "^[A-Z][a-zA-Z0-9]*(\\.[A-Z][a-zA-Z0-9]*)*$" }
       }
     },
-
     "parameter_definition": {
       "type": "object",
-      "description": "A method parameter.",
       "required": ["name", "type"],
       "additionalProperties": false,
       "properties": {
-        "name": {
-          "type": "string",
-          "description": "Parameter name. snake_case.",
-          "pattern": "^[a-z][a-z0-9_]*$"
-        },
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
         "type": {
           "type": "string",
-          "description": "Parameter type. Can be a primitive (int8..uint64, float32, float64, bool), string, buffer<primitive>, handle:Name, or a FlatBuffers fully-qualified type (Namespace.Type).",
-          "$ref": "#/$defs/parameter_type_pattern"
+          "pattern": "^(int8|int16|int32|int64|uint8|uint16|uint32|uint64|float32|float64|bool|string|buffer<(int8|int16|int32|int64|uint8|uint16|uint32|uint64|float32|float64)>|handle:[A-Z][a-zA-Z0-9]*|[A-Z][a-zA-Z0-9]*(\\.[A-Z][a-zA-Z0-9]*)*)$"
         },
-        "transfer": {
-          "type": "string",
-          "description": "Transfer semantics. 'value': copied across boundary (default for primitives and handles). 'ref': caller owns, callee borrows immutably (const T*). 'ref_mut': caller owns, callee borrows mutably (T*).",
-          "enum": ["value", "ref", "ref_mut"],
-          "default": "value"
-        },
-        "description": {
-          "type": "string",
-          "description": "Human-readable description of this parameter."
-        }
+        "transfer": { "type": "string", "enum": ["value", "ref", "ref_mut"] },
+        "description": { "type": "string" }
       }
     },
-
     "return_definition": {
       "type": "object",
-      "description": "Method return value. When the method also has an 'error' field, this becomes a final out-parameter pointer in the C ABI.",
       "required": ["type"],
       "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
-          "description": "Return type. Can be a primitive (int8..uint64, float32, float64, bool), handle:Name, or a FlatBuffers fully-qualified type. Cannot be string or buffer<T> — use FlatBuffer result types for those.",
-          "$ref": "#/$defs/return_type_pattern"
+          "pattern": "^(int8|int16|int32|int64|uint8|uint16|uint32|uint64|float32|float64|bool|handle:[A-Z][a-zA-Z0-9]*|[A-Z][a-zA-Z0-9]*(\\.[A-Z][a-zA-Z0-9]*)*)$"
         },
-        "description": {
-          "type": "string",
-          "description": "Human-readable description of the return value."
-        }
+        "description": { "type": "string" }
       }
-    },
-
-    "primitive_type": {
-      "type": "string",
-      "enum": [
-        "int8", "int16", "int32", "int64",
-        "uint8", "uint16", "uint32", "uint64",
-        "float32", "float64",
-        "bool"
-      ]
-    },
-
-    "parameter_type_pattern": {
-      "type": "string",
-      "description": "Valid parameter types: primitives, string, buffer<primitive>, handle:Name, or FlatBuffers Namespace.Type.",
-      "pattern": "^(int8|int16|int32|int64|uint8|uint16|uint32|uint64|float32|float64|bool|string|buffer<(int8|int16|int32|int64|uint8|uint16|uint32|uint64|float32|float64)>|handle:[A-Z][a-zA-Z0-9]*|[A-Z][a-zA-Z0-9]*(\\.[A-Z][a-zA-Z0-9]*)*)$"
-    },
-
-    "return_type_pattern": {
-      "type": "string",
-      "description": "Valid return types: primitives, handle:Name, or FlatBuffers Namespace.Type. string and buffer<T> are not allowed as return types.",
-      "pattern": "^(int8|int16|int32|int64|uint8|uint16|uint32|uint64|float32|float64|bool|handle:[A-Z][a-zA-Z0-9]*|[A-Z][a-zA-Z0-9]*(\\.[A-Z][a-zA-Z0-9]*)*)$"
-    },
-
-    "flatbuffer_type_pattern": {
-      "type": "string",
-      "description": "A FlatBuffers fully-qualified type reference (e.g. Common.ErrorCode, Geometry.Transform3D).",
-      "pattern": "^[A-Z][a-zA-Z0-9]*(\\.[A-Z][a-zA-Z0-9]*)*$"
     }
   }
 }

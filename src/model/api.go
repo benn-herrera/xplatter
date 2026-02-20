@@ -30,9 +30,10 @@ type HandleDef struct {
 
 // InterfaceDef groups related methods.
 type InterfaceDef struct {
-	Name        string      `yaml:"name"`
-	Description string      `yaml:"description,omitempty"`
-	Methods     []MethodDef `yaml:"methods"`
+	Name         string      `yaml:"name"`
+	Description  string      `yaml:"description,omitempty"`
+	Constructors []MethodDef `yaml:"constructors,omitempty"`
+	Methods      []MethodDef `yaml:"methods,omitempty"`
 }
 
 // MethodDef defines a single API method.
@@ -122,6 +123,19 @@ func (a *APIDefinition) EffectiveTargets() []string {
 		return a.API.Targets
 	}
 	return AllTargets
+}
+
+// ConstructorHandleName returns the handle name produced by this interface's
+// constructors, or ("", false) if the interface has no constructors or the
+// first constructor does not return a handle.
+func (iface *InterfaceDef) ConstructorHandleName() (string, bool) {
+	if len(iface.Constructors) == 0 {
+		return "", false
+	}
+	if iface.Constructors[0].Returns == nil {
+		return "", false
+	}
+	return IsHandle(iface.Constructors[0].Returns.Type)
 }
 
 // HandleByName looks up a handle definition by name.

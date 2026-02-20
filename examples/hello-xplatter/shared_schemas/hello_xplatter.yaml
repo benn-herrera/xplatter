@@ -5,6 +5,9 @@ api:
   impl_lang: c
 
 flatbuffers:
+  # in addition to your authored fbs file in the same directory
+  # any fbs from bin/schemas can be referenced here
+  # e.g. core_types.fbs, input_events.fbs
   - hello_types.fbs
 
 handles:
@@ -12,15 +15,11 @@ handles:
 
 interfaces:
   - name: lifecycle
-    methods:
+    constructors:
       - name: create_greeter
         returns:
           type: handle:Greeter
         error: Hello.ErrorCode
-      - name: destroy_greeter
-        parameters:
-          - name: greeter
-            type: handle:Greeter
 
   - name: greeter
     methods:
@@ -32,7 +31,6 @@ interfaces:
             type: string
         returns:
           # if yout need to return a string in your API use
-          # BoxedString from schemas/core_types.fbs
-          # this is just a minimal example of defining your own types.
+          # BoxedString from core_types.fbs
           type: Hello.Greeting
         error: Hello.ErrorCode
