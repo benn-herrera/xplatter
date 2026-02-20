@@ -25,3 +25,5 @@
 * complexity cost vs. flexibility benefit?
 
 ## returning strings only as flatbuffer BoxedString that requires implementer to hold an allocation indefinitely is unacceptably burdensome on xplatter users (API implementers) - think about this problem more carefully.
+
+## DON'T FORGET WINDOWS AND LINUX. MAYBE SPEND A DAY OR SO WORKING ON UNBREAKING EVERYTHING THAT'S BOUND TO BE BONED OVER THERE.
