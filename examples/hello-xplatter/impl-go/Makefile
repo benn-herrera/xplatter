@@ -70,14 +70,13 @@ $(STAMP): $(API_DEF)
 GEN_GO_SOURCES := $(wildcard generated/$(API_NAME)_*.go)
 GEN_GO_COPIES  := $(notdir $(GEN_GO_SOURCES))
 
-.PHONY: run shared-lib clean
+.PHONY: test shared-lib clean
 
 # ── Local build ──────────────────────────────────────────────────────────────
 
-run: $(STAMP)
-	@mkdir -p $(BUILD_DIR)
-	go build -o $(BUILD_DIR)/$(API_NAME) .
-	./$(BUILD_DIR)/$(API_NAME)
+test: $(STAMP)
+	go build -tags="testing" -o $(BUILD_DIR)/test_$(API_NAME) .
+	$(BUILD_DIR)/test_$(API_NAME)
 
 shared-lib: $(SHARED_LIB)
 
