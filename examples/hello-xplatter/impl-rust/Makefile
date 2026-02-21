@@ -42,7 +42,11 @@ SHARED_LIB := $(BUILD_DIR)/$(LIB_NAME).$(DYLIB_EXT)
 # ── NDK configuration ─────────────────────────────────────────────────────────
 
 NDK_VERSION     ?= 29.0.14206865
-NDK             ?= $(HOME)/Library/Android/sdk/ndk/$(NDK_VERSION)
+ifeq ($(HOST_OS),Darwin)
+  NDK           ?= $(HOME)/Library/Android/sdk/ndk/$(NDK_VERSION)
+else
+  NDK           ?= $(HOME)/Android/Sdk/ndk/$(NDK_VERSION)
+endif
 NDK_BIN         := $(NDK)/toolchains/llvm/prebuilt/$(NDK_HOST_OS)-$(NDK_HOST_ARCH)/bin
 ANDROID_MIN_API := 21
 

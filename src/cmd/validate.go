@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/spf13/cobra"
 	"github.com/benn-herrera/xplatter/loader"
 	"github.com/benn-herrera/xplatter/resolver"
 	"github.com/benn-herrera/xplatter/validate"
+	"github.com/spf13/cobra"
 )
 
 var (

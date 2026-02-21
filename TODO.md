@@ -4,10 +4,6 @@
 * items on the todo list are addressed one encapsulated (## headed) issue at a time in top down order. The task is to be accomplished starting in planning mode and then moving on to execution.
 * when completed they are marked done (## DONE - [description]) and moved to the end of the file for archival purposes
 
-## examples/hello-xplatter/impl-c has Linux problems
-  * make package-desktop fails 
-  * make package-android fails
-
 ## _IGNORE THIS LINE AND EVERYTHING BELOW IT IN THIS FILE - STAGING AREA FOR FUTURE WORK_
 
 ## in GC'd languages (Swift, Kotlin, JavaScript)   
@@ -31,3 +27,7 @@
 ## returning strings only as flatbuffer BoxedString that requires implementer to hold an allocation indefinitely is unacceptably burdensome on xplatter users (API implementers) - think about this problem more carefully.
 
 ## DON'T FORGET WINDOWS AND LINUX. MAYBE SPEND A DAY OR SO WORKING ON UNBREAKING EVERYTHING THAT'S BOUND TO BE BORKED OVER THERE.
+
+## DONE - examples/hello-xplatter/impl-c has Linux problems
+  * Fixed: make package-desktop failed due to macOS-only -Wl,-install_name linker flag in shared-lib rule (C, C++, Go generators)
+  * Fixed: make package-android failed due to NDK default path hardcoded to macOS ~/Library/Android/sdk/ (all generators via shared MakefileTargetConfig)

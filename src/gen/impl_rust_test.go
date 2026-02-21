@@ -41,11 +41,11 @@ func TestRustImplGenerator_Minimal(t *testing.T) {
 	}
 	expectedFlags := map[string]fileExpect{
 		"test_api_trait.rs":    {false, false},
-		"test_api_ffi.rs":     {false, false},
+		"test_api_ffi.rs":      {false, false},
 		"src/test_api_impl.rs": {true, true},
-		"test_api_types.rs":   {false, false},
-		"Cargo.toml":          {true, true},
-		"src/lib.rs":          {true, true},
+		"test_api_types.rs":    {false, false},
+		"Cargo.toml":           {true, true},
+		"src/lib.rs":           {true, true},
 	}
 	for _, f := range files {
 		expect := expectedFlags[f.Path]

@@ -70,7 +70,6 @@ func generateKotlinFile(api *model.APIDefinition, resolved resolver.ResolvedType
 	return b.String(), nil
 }
 
-
 // writeKotlinException writes a Kotlin exception class for a FlatBuffer error enum.
 func writeKotlinException(b *strings.Builder, errType string) {
 	className := kotlinErrorExceptionName(errType)
@@ -130,7 +129,6 @@ func isInstanceMethod(method model.MethodDef, handleName string) bool {
 	hName, ok := model.IsHandle(first.Type)
 	return ok && hName == handleName
 }
-
 
 // writeKotlinInstanceMethod writes a Kotlin method on a handle wrapper class.
 func writeKotlinInstanceMethod(b *strings.Builder, ifaceName string, method *model.MethodDef, pascalName string) {

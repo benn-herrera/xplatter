@@ -14,7 +14,7 @@ import (
 type TypeKind int
 
 const (
-	TypeKindEnum   TypeKind = iota
+	TypeKindEnum TypeKind = iota
 	TypeKindTable
 	TypeKindStruct
 	TypeKindUnion

@@ -54,7 +54,11 @@ run: $(STAMP)
 shared-lib: $(SHARED_LIB)
 
 $(SHARED_LIB): $(STAMP)
+ifeq ($(HOST_OS),Darwin)
 	go build -buildmode=c-shared -ldflags='-extldflags "-Wl,-install_name,@rpath/$(LIB_NAME).$(DYLIB_EXT)"' -o $(SHARED_LIB) .
+else
+	go build -buildmode=c-shared -o $(SHARED_LIB) .
+endif
 
 clean:
 	rm -rf generated $(BUILD_DIR) $(DIST_DIR)

@@ -59,9 +59,14 @@ shared-lib: $(SHARED_LIB)
 
 $(SHARED_LIB): $(STAMP)
 	@mkdir -p $(BUILD_DIR)
+ifeq ($(HOST_OS),Darwin)
 	$(CXX) $(CXXFLAGS) $(LIB_VISIBILITY_FLAGS) -shared -fPIC \
 		-Wl,-install_name,@rpath/$(LIB_NAME).$(DYLIB_EXT) \
 		-o $@ $(IMPL_SOURCES) $(SHIM_SOURCE) $(PLATFORM_SERVICES)/desktop.c
+else
+	$(CXX) $(CXXFLAGS) $(LIB_VISIBILITY_FLAGS) -shared -fPIC \
+		-o $@ $(IMPL_SOURCES) $(SHIM_SOURCE) $(PLATFORM_SERVICES)/desktop.c
+endif
 
 clean:
 	rm -rf generated $(BUILD_DIR) $(DIST_DIR)

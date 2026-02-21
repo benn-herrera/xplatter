@@ -39,10 +39,10 @@ func TestImplCppGenerator_Minimal(t *testing.T) {
 	}
 	expectedFlags := map[string]fileExpect{
 		"test_api_interface.h": {false, false},
-		"test_api_shim.cpp":   {false, false},
-		"test_api_impl.h":     {true, true},
-		"test_api_impl.cpp":   {true, true},
-		"CMakeLists.txt":      {true, true},
+		"test_api_shim.cpp":    {false, false},
+		"test_api_impl.h":      {true, true},
+		"test_api_impl.cpp":    {true, true},
+		"CMakeLists.txt":       {true, true},
 	}
 	for _, f := range files {
 		expect := expectedFlags[f.Path]

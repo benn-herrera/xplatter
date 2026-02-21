@@ -55,7 +55,6 @@ func (g *SwiftGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	}, nil
 }
 
-
 // writeSwiftErrorEnum writes a Swift enum conforming to Error for a FlatBuffer error code type.
 func writeSwiftErrorEnum(b *strings.Builder, errType string, resolved resolver.ResolvedTypes) {
 	swiftName := swiftErrorEnumName(errType)
