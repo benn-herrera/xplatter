@@ -15,7 +15,12 @@ Examples would be projects implementing on-device inference, media processing, a
 ### Prerequisites
 
 - **Go 1.25+**
-  - Linux: ```sudo apt install golang```
+  - Linux: 
+    - this did NOT work for me on WSL2: ```sudo apt install golang```
+    - this did: ```GO_VERSION=1.26.0 && curl -sL https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz | tar -C ${HOME}/.local -xzf -```
+      - if you are replacing an existing installation be sure to remove the old installation first.
+      - add ${HOME}/.local/go/bin to PATH or make symbolic links in ${HOME}/.local/bin to go and gofmt
+
   - macOS: ```brew install go ```
   - Windows: ```winget install GoLang.Go```
 - **flatc** (FlatBuffers compiler — required for per-language struct codegen)
