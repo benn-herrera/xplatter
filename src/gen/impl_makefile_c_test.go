@@ -56,7 +56,7 @@ func TestCMakefileGenerator_Content(t *testing.T) {
 	if !strings.Contains(content, "IMPL_LANG := c") {
 		t.Error("missing IMPL_LANG := c")
 	}
-	if !strings.Contains(content, "-std=c11") {
+	if !strings.Contains(content, "-std=c17") {
 		t.Error("missing C11 standard flag")
 	}
 

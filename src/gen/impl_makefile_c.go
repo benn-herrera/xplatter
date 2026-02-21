@@ -30,14 +30,14 @@ PLATFORM_SERVICES := platform_services
 
 ifneq (,$(EXE))
 CC         := cl
-CFLAGS     := /W4 /std:c11 /I. /I$(GEN_DIR) /D$(BUILD_MACRO)
+CFLAGS     := /W4 /std:c17 /I. /I$(GEN_DIR) /D$(BUILD_MACRO)
 LIB_VISIBILITY_FLAGS := /D$(BUILD_MACRO)
-LIB_C_FLAGS := /std:c11 /W4 $(LIB_VISIBILITY_FLAGS)
+LIB_C_FLAGS := /std:c17 /W4 $(LIB_VISIBILITY_FLAGS)
 else
 CC         ?= cc
-CFLAGS     := -Wall -Wextra -std=c11 -I. -I$(GEN_DIR)
+CFLAGS     := -Wall -Wextra -std=c17 -I. -I$(GEN_DIR)
 LIB_VISIBILITY_FLAGS := -fvisibility=hidden -D$(BUILD_MACRO)
-LIB_C_FLAGS := -std=c11 -Wall -Wextra $(LIB_VISIBILITY_FLAGS)
+LIB_C_FLAGS := -std=c17 -Wall -Wextra $(LIB_VISIBILITY_FLAGS)
 endif
 
 # Ensure codegen runs before any target needs generated files

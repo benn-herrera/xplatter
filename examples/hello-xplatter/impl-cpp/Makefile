@@ -75,20 +75,22 @@ endif
 # ── NDK configuration ─────────────────────────────────────────────────────────
 
 ifdef ANDROID_NDK
-  NDK ?= $(ANDROID_NDK)
+  ANDK ?= $(shell echo "$(ANDROID_NDK)" | sed 's:\\\\:/:g')
 else
-  ifndef ANDROID_SDK
+  ifdef ANDROID_SDK
+    ASDK ?= $(shell echo "$(ANDROID_SDK)" | sed 's:\\\\:/:g')
+  else
     ifeq ($(NDK_HOST_OS),darwin)
-      ANDROID_SDK ?= $(HOME)/Library/Android/sdk
+      ASDK ?= $(HOME)/Library/Android/sdk
     else ifeq ($(NDK_HOST_OS),linux)
-      ANDROID_SDK ?= $(HOME)/Android/Sdk
+      ASDK ?= $(HOME)/Android/Sdk
     else ifeq ($(NDK_HOST_OS),windows)
-      ANDROID_SDK ?= $(LOCALAPPDATA)/Android/Sdk
+      ASDK ?= $(shell echo "$(LOCALAPPDATA)" | sed 's:\\:/:g')/Android/Sdk
     endif
   endif
-  NDK ?= $(shell ls $(ANDROID_SDK)/ndk | sort -V | tail -1)
+  ANDK ?= $(shell ls $(ASDK)/ndk | sort -V | tail -1)
 endif
-NDK_BIN         := $(NDK)/toolchains/llvm/prebuilt/$(NDK_HOST_OS)-$(NDK_HOST_ARCH)/bin
+NDK_BIN         := $(ANDK)/toolchains/llvm/prebuilt/$(NDK_HOST_OS)-$(NDK_HOST_ARCH)/bin
 ANDROID_MIN_API := 28
 
 # ── iOS ───────────────────────────────────────────────────────────────────────
@@ -120,16 +122,16 @@ ifneq (,$(EXE))
 CXX        := cl
 CC         := cl
 CXXFLAGS   := /W4 /std:c++20 /EHsc /I$(GEN_DIR) /D$(BUILD_MACRO)
-CFLAGS     := /W4 /std:c11 /I$(GEN_DIR) /D$(BUILD_MACRO)
+CFLAGS     := /W4 /std:c17 /I$(GEN_DIR) /D$(BUILD_MACRO)
 LIB_VISIBILITY_FLAGS := /D$(BUILD_MACRO)
-LIB_C_FLAGS := /std:c11 /W4 $(LIB_VISIBILITY_FLAGS)
+LIB_C_FLAGS := /std:c17 /W4 $(LIB_VISIBILITY_FLAGS)
 else
 CXX        ?= c++
 CC         ?= cc
 CXXFLAGS   := -Wall -Wextra -std=c++20 -I$(GEN_DIR)
-CFLAGS     := -Wall -Wextra -std=c11 -I$(GEN_DIR)
+CFLAGS     := -Wall -Wextra -std=c17 -I$(GEN_DIR)
 LIB_VISIBILITY_FLAGS := -fvisibility=hidden -D$(BUILD_MACRO)
-LIB_C_FLAGS := -std=c11 -Wall -Wextra $(LIB_VISIBILITY_FLAGS)
+LIB_C_FLAGS := -std=c17 -Wall -Wextra $(LIB_VISIBILITY_FLAGS)
 endif
 
 # ── Codegen ──────────────────────────────────────────────────────────────────
