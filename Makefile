@@ -69,8 +69,7 @@ dist:
 			go build -ldflags "$(LDFLAGS)" -o "../$$output" . && cd ..; \
 	done
 	@cp -r $(SRC_DIR) $(DIST_PKG)/$(SRC_DIR)
-	@cp build_codegen.sh $(DIST_PKG)/
-	@cp xplatter.sh $(DIST_PKG)/
+	@cp xplatter.sh build_codegen.sh $(DIST_PKG)/
 	@rsync -a --exclude='build/' --exclude='generated/' --exclude='dist/' --exclude='target/' --exclude='hello_xplatter.h' --exclude='Cargo.lock' examples $(DIST_PKG)/
 	@cp -r specs $(DIST_PKG)/bin/specs
 	@cp -r docs $(DIST_PKG)/docs
