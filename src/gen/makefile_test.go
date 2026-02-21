@@ -100,7 +100,7 @@ func TestMakefileTargetConfig(t *testing.T) {
 	if !strings.Contains(content, "target_enabled") {
 		t.Error("missing target_enabled function")
 	}
-	if !strings.Contains(content, "NDK_VERSION") {
+	if !strings.Contains(content, "ANDROID_SDK") {
 		t.Error("missing NDK configuration")
 	}
 	if !strings.Contains(content, "IOS_MIN") {

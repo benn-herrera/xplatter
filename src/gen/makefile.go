@@ -125,20 +125,22 @@ endif
 
 # ── NDK configuration ─────────────────────────────────────────────────────────
 
-NDK_VERSION     ?= 29.0.14206865
 ifdef ANDROID_NDK
-  NDK           ?= $(ANDROID_NDK)
-else ifdef ANDROID_SDK
-  NDK           ?= $(ANDROID_SDK)/ndk/$(NDK_VERSION)
-else ifeq ($(HOST_OS),Darwin)
-  NDK           ?= $(HOME)/Library/Android/sdk/ndk/$(NDK_VERSION)
-else ifneq (,$(findstring windows,$(NDK_HOST_OS)))
-  NDK           ?= $(LOCALAPPDATA)/Android/Sdk/ndk/$(NDK_VERSION)
+  NDK ?= $(ANDROID_NDK)
 else
-  NDK           ?= $(HOME)/Android/Sdk/ndk/$(NDK_VERSION)
+  ifndef ANDROID_SDK
+    ifeq ($(NDK_HOST_OS),darwin)
+      ANDROID_SDK ?= $(HOME)/Library/Android/sdk
+    else ifeq ($(NDK_HOST_OS),linux)
+      ANDROID_SDK ?= $(HOME)/Android/Sdk
+    else ifeq ($(NDK_HOST_OS),windows)
+      ANDROID_SDK ?= $(LOCALAPPDATA)/Android/Sdk
+    endif
+  endif
+  NDK ?= $(shell ls $(ANDROID_SDK)/ndk | sort -V | tail -1)
 endif
 NDK_BIN         := $(NDK)/toolchains/llvm/prebuilt/$(NDK_HOST_OS)-$(NDK_HOST_ARCH)/bin
-ANDROID_MIN_API := 21
+ANDROID_MIN_API := 28
 
 # ── iOS ───────────────────────────────────────────────────────────────────────
 
