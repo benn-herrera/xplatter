@@ -48,8 +48,8 @@ $(STAMP): $(API_DEF)
 
 run: $(STAMP)
 	@mkdir -p $(BUILD_DIR)
-	go build -o $(BUILD_DIR)/$(API_NAME) .
-	./$(BUILD_DIR)/$(API_NAME)
+	go build -o $(BUILD_DIR)/$(API_NAME)$(EXE) .
+	./$(BUILD_DIR)/$(API_NAME)$(EXE)
 
 shared-lib: $(SHARED_LIB)
 

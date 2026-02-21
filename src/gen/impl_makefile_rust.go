@@ -44,9 +44,13 @@ shared-lib: $(SHARED_LIB)
 $(SHARED_LIB): $(STAMP)
 	cargo build --release
 	@mkdir -p $(BUILD_DIR)
+ifneq (,$(EXE))
+	cp target/release/$(API_NAME).dll $(SHARED_LIB)
+else ifeq ($(HOST_OS),Darwin)
 	cp target/release/$(LIB_NAME).$(DYLIB_EXT) $(SHARED_LIB)
-ifeq ($(HOST_OS),Darwin)
 	install_name_tool -id @rpath/$(LIB_NAME).$(DYLIB_EXT) $(SHARED_LIB)
+else
+	cp target/release/$(LIB_NAME).$(DYLIB_EXT) $(SHARED_LIB)
 endif
 
 clean:

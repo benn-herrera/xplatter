@@ -25,14 +25,23 @@ func (g *CppMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 
 	b.WriteString(`# ── C++ build configuration ───────────────────────────────────────────────────
 
+PLATFORM_SERVICES := platform_services
+
+ifneq (,$(EXE))
+CXX        := cl
+CC         := cl
+CXXFLAGS   := /W4 /std:c++20 /EHsc /I$(GEN_DIR) /D$(BUILD_MACRO)
+CFLAGS     := /W4 /std:c11 /I$(GEN_DIR) /D$(BUILD_MACRO)
+LIB_VISIBILITY_FLAGS := /D$(BUILD_MACRO)
+LIB_C_FLAGS := /std:c11 /W4 $(LIB_VISIBILITY_FLAGS)
+else
 CXX        ?= c++
 CC         ?= cc
 CXXFLAGS   := -Wall -Wextra -std=c++20 -I$(GEN_DIR)
 CFLAGS     := -Wall -Wextra -std=c11 -I$(GEN_DIR)
 LIB_VISIBILITY_FLAGS := -fvisibility=hidden -D$(BUILD_MACRO)
 LIB_C_FLAGS := -std=c11 -Wall -Wextra $(LIB_VISIBILITY_FLAGS)
-
-PLATFORM_SERVICES := platform_services
+endif
 
 `)
 
@@ -51,9 +60,14 @@ $(GEN_HEADER) $(GEN_SWIFT_BINDING) $(GEN_KOTLIN_BINDING) $(GEN_JS_BINDING) $(GEN
 
 run: $(STAMP)
 	@mkdir -p $(BUILD_DIR)
+ifneq (,$(EXE))
+	$(CXX) $(CXXFLAGS) /Fe:$(BUILD_DIR)/$(API_NAME).exe \
+		$(IMPL_SOURCES) $(SHIM_SOURCE) $(PLATFORM_SERVICES)/desktop.c main.cpp
+else
 	$(CXX) $(CXXFLAGS) -o $(BUILD_DIR)/$(API_NAME) \
 		$(IMPL_SOURCES) $(SHIM_SOURCE) $(PLATFORM_SERVICES)/desktop.c main.cpp
-	./$(BUILD_DIR)/$(API_NAME)
+endif
+	./$(BUILD_DIR)/$(API_NAME)$(EXE)
 
 shared-lib: $(SHARED_LIB)
 
@@ -63,6 +77,10 @@ ifeq ($(HOST_OS),Darwin)
 	$(CXX) $(CXXFLAGS) $(LIB_VISIBILITY_FLAGS) -shared -fPIC \
 		-Wl,-install_name,@rpath/$(LIB_NAME).$(DYLIB_EXT) \
 		-o $@ $(IMPL_SOURCES) $(SHIM_SOURCE) $(PLATFORM_SERVICES)/desktop.c
+else ifneq (,$(EXE))
+	$(CXX) /LD $(LIB_VISIBILITY_FLAGS) $(CXXFLAGS) \
+		$(IMPL_SOURCES) $(SHIM_SOURCE) $(PLATFORM_SERVICES)/desktop.c \
+		/Fe:$@ /link /IMPLIB:$(BUILD_DIR)/$(API_NAME).lib
 else
 	$(CXX) $(CXXFLAGS) $(LIB_VISIBILITY_FLAGS) -shared -fPIC \
 		-o $@ $(IMPL_SOURCES) $(SHIM_SOURCE) $(PLATFORM_SERVICES)/desktop.c

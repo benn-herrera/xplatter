@@ -24,10 +24,16 @@ target_enabled = $(filter $(1),$(TARGETS))
 
 HOST_OS   := $(shell uname -s)
 HOST_ARCH := $(shell uname -m)
+EXE       :=
 ifeq ($(HOST_OS),Darwin)
   DYLIB_EXT     := dylib
   NDK_HOST_OS   := darwin
   NDK_HOST_ARCH := x86_64
+else ifneq (,$(findstring MINGW,$(HOST_OS))$(findstring MSYS,$(HOST_OS)))
+  DYLIB_EXT     := dll
+  NDK_HOST_OS   := windows
+  NDK_HOST_ARCH := x86_64
+  EXE           := .exe
 else
   DYLIB_EXT    := so
   NDK_HOST_OS  := linux
@@ -39,6 +45,33 @@ else
 endif
 SHARED_LIB := $(BUILD_DIR)/$(LIB_NAME).$(DYLIB_EXT)
 
+# ── MSVC discovery (Windows only) ─────────────────────────────────────────────
+# If cl.exe is already on PATH (e.g. Developer Command Prompt), this is skipped.
+# Otherwise, uses vswhere.exe to locate Visual Studio and sets up paths.
+# Override MSVC_DIR to point to a custom MSVC toolset directory.
+
+ifneq (,$(EXE))
+  PROGRAMFILES_X86 ?= $(shell cmd //C "echo %ProgramFiles(x86)%" 2>/dev/null | tr -d '\r')
+  VSWHERE := $(PROGRAMFILES_X86)/Microsoft Visual Studio/Installer/vswhere.exe
+  ifeq (,$(shell which cl.exe 2>/dev/null))
+    ifndef MSVC_DIR
+      VS_PATH := $(shell "$(VSWHERE)" -latest -products '*' \
+          -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 \
+          -property installationPath -format value 2>/dev/null | tr -d '\r')
+      MSVC_VER := $(shell cat "$(VS_PATH)/VC/Auxiliary/Build/Microsoft.VCToolsVersion.default.txt" 2>/dev/null | tr -d '\r')
+      MSVC_DIR := $(VS_PATH)/VC/Tools/MSVC/$(MSVC_VER)
+    endif
+    MSVC_BIN  := $(MSVC_DIR)/bin/Hostx64/x64
+    export PATH := $(MSVC_BIN);$(PATH)
+
+    WIN_SDK_ROOT ?= $(PROGRAMFILES_X86)/Windows Kits/10
+    WIN_SDK_VER  ?= $(shell ls "$(WIN_SDK_ROOT)/Include" 2>/dev/null | sort -V | tail -1)
+
+    export INCLUDE := $(MSVC_DIR)/include;$(WIN_SDK_ROOT)/Include/$(WIN_SDK_VER)/ucrt;$(WIN_SDK_ROOT)/Include/$(WIN_SDK_VER)/shared;$(WIN_SDK_ROOT)/Include/$(WIN_SDK_VER)/um
+    export LIB := $(MSVC_DIR)/lib/x64;$(WIN_SDK_ROOT)/Lib/$(WIN_SDK_VER)/ucrt/x64;$(WIN_SDK_ROOT)/Lib/$(WIN_SDK_VER)/um/x64
+  endif
+endif
+
 # ── NDK configuration ─────────────────────────────────────────────────────────
 
 NDK_VERSION     ?= 29.0.14206865
@@ -48,6 +81,8 @@ else ifdef ANDROID_SDK
   NDK           ?= $(ANDROID_SDK)/ndk/$(NDK_VERSION)
 else ifeq ($(HOST_OS),Darwin)
   NDK           ?= $(HOME)/Library/Android/sdk/ndk/$(NDK_VERSION)
+else ifneq (,$(findstring windows,$(NDK_HOST_OS)))
+  NDK           ?= $(LOCALAPPDATA)/Android/Sdk/ndk/$(NDK_VERSION)
 else
   NDK           ?= $(HOME)/Android/Sdk/ndk/$(NDK_VERSION)
 endif
@@ -94,8 +129,8 @@ GEN_GO_COPIES  := $(notdir $(GEN_GO_SOURCES))
 # ── Local build ──────────────────────────────────────────────────────────────
 
 test: $(STAMP)
-	go build -tags="testing" -o $(BUILD_DIR)/test_$(API_NAME) .
-	$(BUILD_DIR)/test_$(API_NAME)
+	go build -tags="testing" -o $(BUILD_DIR)/test_$(API_NAME)$(EXE) .
+	$(BUILD_DIR)/test_$(API_NAME)$(EXE)
 
 shared-lib: $(SHARED_LIB)
 

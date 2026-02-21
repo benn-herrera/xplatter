@@ -109,6 +109,43 @@ func TestMakefileTargetConfig(t *testing.T) {
 	if !strings.Contains(content, "EMCC") {
 		t.Error("missing Emscripten configuration")
 	}
+
+	// Windows platform detection
+	if !strings.Contains(content, "findstring MINGW,$(HOST_OS)") {
+		t.Error("missing MINGW detection for Windows")
+	}
+	if !strings.Contains(content, "findstring MSYS,$(HOST_OS)") {
+		t.Error("missing MSYS detection for Windows")
+	}
+	if !strings.Contains(content, "DYLIB_EXT     := dll") {
+		t.Error("missing dll extension for Windows")
+	}
+	if !strings.Contains(content, "EXE           := .exe") {
+		t.Error("missing EXE variable for Windows")
+	}
+	if !strings.Contains(content, "NDK_HOST_OS   := windows") {
+		t.Error("missing NDK_HOST_OS windows")
+	}
+	if !strings.Contains(content, "EXE       :=") {
+		t.Error("missing EXE default (empty) initialization")
+	}
+
+	// MSVC discovery (Windows only)
+	if !strings.Contains(content, "VSWHERE") {
+		t.Error("missing VSWHERE for MSVC discovery")
+	}
+	if !strings.Contains(content, "MSVC_DIR") {
+		t.Error("missing MSVC_DIR variable")
+	}
+	if !strings.Contains(content, "WIN_SDK_ROOT") {
+		t.Error("missing WIN_SDK_ROOT for Windows SDK")
+	}
+	if !strings.Contains(content, "export INCLUDE") {
+		t.Error("missing INCLUDE export for MSVC")
+	}
+	if !strings.Contains(content, "export LIB") {
+		t.Error("missing LIB export for MSVC")
+	}
 }
 
 func TestMakefileBindingVars(t *testing.T) {

@@ -50,7 +50,7 @@ func TestGoMakefileGenerator_Content(t *testing.T) {
 	if !strings.Contains(content, "IMPL_LANG := go") {
 		t.Error("missing IMPL_LANG := go")
 	}
-	if !strings.Contains(content, "go build -o $(BUILD_DIR)/$(API_NAME) .") {
+	if !strings.Contains(content, "go build -o $(BUILD_DIR)/$(API_NAME)$(EXE) .") {
 		t.Error("missing go build in run target")
 	}
 	if !strings.Contains(content, "go build -buildmode=c-shared") {
