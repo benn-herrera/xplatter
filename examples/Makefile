@@ -114,7 +114,7 @@ package-hello-rust: build-xplatter
 package-hello-all: package-hello-c package-hello-cpp package-hello-rust package-hello-go
 
 ## test-examples-hello-impl-app-matrix: build all hello example api impls and test all apps against all api impls
-test-examples-hello-impl-app-matrix: test-hello-impls
+test-hello-impl-app-matrix: test-hello-impls
 	$(MAKE) IMPL=c    clean-hello-apps test-hello-apps
 	$(MAKE) IMPL=cpp  clean-hello-apps test-hello-apps
 	$(MAKE) IMPL=go   clean-hello-apps test-hello-apps

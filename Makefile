@@ -47,7 +47,7 @@ vet:
 
 ## test-examples-hello-impl-app-matrix: build all hello example api impls and test all apps against all api impls
 test-examples-hello-impl-app-matrix:
-	$(MAKE) -C examples test-examples-hello-impl-app-matrix
+	$(MAKE) -C examples test-hello-impl-app-matrix
 
 
 ## validate: Build and run the validate command against the example API definition
