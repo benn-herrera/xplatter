@@ -156,18 +156,17 @@ $(eval $(call BUILD_IOS_ARCH,ios-sim-x86_64,x86_64-apple-ios$(IOS_MIN)-simulator
 func (g *CppMakefileGenerator) writeAndroidABIRules(b *strings.Builder) {
 	b.WriteString(`# $(1) = ABI name, $(2) = NDK target triple
 define BUILD_ANDROID_ABI
-
 $(DIST_DIR)/android/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(IMPL_SOURCES) $(SHIM_SOURCE) $(GEN_JNI_SOURCE) $(PLATFORM_SERVICES)/android.c $(GEN_HEADER)
 	@mkdir -p $(DIST_DIR)/android/obj/$(1) $$(dir $$@)
-	$(NDK_BIN)/$(2)-clang++ $(CROSS_CXXFLAGS) -fPIC $(CROSS_VISIBILITY) \
+	"$(NDK_BIN)/$(2)-clang++" $(CROSS_CXXFLAGS) -fPIC $(CROSS_VISIBILITY) \
 		-c -o $(DIST_DIR)/android/obj/$(1)/impl.o $(IMPL_SOURCES)
-	$(NDK_BIN)/$(2)-clang++ $(CROSS_CXXFLAGS) -fPIC $(CROSS_VISIBILITY) \
+	"$(NDK_BIN)/$(2)-clang++" $(CROSS_CXXFLAGS) -fPIC $(CROSS_VISIBILITY) \
 		-c -o $(DIST_DIR)/android/obj/$(1)/shim.o $(SHIM_SOURCE)
-	$(NDK_BIN)/$(2)-clang $(CROSS_LIB_C_FLAGS) -fPIC \
+	"$(NDK_BIN)/$(2)-clang" $(CROSS_LIB_C_FLAGS) -fPIC \
 		-c -o $(DIST_DIR)/android/obj/$(1)/jni.o $(GEN_JNI_SOURCE)
-	$(NDK_BIN)/$(2)-clang $(CROSS_LIB_C_FLAGS) -fPIC \
+	"$(NDK_BIN)/$(2)-clang" $(CROSS_LIB_C_FLAGS) -fPIC \
 		-c -o $(DIST_DIR)/android/obj/$(1)/platform.o $(PLATFORM_SERVICES)/android.c
-	$(NDK_BIN)/$(2)-clang++ -shared -static-libstdc++ -llog \
+	"$(NDK_BIN)/$(2)-clang++" -shared -static-libstdc++ -llog \
 		$(DIST_DIR)/android/obj/$(1)/impl.o \
 		$(DIST_DIR)/android/obj/$(1)/shim.o \
 		$(DIST_DIR)/android/obj/$(1)/jni.o \

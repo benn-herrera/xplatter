@@ -73,6 +73,7 @@ ifneq (,$(EXE))
 endif
 
 # ── NDK configuration ─────────────────────────────────────────────────────────
+# ANDK/ASDK normalize backslashes to forward slashes for Windows compatibility.
 
 ifdef ANDROID_NDK
   ANDK ?= $(shell echo "$(ANDROID_NDK)" | sed 's:\\\\:/:g')

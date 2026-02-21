@@ -150,13 +150,13 @@ define BUILD_ANDROID_ABI
 
 $(DIST_DIR)/android/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(IMPL_SOURCES) $(GEN_JNI_SOURCE) $(PLATFORM_SERVICES)/android.c $(GEN_HEADER)
 	@mkdir -p $(DIST_DIR)/android/obj/$(1) $$(dir $$@)
-	$(NDK_BIN)/$(2)-clang $(CROSS_CFLAGS) -fPIC $(CROSS_VISIBILITY) \
+	"$(NDK_BIN)/$(2)-clang" $(CROSS_CFLAGS) -fPIC $(CROSS_VISIBILITY) \
 		-c -o $(DIST_DIR)/android/obj/$(1)/impl.o $(IMPL_SOURCES)
-	$(NDK_BIN)/$(2)-clang $(CROSS_LIB_C_FLAGS) -fPIC \
+	"$(NDK_BIN)/$(2)-clang" $(CROSS_LIB_C_FLAGS) -fPIC \
 		-c -o $(DIST_DIR)/android/obj/$(1)/jni.o $(GEN_JNI_SOURCE)
-	$(NDK_BIN)/$(2)-clang $(CROSS_LIB_C_FLAGS) -fPIC \
+	"$(NDK_BIN)/$(2)-clang" $(CROSS_LIB_C_FLAGS) -fPIC \
 		-c -o $(DIST_DIR)/android/obj/$(1)/platform.o $(PLATFORM_SERVICES)/android.c
-	$(NDK_BIN)/$(2)-clang -shared -llog \
+	"$(NDK_BIN)/$(2)-clang" -shared -llog \
 		$(DIST_DIR)/android/obj/$(1)/impl.o \
 		$(DIST_DIR)/android/obj/$(1)/jni.o \
 		$(DIST_DIR)/android/obj/$(1)/platform.o \

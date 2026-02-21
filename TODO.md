@@ -6,6 +6,14 @@
 
 ## _IGNORE THIS LINE AND EVERYTHING BELOW IT IN THIS FILE - STAGING AREA FOR FUTURE WORK_
 
+## impl-[language] package-web not working for anything but rust
+* impl-c
+* impl-cpp
+* impl-go
+
+## impl-go - cgo not working properly
+  * fails with error ```-buildmode=c-shared requires external (cgo) linking, but cgo is not enabled``` 
+
 ## in GC'd languages (Swift, Kotlin, JavaScript)   
   * the generated bindings should map constructors (create functions) to setup functions that replace the string 'create' in the name with 'setup' 
   * a destructor should map a bound to a function called 'teardown'. 

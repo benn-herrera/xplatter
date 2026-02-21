@@ -73,22 +73,25 @@ ifneq (,$(EXE))
 endif
 
 # ── NDK configuration ─────────────────────────────────────────────────────────
+# ANDK/ASDK normalize backslashes to forward slashes for Windows compatibility.
 
 ifdef ANDROID_NDK
-  NDK ?= $(ANDROID_NDK)
+  ANDK ?= $(shell echo "$(ANDROID_NDK)" | sed 's:\\\\:/:g')
 else
-  ifndef ANDROID_SDK
+  ifdef ANDROID_SDK
+    ASDK ?= $(shell echo "$(ANDROID_SDK)" | sed 's:\\\\:/:g')
+  else
     ifeq ($(NDK_HOST_OS),darwin)
-      ANDROID_SDK ?= $(HOME)/Library/Android/sdk
+      ASDK ?= $(HOME)/Library/Android/sdk
     else ifeq ($(NDK_HOST_OS),linux)
-      ANDROID_SDK ?= $(HOME)/Android/Sdk
+      ASDK ?= $(HOME)/Android/Sdk
     else ifeq ($(NDK_HOST_OS),windows)
-      ANDROID_SDK ?= $(LOCALAPPDATA)/Android/Sdk
+      ASDK ?= $(shell echo "$(LOCALAPPDATA)" | sed 's:\\:/:g')/Android/Sdk
     endif
   endif
-  NDK ?= $(shell ls $(ANDROID_SDK)/ndk | sort -V | tail -1)
+  ANDK ?= $(shell ls $(ASDK)/ndk | sort -V | tail -1)
 endif
-NDK_BIN         := $(NDK)/toolchains/llvm/prebuilt/$(NDK_HOST_OS)-$(NDK_HOST_ARCH)/bin
+NDK_BIN         := $(ANDK)/toolchains/llvm/prebuilt/$(NDK_HOST_OS)-$(NDK_HOST_ARCH)/bin
 ANDROID_MIN_API := 28
 
 # ── iOS ───────────────────────────────────────────────────────────────────────
@@ -257,13 +260,13 @@ define BUILD_ANDROID_ABI
 
 $(DIST_DIR)/android/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(IMPL_SOURCES) $(GEN_JNI_SOURCE) $(PLATFORM_SERVICES)/android.c $(GEN_HEADER)
 	@mkdir -p $(DIST_DIR)/android/obj/$(1) $$(dir $$@)
-	$(NDK_BIN)/$(2)-clang $(CROSS_CFLAGS) -fPIC $(CROSS_VISIBILITY) \
+	"$(NDK_BIN)/$(2)-clang" $(CROSS_CFLAGS) -fPIC $(CROSS_VISIBILITY) \
 		-c -o $(DIST_DIR)/android/obj/$(1)/impl.o $(IMPL_SOURCES)
-	$(NDK_BIN)/$(2)-clang $(CROSS_LIB_C_FLAGS) -fPIC \
+	"$(NDK_BIN)/$(2)-clang" $(CROSS_LIB_C_FLAGS) -fPIC \
 		-c -o $(DIST_DIR)/android/obj/$(1)/jni.o $(GEN_JNI_SOURCE)
-	$(NDK_BIN)/$(2)-clang $(CROSS_LIB_C_FLAGS) -fPIC \
+	"$(NDK_BIN)/$(2)-clang" $(CROSS_LIB_C_FLAGS) -fPIC \
 		-c -o $(DIST_DIR)/android/obj/$(1)/platform.o $(PLATFORM_SERVICES)/android.c
-	$(NDK_BIN)/$(2)-clang -shared -llog \
+	"$(NDK_BIN)/$(2)-clang" -shared -llog \
 		$(DIST_DIR)/android/obj/$(1)/impl.o \
 		$(DIST_DIR)/android/obj/$(1)/jni.o \
 		$(DIST_DIR)/android/obj/$(1)/platform.o \

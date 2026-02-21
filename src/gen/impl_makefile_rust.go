@@ -104,15 +104,16 @@ $(eval $(call BUILD_IOS_ARCH,ios-sim-x86_64,x86_64-apple-ios))
 }
 
 func (g *RustMakefileGenerator) writeAndroidABIRules(b *strings.Builder) {
-	b.WriteString(`# $(1) = ABI name, $(2) = Rust target triple, $(3) = NDK target prefix
+	b.WriteString(`# $(1) = ABI name, $(2) = Rust target triple, $(3) = NDK target prefix, $(4) = uppercase Cargo target
 define BUILD_ANDROID_ABI
 
 $(DIST_DIR)/android/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(STAMP)
 	@mkdir -p $(DIST_DIR)/android/obj/$(1) $$(dir $$@)
-	PATH=$(NDK_BIN):$$$$PATH cargo build --release --target $(2)
-	$(NDK_BIN)/$(3)-clang $(CROSS_LIB_C_FLAGS) -fPIC \
+	CARGO_TARGET_$(4)_LINKER="$(NDK_BIN)/$(3)-clang$(NDK_CMD)" \
+		PATH=$(NDK_BIN):$$$$PATH cargo build --release --target $(2)
+	"$(NDK_BIN)/$(3)-clang" $(CROSS_LIB_C_FLAGS) -fPIC \
 		-Igenerated -c -o $(DIST_DIR)/android/obj/$(1)/jni.o $(GEN_JNI_SOURCE)
-	$(NDK_BIN)/$(3)-clang -shared \
+	"$(NDK_BIN)/$(3)-clang" -shared \
 		-Wl,--whole-archive target/$(2)/release/$(LIB_NAME).a -Wl,--no-whole-archive \
 		$(DIST_DIR)/android/obj/$(1)/jni.o \
 		-ldl -lm -llog \
@@ -120,10 +121,10 @@ $(DIST_DIR)/android/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(STAMP)
 
 endef
 
-$(eval $(call BUILD_ANDROID_ABI,arm64-v8a,aarch64-linux-android,aarch64-linux-android$(ANDROID_MIN_API)))
-$(eval $(call BUILD_ANDROID_ABI,armeabi-v7a,armv7-linux-androideabi,armv7a-linux-androideabi$(ANDROID_MIN_API)))
-$(eval $(call BUILD_ANDROID_ABI,x86_64,x86_64-linux-android,x86_64-linux-android$(ANDROID_MIN_API)))
-$(eval $(call BUILD_ANDROID_ABI,x86,i686-linux-android,i686-linux-android$(ANDROID_MIN_API)))
+$(eval $(call BUILD_ANDROID_ABI,arm64-v8a,aarch64-linux-android,aarch64-linux-android$(ANDROID_MIN_API),AARCH64_LINUX_ANDROID))
+$(eval $(call BUILD_ANDROID_ABI,armeabi-v7a,armv7-linux-androideabi,armv7a-linux-androideabi$(ANDROID_MIN_API),ARMV7_LINUX_ANDROIDEABI))
+$(eval $(call BUILD_ANDROID_ABI,x86_64,x86_64-linux-android,x86_64-linux-android$(ANDROID_MIN_API),X86_64_LINUX_ANDROID))
+$(eval $(call BUILD_ANDROID_ABI,x86,i686-linux-android,i686-linux-android$(ANDROID_MIN_API),I686_LINUX_ANDROID))
 
 `)
 }
