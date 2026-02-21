@@ -4,6 +4,8 @@ BUILD_DIR  := build
 
 .PHONY: test build clean
 
+HOST_OS   := $(shell uname -s)
+
 # End-to-end: build the iOS app using packages from the impl
 test: build
 	@echo "PASS: iOS app builds for simulator"
@@ -27,11 +29,16 @@ HelloXplatterLib/Package.swift: ensure-package
 
 # --- Build iOS app for simulator ---
 
+ifeq ($(HOST_OS),Darwin)
 build: HelloXplatterLib/Package.swift
 	xcodebuild -project HelloApp/HelloApp.xcodeproj \
 		-scheme HelloApp \
 		-destination 'generic/platform=iOS Simulator' \
 		build SYMROOT=$(CURDIR)/$(BUILD_DIR)/app
+else
+build:
+	@echo "Error: iOS build not supported on $(HOST_OS)" && exit 1
+endif
 
 # --- Clean ---
 
