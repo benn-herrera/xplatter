@@ -134,6 +134,11 @@ LIB_VISIBILITY_FLAGS := -fvisibility=hidden -D$(BUILD_MACRO)
 LIB_C_FLAGS := -std=c17 -Wall -Wextra $(LIB_VISIBILITY_FLAGS)
 endif
 
+# Cross-compilation flags (always GCC/Clang-style, for NDK + Emscripten)
+CROSS_CXXFLAGS       := -Wall -Wextra -std=c++20 -I$(GEN_DIR)
+CROSS_VISIBILITY     := -fvisibility=hidden -D$(BUILD_MACRO)
+CROSS_LIB_C_FLAGS    := -std=c17 -Wall -Wextra $(CROSS_VISIBILITY)
+
 # ── Codegen ──────────────────────────────────────────────────────────────────
 
 $(STAMP): $(API_DEF)
@@ -261,18 +266,17 @@ ifneq ($(call target_enabled,android),)
 
 # $(1) = ABI name, $(2) = NDK target triple
 define BUILD_ANDROID_ABI
-
 $(DIST_DIR)/android/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(IMPL_SOURCES) $(SHIM_SOURCE) $(GEN_JNI_SOURCE) $(PLATFORM_SERVICES)/android.c $(GEN_HEADER)
 	@mkdir -p $(DIST_DIR)/android/obj/$(1) $$(dir $$@)
-	$(NDK_BIN)/$(2)-clang++ $(CXXFLAGS) -fPIC $(LIB_VISIBILITY_FLAGS) \
+	"$(NDK_BIN)/$(2)-clang++" $(CROSS_CXXFLAGS) -fPIC $(CROSS_VISIBILITY) \
 		-c -o $(DIST_DIR)/android/obj/$(1)/impl.o $(IMPL_SOURCES)
-	$(NDK_BIN)/$(2)-clang++ $(CXXFLAGS) -fPIC $(LIB_VISIBILITY_FLAGS) \
+	"$(NDK_BIN)/$(2)-clang++" $(CROSS_CXXFLAGS) -fPIC $(CROSS_VISIBILITY) \
 		-c -o $(DIST_DIR)/android/obj/$(1)/shim.o $(SHIM_SOURCE)
-	$(NDK_BIN)/$(2)-clang $(LIB_C_FLAGS) -fPIC \
+	"$(NDK_BIN)/$(2)-clang" $(CROSS_LIB_C_FLAGS) -fPIC \
 		-c -o $(DIST_DIR)/android/obj/$(1)/jni.o $(GEN_JNI_SOURCE)
-	$(NDK_BIN)/$(2)-clang $(LIB_C_FLAGS) -fPIC \
+	"$(NDK_BIN)/$(2)-clang" $(CROSS_LIB_C_FLAGS) -fPIC \
 		-c -o $(DIST_DIR)/android/obj/$(1)/platform.o $(PLATFORM_SERVICES)/android.c
-	$(NDK_BIN)/$(2)-clang++ -shared -static-libstdc++ -llog \
+	"$(NDK_BIN)/$(2)-clang++" -shared -static-libstdc++ -llog \
 		$(DIST_DIR)/android/obj/$(1)/impl.o \
 		$(DIST_DIR)/android/obj/$(1)/shim.o \
 		$(DIST_DIR)/android/obj/$(1)/jni.o \
@@ -320,15 +324,15 @@ ifneq ($(call target_enabled,web),)
 
 $(DIST_DIR)/web/obj/impl.o: $(IMPL_SOURCES) $(GEN_HEADER)
 	@mkdir -p $(dir $@)
-	$(EMCC) $(CXXFLAGS) -O2 $(LIB_VISIBILITY_FLAGS) -c -o $@ $<
+	$(EMCC) $(CROSS_CXXFLAGS) -O2 $(CROSS_VISIBILITY) -c -o $@ $<
 
 $(DIST_DIR)/web/obj/shim.o: $(SHIM_SOURCE) $(GEN_HEADER)
 	@mkdir -p $(dir $@)
-	$(EMCC) $(CXXFLAGS) -O2 $(LIB_VISIBILITY_FLAGS) -c -o $@ $<
+	$(EMCC) $(CROSS_CXXFLAGS) -O2 $(CROSS_VISIBILITY) -c -o $@ $<
 
 $(DIST_DIR)/web/obj/platform.o: $(PLATFORM_SERVICES)/web.c
 	@mkdir -p $(dir $@)
-	$(EMCC) $(LIB_C_FLAGS) -O2 -c -o $@ $<
+	$(EMCC) $(CROSS_LIB_C_FLAGS) -O2 -c -o $@ $<
 
 $(DIST_DIR)/web/$(API_NAME).wasm: $(DIST_DIR)/web/obj/impl.o $(DIST_DIR)/web/obj/shim.o $(DIST_DIR)/web/obj/platform.o
 	$(EMCC) -o $@ $^ \

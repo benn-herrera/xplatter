@@ -27,7 +27,7 @@ func (g *RustMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	b.WriteString(`# Ensure codegen runs before any target needs generated files
 $(GEN_HEADER) $(GEN_SWIFT_BINDING) $(GEN_KOTLIN_BINDING) $(GEN_JS_BINDING) $(GEN_JNI_SOURCE): $(STAMP)
 
-LIB_C_FLAGS := -std=c17 -Wall -Wextra -fvisibility=hidden -D$(BUILD_MACRO)
+CROSS_LIB_C_FLAGS := -std=c17 -Wall -Wextra -fvisibility=hidden -D$(BUILD_MACRO)
 
 `)
 
@@ -110,7 +110,7 @@ define BUILD_ANDROID_ABI
 $(DIST_DIR)/android/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(STAMP)
 	@mkdir -p $(DIST_DIR)/android/obj/$(1) $$(dir $$@)
 	PATH=$(NDK_BIN):$$$$PATH cargo build --release --target $(2)
-	$(NDK_BIN)/$(3)-clang $(LIB_C_FLAGS) -fPIC \
+	$(NDK_BIN)/$(3)-clang $(CROSS_LIB_C_FLAGS) -fPIC \
 		-Igenerated -c -o $(DIST_DIR)/android/obj/$(1)/jni.o $(GEN_JNI_SOURCE)
 	$(NDK_BIN)/$(3)-clang -shared \
 		-Wl,--whole-archive target/$(2)/release/$(LIB_NAME).a -Wl,--no-whole-archive \
