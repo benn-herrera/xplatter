@@ -42,7 +42,11 @@ SHARED_LIB := $(BUILD_DIR)/$(LIB_NAME).$(DYLIB_EXT)
 # ── NDK configuration ─────────────────────────────────────────────────────────
 
 NDK_VERSION     ?= 29.0.14206865
-ifeq ($(HOST_OS),Darwin)
+ifdef ANDROID_NDK
+  NDK           ?= $(ANDROID_NDK)
+else ifdef ANDROID_SDK
+  NDK           ?= $(ANDROID_SDK)/ndk/$(NDK_VERSION)
+else ifeq ($(HOST_OS),Darwin)
   NDK           ?= $(HOME)/Library/Android/sdk/ndk/$(NDK_VERSION)
 else
   NDK           ?= $(HOME)/Android/Sdk/ndk/$(NDK_VERSION)
@@ -81,7 +85,7 @@ LIB_C_FLAGS := -std=c11 -Wall -Wextra $(LIB_VISIBILITY_FLAGS)
 PLATFORM_SERVICES := platform_services
 
 # Ensure codegen runs before any target needs generated files
-$(GEN_HEADER): $(STAMP)
+$(GEN_HEADER) $(GEN_SWIFT_BINDING) $(GEN_KOTLIN_BINDING) $(GEN_JS_BINDING) $(GEN_JNI_SOURCE): $(STAMP)
 
 # ── Codegen ──────────────────────────────────────────────────────────────────
 

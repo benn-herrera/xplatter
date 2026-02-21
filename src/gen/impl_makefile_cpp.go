@@ -35,7 +35,7 @@ LIB_C_FLAGS := -std=c11 -Wall -Wextra $(LIB_VISIBILITY_FLAGS)
 PLATFORM_SERVICES := platform_services
 
 # Ensure codegen runs before any target needs generated files
-$(GEN_HEADER): $(STAMP)
+$(GEN_HEADER) $(GEN_SWIFT_BINDING) $(GEN_KOTLIN_BINDING) $(GEN_JS_BINDING) $(GEN_JNI_SOURCE): $(STAMP)
 
 `)
 

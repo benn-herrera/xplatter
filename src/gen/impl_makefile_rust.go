@@ -25,7 +25,7 @@ func (g *RustMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	MakefileWASMExports(&b, apiName, ctx.API)
 
 	b.WriteString(`# Ensure codegen runs before any target needs generated files
-$(GEN_HEADER): $(STAMP)
+$(GEN_HEADER) $(GEN_SWIFT_BINDING) $(GEN_KOTLIN_BINDING) $(GEN_JS_BINDING) $(GEN_JNI_SOURCE): $(STAMP)
 
 LIB_C_FLAGS := -std=c11 -Wall -Wextra -fvisibility=hidden -D$(BUILD_MACRO)
 
