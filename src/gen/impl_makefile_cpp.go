@@ -34,9 +34,6 @@ LIB_C_FLAGS := -std=c11 -Wall -Wextra $(LIB_VISIBILITY_FLAGS)
 
 PLATFORM_SERVICES := platform_services
 
-# Ensure codegen runs before any target needs generated files
-$(GEN_HEADER) $(GEN_SWIFT_BINDING) $(GEN_KOTLIN_BINDING) $(GEN_JS_BINDING) $(GEN_JNI_SOURCE): $(STAMP)
-
 `)
 
 	// Codegen stamp
@@ -48,6 +45,9 @@ $(GEN_HEADER) $(GEN_SWIFT_BINDING) $(GEN_KOTLIN_BINDING) $(GEN_JS_BINDING) $(GEN
 
 IMPL_SOURCES   := $(API_NAME)_impl.cpp
 SHIM_SOURCE    := $(GEN_DIR)$(API_NAME)_shim.cpp
+
+# Ensure codegen runs before any target needs generated files
+$(GEN_HEADER) $(GEN_SWIFT_BINDING) $(GEN_KOTLIN_BINDING) $(GEN_JS_BINDING) $(GEN_JNI_SOURCE) $(SHIM_SOURCE): $(STAMP)
 
 run: $(STAMP)
 	@mkdir -p $(BUILD_DIR)
