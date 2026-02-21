@@ -32,7 +32,22 @@ package: ensure-package
 
 # --- Build the Android app ---
 
-build-app: gradle-wrapper package
+HOST_OS := $(shell uname -s)
+
+ifdef ANDROID_HOME
+  ANDROID_SDK_DIR := $(ANDROID_HOME)
+else ifdef ANDROID_SDK
+  ANDROID_SDK_DIR := $(ANDROID_SDK)
+else ifeq ($(HOST_OS),Darwin)
+  ANDROID_SDK_DIR := $(HOME)/Library/Android/sdk
+else
+  ANDROID_SDK_DIR := $(HOME)/Android/Sdk
+endif
+
+local.properties:
+	@echo "sdk.dir=$(ANDROID_SDK_DIR)" > $@
+
+build-app: gradle-wrapper package local.properties
 	./gradlew :app:assembleDebug
 
 # --- Gradle wrapper ---
@@ -52,3 +67,4 @@ clean:
 	rm -rf $(BUILD_DIR)
 	rm -rf lib/src/main/kotlin/hello/xplatter/HelloXplatter.kt
 	rm -rf lib/src/main/jniLibs/*/libhello_xplatter.so
+	rm -f local.properties

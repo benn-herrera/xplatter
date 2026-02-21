@@ -27,7 +27,3 @@
 ## returning strings only as flatbuffer BoxedString that requires implementer to hold an allocation indefinitely is unacceptably burdensome on xplatter users (API implementers) - think about this problem more carefully.
 
 ## DON'T FORGET WINDOWS AND LINUX. MAYBE SPEND A DAY OR SO WORKING ON UNBREAKING EVERYTHING THAT'S BOUND TO BE BORKED OVER THERE.
-
-## DONE - examples/hello-xplatter/impl-c has Linux problems
-  * Fixed: make package-desktop failed due to macOS-only -Wl,-install_name linker flag in shared-lib rule (C, C++, Go generators)
-  * Fixed: make package-android failed due to NDK default path hardcoded to macOS ~/Library/Android/sdk/ (all generators via shared MakefileTargetConfig)
