@@ -2,7 +2,8 @@
 
 SRC_DIR     := src
 BIN_DIR     := bin
-BINARY      := $(BIN_DIR)/xplatter
+EXE         := $(shell uname -s | awk 'BEGIN { EXE=".exe"; } /Darwin|Linux/ { EXE="" } END { print EXE }')
+BINARY      := $(BIN_DIR)/xplatter$(EXE)
 MODULE_PATH := github.com/benn-herrera/xplatter
 
 VERSION     ?= $(shell git describe --tags --always 2>/dev/null || echo dev)
