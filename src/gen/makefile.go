@@ -296,6 +296,21 @@ endif
 `)
 }
 
+// MakefileWASMBuildRule emits the cmake-based WASM build rule.
+// The rule is identical for C and C++ — Emscripten's toolchain file handles
+// language detection, so no per-language customisation is needed.
+func MakefileWASMBuildRule(b *strings.Builder) {
+	b.WriteString(`$(DIST_DIR)/web/$(API_NAME).wasm: $(STAMP) CMakeLists.txt
+	@mkdir -p $(DIST_DIR)/web
+	cmake -S . -B build/web -G "Unix Makefiles" \
+		-DCMAKE_TOOLCHAIN_FILE=$(EMSCRIPTEN_TOOLCHAIN) \
+		-DCMAKE_BUILD_TYPE=Release
+	cmake --build build/web
+	cp build/web/$(API_NAME).wasm $@
+
+`)
+}
+
 // MakefilePackageWeb emits Web/WASM packaging rules with package.json.
 func MakefilePackageWeb(b *strings.Builder, buildWASMRule func(b *strings.Builder)) {
 	b.WriteString(`# ══════════════════════════════════════════════════════════════════════════════

@@ -182,13 +182,5 @@ func TestCppMakefileGenerator_WASMRules(t *testing.T) {
 
 	content := string(files[0].Content)
 
-	if !strings.Contains(content, "cmake") {
-		t.Error("missing cmake in WASM rules")
-	}
-	if !strings.Contains(content, "EMSCRIPTEN_TOOLCHAIN") {
-		t.Error("missing EMSCRIPTEN_TOOLCHAIN in WASM rules")
-	}
-	if !strings.Contains(content, "-G \"Unix Makefiles\"") {
-		t.Error("missing -G \"Unix Makefiles\" in cmake configure (required on Windows to avoid MSVC generator)")
-	}
+	checkWASMRules(t, content)
 }

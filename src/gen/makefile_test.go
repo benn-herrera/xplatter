@@ -5,6 +5,21 @@ import (
 	"testing"
 )
 
+// checkWASMRules asserts that the shared cmake/Emscripten WASM build rule is present.
+// Called by both C and C++ Makefile generator tests.
+func checkWASMRules(t *testing.T, content string) {
+	t.Helper()
+	if !strings.Contains(content, "cmake") {
+		t.Error("missing cmake in WASM rules")
+	}
+	if !strings.Contains(content, "EMSCRIPTEN_TOOLCHAIN") {
+		t.Error("missing EMSCRIPTEN_TOOLCHAIN in WASM rules")
+	}
+	if !strings.Contains(content, `-G "Unix Makefiles"`) {
+		t.Error(`missing -G "Unix Makefiles" in cmake configure (required on Windows to avoid MSVC generator)`)
+	}
+}
+
 func TestComputeWASMExports_Minimal(t *testing.T) {
 	ctx := loadTestAPI(t, "minimal.yaml")
 	exports := ComputeWASMExports(ctx.API.API.Name, ctx.API)
