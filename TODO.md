@@ -12,12 +12,12 @@
     * on windows the EMSDK_PATH envar can be used to find the toolchain file
   * the same cmake approach should be used for impl-c.
 
-## _IGNORE THIS LINE AND EVERYTHING BELOW IT IN THIS FILE - STAGING AREA FOR FUTURE WORK_
+## app-desktop-cpp not linking
+* there are mismatches between the library produced and the one expected in the Makefile
+  * the produced library is dynamic and a static library is expected
+  * the produced library uses a 'lib' name prefix convention and the expected one does not
 
-## impl-[language] package-web not working for anything but rust
-* impl-c
-* impl-cpp
-* impl-go
+## _IGNORE THIS LINE AND EVERYTHING BELOW IT IN THIS FILE - STAGING AREA FOR FUTURE WORK_
 
 ## impl-go - cgo not working properly
   * fails with error ```-buildmode=c-shared requires external (cgo) linking, but cgo is not enabled``` 
