@@ -122,7 +122,7 @@ PLATFORM_SERVICES := platform_services
 
 ifneq (,$(EXE))
 CC         := cl
-CFLAGS     := /W4 /std:c17 /I. /I$(GEN_DIR) /D$(BUILD_MACRO)
+CFLAGS     := /W4 /std:c17 /I. /I$(GEN_DIR) /D$(BUILD_MACRO) /Fo:$(BUILD_DIR)/
 LIB_VISIBILITY_FLAGS := /D$(BUILD_MACRO)
 LIB_C_FLAGS := /std:c17 /W4 $(LIB_VISIBILITY_FLAGS)
 else

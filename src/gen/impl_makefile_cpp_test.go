@@ -90,6 +90,9 @@ func TestCppMakefileGenerator_Content(t *testing.T) {
 	if !strings.Contains(content, "-I$(GEN_DIR)") {
 		t.Error("missing -I$(GEN_DIR) in CXXFLAGS")
 	}
+	if !strings.Contains(content, "/Fo:$(BUILD_DIR)/") {
+		t.Error("missing /Fo: flag to redirect MSVC obj files into build/")
+	}
 
 	// SHIM_SOURCE uses $(GEN_DIR) prefix
 	if !strings.Contains(content, "SHIM_SOURCE    := $(GEN_DIR)$(API_NAME)_shim.cpp") {

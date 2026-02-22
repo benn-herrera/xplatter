@@ -55,7 +55,7 @@ func APIDefRelPath(ctx *Context) string {
 	if err != nil {
 		return ctx.APIDefPath
 	}
-	return rel
+	return filepath.ToSlash(rel)
 }
 
 // MakefileHeader emits the auto-generated banner and core variables.

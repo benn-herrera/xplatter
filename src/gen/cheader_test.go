@@ -81,7 +81,7 @@ func TestCHeaderGenerator_Minimal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read golden file: %v", err)
 	}
-	want := string(goldenBytes)
+	want := strings.ReplaceAll(string(goldenBytes), "\r\n", "\n")
 
 	if got != want {
 		t.Errorf("generated C header does not match golden file.\n--- GOT ---\n%s\n--- WANT ---\n%s", got, want)
@@ -110,7 +110,7 @@ func TestCHeaderGenerator_Full(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read golden file: %v", err)
 	}
-	want := string(goldenBytes)
+	want := strings.ReplaceAll(string(goldenBytes), "\r\n", "\n")
 
 	if got != want {
 		t.Errorf("generated C header does not match golden file.\n--- GOT ---\n%s\n--- WANT ---\n%s", got, want)

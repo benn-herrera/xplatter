@@ -85,6 +85,9 @@ func TestCMakefileGenerator_Content(t *testing.T) {
 	if !strings.Contains(content, "$(CC) $(CFLAGS)") {
 		t.Error("missing CC compilation command")
 	}
+	if !strings.Contains(content, "/Fo:$(BUILD_DIR)/") {
+		t.Error("missing /Fo: flag to redirect MSVC obj files into build/")
+	}
 }
 
 func TestCMakefileGenerator_NoShimInIOSRules(t *testing.T) {

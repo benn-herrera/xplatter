@@ -4,6 +4,14 @@
 * items on the todo list are addressed one encapsulated (## headed) issue at a time in top down order. The task is to be accomplished starting in planning mode and then moving on to execution.
 * when completed they are marked done (## DONE - [description]) and moved to the end of the file for archival purposes
 
+## impl-c and impl-cpp package-web fails on Windows
+* directly invoking emcc in the Makefile does not extend well to Windows.
+* impl-cpp already uses cmake for at least on compilation. 
+  * WASM compilation should be handled in the CMakeLists.txt file.
+    * emscripten provides a CMake toolchain file
+    * on windows the EMSDK_PATH envar can be used to find the toolchain file
+  * the same cmake approach should be used for impl-c.
+
 ## _IGNORE THIS LINE AND EVERYTHING BELOW IT IN THIS FILE - STAGING AREA FOR FUTURE WORK_
 
 ## impl-[language] package-web not working for anything but rust
