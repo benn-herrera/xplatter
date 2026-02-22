@@ -146,6 +146,9 @@ func TestCMakefileGenerator_WASMNoShim(t *testing.T) {
 	if !strings.Contains(content, "EMSCRIPTEN_TOOLCHAIN") {
 		t.Error("missing EMSCRIPTEN_TOOLCHAIN in WASM rules")
 	}
+	if !strings.Contains(content, "-G \"Unix Makefiles\"") {
+		t.Error("missing -G \"Unix Makefiles\" in cmake configure (required on Windows to avoid MSVC generator)")
+	}
 	// WASM rules should not have shim.o
 	if strings.Contains(content, "shim.o") {
 		t.Error("C Makefile WASM rules should not reference shim.o")

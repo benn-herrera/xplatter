@@ -326,7 +326,7 @@ ifneq ($(call target_enabled,web),)
 
 $(DIST_DIR)/web/$(API_NAME).wasm: $(STAMP) CMakeLists.txt
 	@mkdir -p $(DIST_DIR)/web
-	cmake -S . -B build/web \
+	cmake -S . -B build/web -G "Unix Makefiles" \
 		-DCMAKE_TOOLCHAIN_FILE=$(EMSCRIPTEN_TOOLCHAIN) \
 		-DCMAKE_BUILD_TYPE=Release
 	cmake --build build/web

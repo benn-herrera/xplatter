@@ -186,7 +186,7 @@ $(eval $(call BUILD_ANDROID_ABI,x86,i686-linux-android$(ANDROID_MIN_API)))
 func (g *CppMakefileGenerator) writeWASMBuildRule(b *strings.Builder) {
 	b.WriteString(`$(DIST_DIR)/web/$(API_NAME).wasm: $(STAMP) CMakeLists.txt
 	@mkdir -p $(DIST_DIR)/web
-	cmake -S . -B build/web \
+	cmake -S . -B build/web -G "Unix Makefiles" \
 		-DCMAKE_TOOLCHAIN_FILE=$(EMSCRIPTEN_TOOLCHAIN) \
 		-DCMAKE_BUILD_TYPE=Release
 	cmake --build build/web
