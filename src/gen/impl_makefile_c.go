@@ -173,20 +173,13 @@ $(eval $(call BUILD_ANDROID_ABI,x86,i686-linux-android$(ANDROID_MIN_API)))
 }
 
 func (g *CMakefileGenerator) writeWASMBuildRule(b *strings.Builder) {
-	b.WriteString(`$(DIST_DIR)/web/obj/impl.o: $(IMPL_SOURCES) $(GEN_HEADER)
-	@mkdir -p $(dir $@)
-	$(EMCC) $(CROSS_CFLAGS) -O2 $(CROSS_VISIBILITY) -c -o $@ $<
-
-$(DIST_DIR)/web/obj/platform.o: $(PLATFORM_SERVICES)/web.c
-	@mkdir -p $(dir $@)
-	$(EMCC) $(CROSS_LIB_C_FLAGS) -O2 -c -o $@ $<
-
-$(DIST_DIR)/web/$(API_NAME).wasm: $(DIST_DIR)/web/obj/impl.o $(DIST_DIR)/web/obj/platform.o
-	$(EMCC) -o $@ $^ \
-		--no-entry \
-		-s 'EXPORTED_FUNCTIONS=$(WASM_EXPORTS)' \
-		-s STANDALONE_WASM \
-		-O2
+	b.WriteString(`$(DIST_DIR)/web/$(API_NAME).wasm: $(STAMP) CMakeLists.txt
+	@mkdir -p $(DIST_DIR)/web
+	cmake -S . -B build/web \
+		-DCMAKE_TOOLCHAIN_FILE=$(EMSCRIPTEN_TOOLCHAIN) \
+		-DCMAKE_BUILD_TYPE=Release
+	cmake --build build/web
+	cp build/web/$(API_NAME).wasm $@
 
 `)
 }

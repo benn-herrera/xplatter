@@ -179,13 +179,10 @@ func TestCppMakefileGenerator_WASMRules(t *testing.T) {
 
 	content := string(files[0].Content)
 
-	if !strings.Contains(content, "$(EMCC)") {
-		t.Error("missing Emscripten compilation")
+	if !strings.Contains(content, "cmake") {
+		t.Error("missing cmake in WASM rules")
 	}
-	if !strings.Contains(content, "EXPORTED_FUNCTIONS=$(WASM_EXPORTS)") {
-		t.Error("missing WASM exports in emcc link step")
-	}
-	if !strings.Contains(content, "STANDALONE_WASM") {
-		t.Error("missing STANDALONE_WASM flag")
+	if !strings.Contains(content, "EMSCRIPTEN_TOOLCHAIN") {
+		t.Error("missing EMSCRIPTEN_TOOLCHAIN in WASM rules")
 	}
 }

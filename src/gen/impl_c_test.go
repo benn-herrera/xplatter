@@ -14,8 +14,8 @@ func TestImplCGenerator_Minimal(t *testing.T) {
 		t.Fatalf("generation failed: %v", err)
 	}
 
-	if len(files) != 1 {
-		t.Fatalf("expected 1 output file, got %d", len(files))
+	if len(files) != 2 {
+		t.Fatalf("expected 2 output files, got %d", len(files))
 	}
 
 	f := files[0]
@@ -27,6 +27,17 @@ func TestImplCGenerator_Minimal(t *testing.T) {
 	}
 	if !f.ProjectFile {
 		t.Error("impl .c file should be a project file")
+	}
+
+	cmake := files[1]
+	if cmake.Path != "CMakeLists.txt" {
+		t.Errorf("expected path %q, got %q", "CMakeLists.txt", cmake.Path)
+	}
+	if !cmake.Scaffold {
+		t.Error("CMakeLists.txt should be scaffold")
+	}
+	if !cmake.ProjectFile {
+		t.Error("CMakeLists.txt should be a project file")
 	}
 }
 
@@ -92,12 +103,15 @@ func TestImplCGenerator_Full(t *testing.T) {
 		t.Fatalf("generation failed: %v", err)
 	}
 
-	if len(files) != 1 {
-		t.Fatalf("expected 1 output file, got %d", len(files))
+	if len(files) != 2 {
+		t.Fatalf("expected 2 output files, got %d", len(files))
 	}
 
 	if files[0].Path != "example_app_engine_impl.c" {
 		t.Errorf("expected path %q, got %q", "example_app_engine_impl.c", files[0].Path)
+	}
+	if files[1].Path != "CMakeLists.txt" {
+		t.Errorf("expected path %q, got %q", "CMakeLists.txt", files[1].Path)
 	}
 
 	content := string(files[0].Content)

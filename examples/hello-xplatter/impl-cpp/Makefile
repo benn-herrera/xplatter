@@ -99,8 +99,9 @@ ANDROID_MIN_API := 28
 IOS_MIN := 15.0
 
 # ── Emscripten ────────────────────────────────────────────────────────────────
-
-EMCC ?= emcc
+# Set EMSDK or EMSDK_PATH to point to your emsdk installation.
+EMSDK_PATH ?= $(EMSDK)
+EMSCRIPTEN_TOOLCHAIN := $(EMSDK_PATH)/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake
 
 # ── Generated binding files ───────────────────────────────────────────────────
 
@@ -323,24 +324,13 @@ endif
 
 ifneq ($(call target_enabled,web),)
 
-$(DIST_DIR)/web/obj/impl.o: $(IMPL_SOURCES) $(GEN_HEADER)
-	@mkdir -p $(dir $@)
-	$(EMCC) $(CROSS_CXXFLAGS) -O2 $(CROSS_VISIBILITY) -c -o $@ $<
-
-$(DIST_DIR)/web/obj/shim.o: $(SHIM_SOURCE) $(GEN_HEADER)
-	@mkdir -p $(dir $@)
-	$(EMCC) $(CROSS_CXXFLAGS) -O2 $(CROSS_VISIBILITY) -c -o $@ $<
-
-$(DIST_DIR)/web/obj/platform.o: $(PLATFORM_SERVICES)/web.c
-	@mkdir -p $(dir $@)
-	$(EMCC) $(CROSS_LIB_C_FLAGS) -O2 -c -o $@ $<
-
-$(DIST_DIR)/web/$(API_NAME).wasm: $(DIST_DIR)/web/obj/impl.o $(DIST_DIR)/web/obj/shim.o $(DIST_DIR)/web/obj/platform.o
-	$(EMCC) -o $@ $^ \
-		--no-entry \
-		-s 'EXPORTED_FUNCTIONS=$(WASM_EXPORTS)' \
-		-s STANDALONE_WASM \
-		-O2
+$(DIST_DIR)/web/$(API_NAME).wasm: $(STAMP) CMakeLists.txt
+	@mkdir -p $(DIST_DIR)/web
+	cmake -S . -B build/web \
+		-DCMAKE_TOOLCHAIN_FILE=$(EMSCRIPTEN_TOOLCHAIN) \
+		-DCMAKE_BUILD_TYPE=Release
+	cmake --build build/web
+	cp build/web/$(API_NAME).wasm $@
 
 $(DIST_DIR)/web/$(API_NAME).js: $(GEN_JS_BINDING)
 	@mkdir -p $(dir $@)

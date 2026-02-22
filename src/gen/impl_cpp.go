@@ -463,21 +463,41 @@ func (g *ImplCppGenerator) writeImplMethodStub(b *strings.Builder, implClassName
 // generateCMakeLists produces a scaffold CMakeLists.txt for the C++ implementation.
 func (g *ImplCppGenerator) generateCMakeLists(api *model.APIDefinition, apiName string) *OutputFile {
 	projectName := strings.ReplaceAll(apiName, "_", "-")
+	exports := ComputeWASMExportsCSV(apiName, api)
 	var b strings.Builder
 
 	fmt.Fprintf(&b, `cmake_minimum_required(VERSION 3.15)
-project(%[1]s VERSION %[2]s LANGUAGES CXX)
+project(%[1]s VERSION %[2]s LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_library(%[1]s SHARED
-    generated/%[3]s_shim.cpp
-    %[3]s_impl.cpp
-)
+if(EMSCRIPTEN)
+    add_executable(%[3]s
+        %[3]s_impl.cpp
+        generated/%[3]s_shim.cpp
+        platform_services/web.c
+    )
+    set_target_properties(%[3]s PROPERTIES SUFFIX ".wasm")
+    target_compile_options(%[3]s PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:-std=c++20 -Wall -Wextra -fvisibility=hidden>
+        $<$<COMPILE_LANGUAGE:C>:-std=c17 -Wall -Wextra -fvisibility=hidden>
+    )
+    target_link_options(%[3]s PRIVATE
+        "SHELL:--no-entry"
+        "SHELL:-s EXPORTED_FUNCTIONS=%[4]s"
+        "SHELL:-s STANDALONE_WASM"
+        "SHELL:-O2"
+    )
+else()
+    add_library(%[3]s SHARED
+        generated/%[3]s_shim.cpp
+        %[3]s_impl.cpp
+    )
+endif()
 
-target_include_directories(%[1]s PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/generated)
-`, projectName, api.API.Version, apiName)
+target_include_directories(%[3]s PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/generated)
+`, projectName, api.API.Version, apiName, exports)
 
 	return &OutputFile{
 		Path:        "CMakeLists.txt",

@@ -23,6 +23,7 @@ func (g *ImplCGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	apiName := api.API.Name
 
 	scaffoldHeader := GeneratedFileHeaderBlock(ctx, true)
+	scaffoldCMakeHeader := GeneratedFileHeader(ctx, "#", true)
 
 	implFile, err := g.generateImplSource(api, apiName)
 	if err != nil {
@@ -30,7 +31,10 @@ func (g *ImplCGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	}
 	implFile.Content = prependHeader(scaffoldHeader, implFile.Content)
 
-	return []*OutputFile{implFile}, nil
+	cmakeFile := g.generateCMakeLists(api, apiName)
+	cmakeFile.Content = prependHeader(scaffoldCMakeHeader, cmakeFile.Content)
+
+	return []*OutputFile{implFile, cmakeFile}, nil
 }
 
 // generateImplSource produces the stub .c implementation file.
@@ -66,6 +70,48 @@ func (g *ImplCGenerator) generateImplSource(api *model.APIDefinition, apiName st
 		Scaffold:    true,
 		ProjectFile: true,
 	}, nil
+}
+
+// generateCMakeLists produces a scaffold CMakeLists.txt for the C implementation (WASM only).
+func (g *ImplCGenerator) generateCMakeLists(api *model.APIDefinition, apiName string) *OutputFile {
+	projectName := strings.ReplaceAll(apiName, "_", "-")
+	exports := ComputeWASMExportsCSV(apiName, api)
+	var b strings.Builder
+
+	fmt.Fprintf(&b, `cmake_minimum_required(VERSION 3.15)
+project(%[1]s VERSION %[2]s LANGUAGES C)
+
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
+if(EMSCRIPTEN)
+    add_executable(%[3]s
+        %[3]s_impl.c
+        platform_services/web.c
+    )
+    set_target_properties(%[3]s PROPERTIES SUFFIX ".wasm")
+    target_compile_options(%[3]s PRIVATE
+        -std=c17 -Wall -Wextra -fvisibility=hidden
+    )
+    target_link_options(%[3]s PRIVATE
+        "SHELL:--no-entry"
+        "SHELL:-s EXPORTED_FUNCTIONS=%[4]s"
+        "SHELL:-s STANDALONE_WASM"
+        "SHELL:-O2"
+    )
+    target_include_directories(%[3]s PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/generated
+    )
+endif()
+`, projectName, api.API.Version, apiName, exports)
+
+	return &OutputFile{
+		Path:        "CMakeLists.txt",
+		Content:     []byte(b.String()),
+		Scaffold:    true,
+		ProjectFile: true,
+	}
 }
 
 // writeMethodStub writes a single C function stub body.

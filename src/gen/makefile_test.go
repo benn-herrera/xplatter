@@ -106,7 +106,7 @@ func TestMakefileTargetConfig(t *testing.T) {
 	if !strings.Contains(content, "IOS_MIN") {
 		t.Error("missing iOS configuration")
 	}
-	if !strings.Contains(content, "EMCC") {
+	if !strings.Contains(content, "EMSCRIPTEN_TOOLCHAIN") {
 		t.Error("missing Emscripten configuration")
 	}
 

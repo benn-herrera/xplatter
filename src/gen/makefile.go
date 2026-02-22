@@ -29,6 +29,24 @@ func ComputeWASMExports(apiName string, api *model.APIDefinition) string {
 	return "[" + strings.Join(exports, ",") + "]"
 }
 
+// ComputeWASMExportsCSV returns WASM export function names as a comma-separated string
+// for embedding in CMakeLists.txt EXPORTED_FUNCTIONS without JSON quoting issues.
+func ComputeWASMExportsCSV(apiName string, api *model.APIDefinition) string {
+	exports := []string{"_malloc", "_free"}
+	for _, iface := range api.Interfaces {
+		for _, ctor := range iface.Constructors {
+			exports = append(exports, "_"+CABIFunctionName(apiName, iface.Name, ctor.Name))
+		}
+		if handleName, ok := iface.ConstructorHandleName(); ok {
+			exports = append(exports, "_"+CABIFunctionName(apiName, iface.Name, DestructorMethodName(handleName)))
+		}
+		for _, method := range iface.Methods {
+			exports = append(exports, "_"+CABIFunctionName(apiName, iface.Name, method.Name))
+		}
+	}
+	return strings.Join(exports, ",")
+}
+
 // APIDefRelPath computes the relative path from the project root to the API definition file.
 // The Makefile is a ProjectFile, so it lives at filepath.Dir(outputDir), not in the output dir itself.
 func APIDefRelPath(ctx *Context) string {
@@ -152,8 +170,9 @@ ANDROID_MIN_API := 28
 IOS_MIN := 15.0
 
 # ── Emscripten ────────────────────────────────────────────────────────────────
-
-EMCC ?= emcc
+# Set EMSDK or EMSDK_PATH to point to your emsdk installation.
+EMSDK_PATH ?= $(EMSDK)
+EMSCRIPTEN_TOOLCHAIN := $(EMSDK_PATH)/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake
 
 `)
 }

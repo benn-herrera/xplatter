@@ -136,8 +136,15 @@ func TestCMakefileGenerator_WASMNoShim(t *testing.T) {
 
 	content := string(files[0].Content)
 
+	// WASM rules should use cmake via the Emscripten toolchain
+	if !strings.Contains(content, "cmake") {
+		t.Error("missing cmake in WASM rules")
+	}
+	if !strings.Contains(content, "EMSCRIPTEN_TOOLCHAIN") {
+		t.Error("missing EMSCRIPTEN_TOOLCHAIN in WASM rules")
+	}
 	// WASM rules should not have shim.o
-	if !strings.Contains(content, "$(EMCC)") {
-		t.Error("missing Emscripten in WASM rules")
+	if strings.Contains(content, "shim.o") {
+		t.Error("C Makefile WASM rules should not reference shim.o")
 	}
 }
