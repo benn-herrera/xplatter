@@ -1,5 +1,5 @@
 # ![xplatter logo](docs/logo_small.png)<br/> xplatter
-xplatter takes an API spec and generates performant bindings for every major user-facing platform's natural app  development language.
+xplatter takes an API spec and generates performant bindings for every major user-facing platform's natural app development language.
 
 Define a performance-critical API and implement it once in the cross-platform system language of your choice and get a set of ready-to-use, idiomatic API packages for mobile, web, and desktop.
 
