@@ -35,6 +35,8 @@ Examples would be projects implementing on-device inference, media processing, a
   - Windows:
     - Gnu make: ```winget install -e --id GnuWin32.Make```
       - OR if Android NDK installed, add ${ANDROID_NDK}/prebuilt/windows-x86_64/bin to PATH
+    - winget install zig (cgo on windows needs a drop-in compiler replacement that is clang-compatible)
+      - trust me. this is the easy path. 
     - Install Visual Studio with C++ workload for desktop (not Visual Studio Code)
       - You may be able to just install the command line SDK but that path has not been tested
     - ```winget install cmake```
