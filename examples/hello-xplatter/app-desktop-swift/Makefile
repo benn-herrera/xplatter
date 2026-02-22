@@ -9,7 +9,15 @@ LIB_DIR       := $(IMPL_DIR)/dist/desktop/lib
 
 .PHONY: build run test clean ensure-package
 
+HOST_OS   	  := $(shell uname -s)
+
+
+ifeq ($(HOST_OS),Darwin)
 build: $(TARGET)
+else
+build:
+	@echo "Error: desktop Swift build not supported on $(HOST_OS)" && exit 1
+endif
 
 ensure-package:
 	@test -f $(BRIDGING_HDR) || $(MAKE) -C $(IMPL_DIR) build
