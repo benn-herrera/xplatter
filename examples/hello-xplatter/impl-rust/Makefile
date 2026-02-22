@@ -91,7 +91,7 @@ else
       ASDK ?= $(shell echo "$(LOCALAPPDATA)" | sed 's:\\:/:g')/Android/Sdk
     endif
   endif
-  ANDK ?= $(shell ls $(ASDK)/ndk | sort -V | tail -1)
+  ANDK ?= $(shell ls -d $(ASDK)/ndk/* | sort -V | tail -1)
 endif
 NDK_BIN         := $(ANDK)/toolchains/llvm/prebuilt/$(NDK_HOST_OS)-$(NDK_HOST_ARCH)/bin
 ANDROID_MIN_API := 28

@@ -86,7 +86,7 @@ else
       ANDROID_SDK ?= $(LOCALAPPDATA)/Android/Sdk
     endif
   endif
-  NDK ?= $(shell ls $(ANDROID_SDK)/ndk | sort -V | tail -1)
+  NDK ?= $(shell ls -d $(ANDROID_SDK)/ndk/* | sort -V | tail -1)
 endif
 
 NDK_BIN         := $(NDK)/toolchains/llvm/prebuilt/$(NDK_HOST_OS)-$(NDK_HOST_ARCH)/bin
