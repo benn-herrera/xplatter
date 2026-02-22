@@ -124,6 +124,12 @@ func TestMakefileTargetConfig(t *testing.T) {
 	if !strings.Contains(content, "EMSCRIPTEN_TOOLCHAIN") {
 		t.Error("missing Emscripten configuration")
 	}
+	if !strings.Contains(content, "EMSCRIPTEN_ROOT") {
+		t.Error("missing EMSCRIPTEN_ROOT intermediate variable")
+	}
+	if !strings.Contains(content, "em-config EMSCRIPTEN_ROOT") {
+		t.Error("missing em-config EMSCRIPTEN_ROOT for macOS/Linux package installs")
+	}
 
 	// Windows platform detection
 	if !strings.Contains(content, "findstring MINGW,$(HOST_OS)") {

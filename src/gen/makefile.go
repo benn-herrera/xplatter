@@ -170,9 +170,15 @@ ANDROID_MIN_API := 28
 IOS_MIN := 15.0
 
 # ── Emscripten ────────────────────────────────────────────────────────────────
-# Set EMSDK or EMSDK_PATH to point to your emsdk installation.
+# Windows EMSDK install: set EMSDK or EMSDK_PATH.
+# macOS/Linux package-manager install: em-config is used automatically.
 EMSDK_PATH ?= $(EMSDK)
-EMSCRIPTEN_TOOLCHAIN := $(EMSDK_PATH)/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake
+ifneq ($(EMSDK_PATH),)
+  EMSCRIPTEN_ROOT := $(EMSDK_PATH)/upstream/emscripten
+else
+  EMSCRIPTEN_ROOT := $(shell em-config EMSCRIPTEN_ROOT 2>/dev/null)
+endif
+EMSCRIPTEN_TOOLCHAIN := $(EMSCRIPTEN_ROOT)/cmake/Modules/Platform/Emscripten.cmake
 
 `)
 }
