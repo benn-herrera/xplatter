@@ -73,23 +73,25 @@ ifneq (,$(EXE))
 endif
 
 # ── NDK configuration ─────────────────────────────────────────────────────────
+# ANDK/ASDK normalize backslashes to forward slashes for Windows compatibility.
 
 ifdef ANDROID_NDK
-  NDK ?= $(ANDROID_NDK)
+  ANDK ?= $(shell echo "$(ANDROID_NDK)" | sed 's:\\\\:/:g')
 else
-  ifndef ANDROID_SDK
+  ifdef ANDROID_SDK
+    ASDK ?= $(shell echo "$(ANDROID_SDK)" | sed 's:\\\\:/:g')
+  else
     ifeq ($(NDK_HOST_OS),darwin)
-      ANDROID_SDK ?= $(HOME)/Library/Android/sdk
+      ASDK ?= $(HOME)/Library/Android/sdk
     else ifeq ($(NDK_HOST_OS),linux)
-      ANDROID_SDK ?= $(HOME)/Android/Sdk
+      ASDK ?= $(HOME)/Android/Sdk
     else ifeq ($(NDK_HOST_OS),windows)
-      ANDROID_SDK ?= $(LOCALAPPDATA)/Android/Sdk
+      ASDK ?= $(shell echo "$(LOCALAPPDATA)" | sed 's:\\:/:g')/Android/Sdk
     endif
   endif
-  NDK ?= $(shell ls -d $(ANDROID_SDK)/ndk/* | sort -V | tail -1)
+  ANDK ?= $(shell ls -d $(ASDK)/ndk/* | sort -V | tail -1)
 endif
-
-NDK_BIN         := $(NDK)/toolchains/llvm/prebuilt/$(NDK_HOST_OS)-$(NDK_HOST_ARCH)/bin
+NDK_BIN         := $(ANDK)/toolchains/llvm/prebuilt/$(NDK_HOST_OS)-$(NDK_HOST_ARCH)/bin
 ANDROID_MIN_API := 28
 
 # ── iOS ───────────────────────────────────────────────────────────────────────
