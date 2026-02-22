@@ -22,6 +22,15 @@ func (g *GoMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 
 	MakefileHeader(&b, ctx, "go")
 	MakefileTargetConfig(&b)
+
+	// CGO compiler — Go CGO on Windows requires a GCC-compatible compiler.
+	// zig cc provides a zero-install cross-compiler; macOS/Linux use clang.
+	b.WriteString("# ── CGO compiler ────────────────────────────────────────────────────────────\n\n")
+	b.WriteString("CGO_CC := clang\n")
+	b.WriteString("ifneq (,$(EXE))\n")
+	b.WriteString("  CGO_CC := zig cc -target x86_64-windows-gnu\n")
+	b.WriteString("endif\n\n")
+
 	MakefileBindingVars(&b, apiName, "generated/")
 	MakefileWASMExports(&b, apiName, ctx.API)
 
@@ -48,16 +57,16 @@ $(STAMP): $(API_DEF)
 
 run: $(STAMP)
 	@mkdir -p $(BUILD_DIR)
-	go build -o $(BUILD_DIR)/$(API_NAME)$(EXE) .
+	CC="$(CGO_CC)" go build -o $(BUILD_DIR)/$(API_NAME)$(EXE) .
 	./$(BUILD_DIR)/$(API_NAME)$(EXE)
 
 shared-lib: $(SHARED_LIB)
 
 $(SHARED_LIB): $(STAMP)
 ifeq ($(HOST_OS),Darwin)
-	go build -buildmode=c-shared -ldflags='-extldflags "-Wl,-install_name,@rpath/$(LIB_NAME).$(DYLIB_EXT)"' -o $(SHARED_LIB) .
+	CC="$(CGO_CC)" go build -buildmode=c-shared -ldflags='-extldflags "-Wl,-install_name,@rpath/$(LIB_NAME).$(DYLIB_EXT)"' -o $(SHARED_LIB) .
 else
-	go build -buildmode=c-shared -o $(SHARED_LIB) .
+	CC="$(CGO_CC)" go build -buildmode=c-shared -o $(SHARED_LIB) .
 endif
 
 clean:

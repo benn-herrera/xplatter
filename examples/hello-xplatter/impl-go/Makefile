@@ -25,6 +25,7 @@ target_enabled = $(filter $(1),$(TARGETS))
 HOST_OS   := $(shell uname -s)
 HOST_ARCH := $(shell uname -m)
 EXE       :=
+CGO_CC	  := clang
 ifeq ($(HOST_OS),Darwin)
   DYLIB_EXT     := dylib
   NDK_HOST_OS   := darwin
@@ -34,6 +35,7 @@ else ifneq (,$(findstring MINGW,$(HOST_OS))$(findstring MSYS,$(HOST_OS)))
   NDK_HOST_OS   := windows
   NDK_HOST_ARCH := x86_64
   EXE           := .exe
+  CGO_CC        := zig cc -target x86_64-windows-gnu
 else
   DYLIB_EXT    := so
   NDK_HOST_OS  := linux
@@ -134,16 +136,16 @@ GEN_GO_COPIES  := $(notdir $(GEN_GO_SOURCES))
 # ── Local build ──────────────────────────────────────────────────────────────
 
 test: $(STAMP)
-	go build -tags="testing" -o $(BUILD_DIR)/test_$(API_NAME)$(EXE) .
+	CC="$(CGO_CC)" go build -tags="testing" -o $(BUILD_DIR)/test_$(API_NAME)$(EXE) .
 	$(BUILD_DIR)/test_$(API_NAME)$(EXE)
 
 shared-lib: $(SHARED_LIB)
 
 $(SHARED_LIB): $(STAMP)
 ifeq ($(HOST_OS),Darwin)
-	go build -buildmode=c-shared -ldflags='-extldflags "-Wl,-install_name,@rpath/$(LIB_NAME).$(DYLIB_EXT)"' -o $(SHARED_LIB) .
+	CC="$(CGO_CC)" go build -buildmode=c-shared -ldflags='-extldflags "-Wl,-install_name,@rpath/$(LIB_NAME).$(DYLIB_EXT)"' -o $(SHARED_LIB) .
 else
-	go build -buildmode=c-shared -o $(SHARED_LIB) .
+	CC="$(CGO_CC)" go build -buildmode=c-shared -o $(SHARED_LIB) .
 endif
 
 clean:

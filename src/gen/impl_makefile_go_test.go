@@ -50,11 +50,18 @@ func TestGoMakefileGenerator_Content(t *testing.T) {
 	if !strings.Contains(content, "IMPL_LANG := go") {
 		t.Error("missing IMPL_LANG := go")
 	}
-	if !strings.Contains(content, "go build -o $(BUILD_DIR)/$(API_NAME)$(EXE) .") {
-		t.Error("missing go build in run target")
+	if !strings.Contains(content, `CC="$(CGO_CC)" go build -o $(BUILD_DIR)/$(API_NAME)$(EXE) .`) {
+		t.Error("missing CC=$(CGO_CC) go build in run target")
 	}
-	if !strings.Contains(content, "go build -buildmode=c-shared") {
-		t.Error("missing go build -buildmode=c-shared")
+	if !strings.Contains(content, `CC="$(CGO_CC)" go build -buildmode=c-shared`) {
+		t.Error("missing CC=$(CGO_CC) go build -buildmode=c-shared")
+	}
+	// CGO_CC variable
+	if !strings.Contains(content, "CGO_CC := clang") {
+		t.Error("missing CGO_CC := clang default")
+	}
+	if !strings.Contains(content, "CGO_CC := zig cc -target x86_64-windows-gnu") {
+		t.Error("missing CGO_CC Windows override")
 	}
 
 	// Codegen stamp with -o generated
