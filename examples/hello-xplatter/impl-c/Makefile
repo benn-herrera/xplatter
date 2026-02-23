@@ -164,7 +164,7 @@ IMPL_SOURCES := $(API_NAME)_impl.c
 test: $(STAMP)
 	@mkdir -p $(BUILD_DIR)
 ifneq (,$(EXE))
-	$(CC) $(CFLAGS) /Fe:$(BUILD_DIR)/$(API_NAME).exe \
+	$(CC) /nologo $(CFLAGS) /Fe:$(BUILD_DIR)/$(API_NAME).exe \
 		$(IMPL_SOURCES) $(PLATFORM_SERVICES)/desktop.c test.c
 else
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$(API_NAME) \
@@ -181,7 +181,7 @@ ifeq ($(HOST_OS),Darwin)
 		-Wl,-install_name,@rpath/$(LIB_NAME).$(DYLIB_EXT) \
 		-o $@ $(IMPL_SOURCES) $(PLATFORM_SERVICES)/desktop.c
 else ifneq (,$(EXE))
-	$(CC) /LD $(LIB_VISIBILITY_FLAGS) $(CFLAGS) \
+	$(CC) /nologo /LD $(LIB_VISIBILITY_FLAGS) $(CFLAGS) \
 		$(IMPL_SOURCES) $(PLATFORM_SERVICES)/desktop.c \
 		/Fe:$@ /link /IMPLIB:$(BUILD_DIR)/$(API_NAME).lib
 else

@@ -169,7 +169,7 @@ $(GEN_HEADER) $(GEN_SWIFT_BINDING) $(GEN_KOTLIN_BINDING) $(GEN_JS_BINDING) $(GEN
 test: $(STAMP)
 	@mkdir -p $(BUILD_DIR)
 ifneq (,$(EXE))
-	$(CXX) $(CXXFLAGS) /Fe:$(BUILD_DIR)/$(API_NAME).exe \
+	$(CXX) /nologo $(CXXFLAGS) /Fe:$(BUILD_DIR)/$(API_NAME).exe \
 		$(IMPL_SOURCES) $(SHIM_SOURCE) $(PLATFORM_SERVICES)/desktop.c test.cpp
 else
 	$(CXX) $(CXXFLAGS) -o $(BUILD_DIR)/$(API_NAME) \
@@ -186,7 +186,7 @@ ifeq ($(HOST_OS),Darwin)
 		-Wl,-install_name,@rpath/$(LIB_NAME).$(DYLIB_EXT) \
 		-o $@ $(IMPL_SOURCES) $(SHIM_SOURCE) $(PLATFORM_SERVICES)/desktop.c
 else ifneq (,$(EXE))
-	$(CXX) /LD $(LIB_VISIBILITY_FLAGS) $(CXXFLAGS) \
+	$(CXX) /nologo /LD $(LIB_VISIBILITY_FLAGS) $(CXXFLAGS) \
 		$(IMPL_SOURCES) $(SHIM_SOURCE) $(PLATFORM_SERVICES)/desktop.c \
 		/Fe:$@ /link /IMPLIB:$(BUILD_DIR)/$(API_NAME).lib
 else
