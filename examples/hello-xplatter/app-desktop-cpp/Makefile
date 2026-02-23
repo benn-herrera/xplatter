@@ -63,8 +63,8 @@ ifeq ($(HOST_OS),Darwin)
 else ifneq (,$(EXE))
 	$(CXX) /std:c++20 /EHsc /W4 /I$(HEADER_DIR) /Fo:$(BUILD_DIR)/ \
 		/Fe:$@ main.cpp \
-		$(LIB_DIR)/hello_xplatter.lib
-	cp $(LIB_DIR)/libhello_xplatter.dll $(BUILD_DIR)/
+		$(LIB_DIR)/hello_xplatter.dll.lib
+	cp $(LIB_DIR)/hello_xplatter.dll $(BUILD_DIR)/
 else
 	$(CXX) -std=c++20 -Wall -Wextra -I$(HEADER_DIR) \
 		-o $@ main.cpp \
