@@ -4,14 +4,6 @@
 * items on the todo list are addressed one encapsulated (## headed) issue at a time in top down order. The task is to be accomplished starting in planning mode and then moving on to execution.
 * when completed they are marked done (## DONE - [description]) and moved to the end of the file for archival purposes
 
-## impl-c and impl-cpp package-web fails on Windows
-* directly invoking emcc in the Makefile does not extend well to Windows.
-* impl-cpp already uses cmake for at least on compilation. 
-  * WASM compilation should be handled in the CMakeLists.txt file.
-    * emscripten provides a CMake toolchain file
-    * on windows the EMSDK_PATH envar can be used to find the toolchain file
-  * the same cmake approach should be used for impl-c.
-
 ## app-desktop-cpp not linking
 * there are mismatches between the library produced and the one expected in the Makefile
   * the produced library is dynamic and a static library is expected
@@ -19,8 +11,12 @@
 
 ## _IGNORE THIS LINE AND EVERYTHING BELOW IT IN THIS FILE - STAGING AREA FOR FUTURE WORK_
 
-## impl-go - cgo not working properly
-  * fails with error ```-buildmode=c-shared requires external (cgo) linking, but cgo is not enabled``` 
+## architecture discussion: leveraging zig to reduce developer and user setup complexity
+* can we use its c and c++ compiler drop in replacement capabilities to simplify our Makefiles
+  * maybe eliminate use of cmake?
+  * maybe eliminate need for android NDK?
+  * maybe eliminate need for emscripten?
+ 
 
 ## in GC'd languages (Swift, Kotlin, JavaScript)   
   * the generated bindings should map constructors (create functions) to setup functions that replace the string 'create' in the name with 'setup' 
