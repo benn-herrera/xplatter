@@ -1,3 +1,4 @@
+SHELL      := /bin/bash
 IMPL       ?= cpp
 IMPL_DIR   := ../impl-$(IMPL)
 BUILD_DIR  := build
@@ -43,17 +44,20 @@ else ifeq ($(HOST_OS),Darwin)
 else
   ANDROID_SDK_DIR := $(HOME)/Android/Sdk
 endif
+ANDROID_SDK_DIR := $(shell echo "$(ANDROID_SDK_DIR)" | sed 's:\\\\:/:g')
 
 local.properties:
 	@echo "sdk.dir=$(ANDROID_SDK_DIR)" > $@
 
 build-app: gradle-wrapper package local.properties
-	./gradlew :app:assembleDebug
+# gradlew shebang is /usr/bin/env sh. works on Linux and macOS
+# 	fails on windows under git bash. script is BASH portable.
+	bash ./gradlew :app:assembleDebug
 
 # --- Gradle wrapper ---
 
 gradle-wrapper:
-	@if [ ! -f gradlew ]; then \
+	@if [[ ! -f gradlew ]]; then \
 		echo "Copying Gradle wrapper from $(GRADLE_WRAPPER_SRC)..."; \
 		cp $(GRADLE_WRAPPER_SRC)/gradlew .; \
 		chmod +x gradlew; \
