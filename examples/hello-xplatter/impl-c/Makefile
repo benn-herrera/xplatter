@@ -109,7 +109,7 @@ IOS_MIN := 15.0
 # Windows EMSDK install: set EMSDK or EMSDK_PATH.
 # macOS/Linux package-manager install: em-config is used automatically.
 EMSDK_PATH ?= $(EMSDK)
-ifneq ($(EMSDK_PATH),)
+ifneq (,$(EMSDK_PATH))
   EMSCRIPTEN_ROOT := $(EMSDK_PATH)/upstream/emscripten
 else
   EMSCRIPTEN_ROOT := $(shell em-config EMSCRIPTEN_ROOT 2>/dev/null)
