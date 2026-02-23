@@ -27,20 +27,22 @@ target_enabled = $(filter $(1),$(TARGETS))
 
 # ── Host platform detection ────────────────────────────────────────────────────
 
-HOST_OS   := $(shell uname -s)
-HOST_ARCH := $(shell uname -m)
-EXE       :=
+HOST_OS          := $(shell uname -s)
+HOST_ARCH        := $(shell uname -m)
+EXE              :=
+DESKTOP_LIB_NAME := $(LIB_NAME)
 CGO_CC	  := clang
 ifeq ($(HOST_OS),Darwin)
   DYLIB_EXT     := dylib
   NDK_HOST_OS   := darwin
   NDK_HOST_ARCH := x86_64
 else ifneq (,$(findstring MINGW,$(HOST_OS))$(findstring MSYS,$(HOST_OS)))
-  DYLIB_EXT     := dll
-  NDK_HOST_OS   := windows
-  NDK_HOST_ARCH := x86_64
-  EXE           := .exe
-  CGO_CC        := zig cc -target x86_64-windows-gnu
+  DESKTOP_LIB_NAME := $(API_NAME)
+  DYLIB_EXT        := dll
+  NDK_HOST_OS      := windows
+  NDK_HOST_ARCH    := x86_64
+  EXE              := .exe
+  CGO_CC           := zig cc
 else
   DYLIB_EXT    := so
   NDK_HOST_OS  := linux
@@ -50,9 +52,7 @@ else
     NDK_HOST_ARCH := x86_64
   endif
 endif
-SHARED_LIB := $(BUILD_DIR)/$(LIB_NAME).$(DYLIB_EXT)
-DESKTOP_LIB_NAME := $(LIB_NAME)
-DESKTOP_SHARED_LIB := $(SHARED_LIB)
+DESKTOP_SHARED_LIB := $(BUILD_DIR)/$(DESKTOP_LIB_NAME).$(DYLIB_EXT)
 
 # ── NDK configuration ─────────────────────────────────────────────────────────
 # ANDK/ASDK normalize backslashes to forward slashes for Windows compatibility.
@@ -107,7 +107,7 @@ $(STAMP): $(API_DEF)
 GEN_GO_SOURCES := $(wildcard $(GEN_DIR)$(API_NAME)_*.go)
 GEN_GO_COPIES  := $(notdir $(GEN_GO_SOURCES))
 
-.PHONY: test shared-lib clean
+.PHONY: test desktop-shared-lib clean
 
 # ── Local build ──────────────────────────────────────────────────────────────
 
@@ -115,13 +115,24 @@ test: $(STAMP)
 	CC="$(CGO_CC)" go build -tags="testing" -o $(BUILD_DIR)/test_$(API_NAME)$(EXE) .
 	$(BUILD_DIR)/test_$(API_NAME)$(EXE)
 
-shared-lib: $(SHARED_LIB)
+desktop-shared-lib: $(DESKTOP_SHARED_LIB)
 
-$(SHARED_LIB): $(STAMP)
+$(DESKTOP_SHARED_LIB): $(STAMP)
 ifeq ($(HOST_OS),Darwin)
-	CC="$(CGO_CC)" go build -buildmode=c-shared -ldflags='-extldflags "-Wl,-install_name,@rpath/$(LIB_NAME).$(DYLIB_EXT)"' -o $(SHARED_LIB) .
+	CC="$(CGO_CC)" go build -buildmode=c-shared -ldflags='-extldflags "-Wl,-install_name,@rpath/$(LIB_NAME).$(DYLIB_EXT)"' -o $(DESKTOP_SHARED_LIB) .
 else
-	CC="$(CGO_CC)" go build -buildmode=c-shared -o $(SHARED_LIB) .
+	CC="$(CGO_CC)" go build -buildmode=c-shared -o $(DESKTOP_SHARED_LIB) .
+ifneq (,$(EXE))
+# 	extract exported symbols from header and generate a def file
+#   	look for all lines starting with extern sans the extern "C"
+#    	and print the name of the function
+#    	!NOTE! this relies on go's typedefs that combine unsigned int int uint, etc.
+#    	TODO: do something less fragile.
+	awk 'BEGIN { print "EXPORTS"; } /^extern "C"/ { next; } /^extern / { gsub(/\(/, " "); print $$3; }' \
+	    $(BUILD_DIR)/$(API_NAME).h > $(BUILD_DIR)/$(DESKTOP_LIB_NAME).def
+# 	use generated def file and dll to create the required link lib
+	zig dlltool -d $(BUILD_DIR)/$(DESKTOP_LIB_NAME).def -D $(DESKTOP_SHARED_LIB) -l $(BUILD_DIR)/$(DESKTOP_LIB_NAME).lib
+endif
 endif
 
 clean:
@@ -291,12 +302,21 @@ $(DIST_DESKTOP_DIR)/include/$(PASCAL_NAME).swift: $(GEN_SWIFT_BINDING)
 	@mkdir -p $(dir $@)
 	cp $(GEN_SWIFT_BINDING) $@
 
-$(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).$(DYLIB_EXT): $(DESKTOP_SHARED_LIB)
+DIST_DESKTOP_DYN_LIB := $(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).$(DYLIB_EXT)
+$(DIST_DESKTOP_DYN_LIB): $(DESKTOP_SHARED_LIB)
 	@mkdir -p $(dir $@)
 	cp $(DESKTOP_SHARED_LIB) $@
 
+DIST_DESKTOP_LNK_LIB :=
+ifneq (,$(EXE))
+DIST_DESKTOP_LNK_LIB := $(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).lib
+$(DIST_DESKTOP_LNK_LIB): $(DESKTOP_SHARED_LIB)
+	@mkdir -p $(dir $@)
+	cp $(BUILD_DIR)/$(DESKTOP_LIB_NAME).lib $@
+endif
+
 .PHONY: package-desktop
-package-desktop: $(STAMP) $(DIST_DESKTOP_DIR)/include/$(API_NAME).h $(DIST_DESKTOP_DIR)/include/$(PASCAL_NAME).swift $(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).$(DYLIB_EXT)
+package-desktop: $(STAMP) $(DIST_DESKTOP_DIR)/include/$(API_NAME).h $(DIST_DESKTOP_DIR)/include/$(PASCAL_NAME).swift $(DIST_DESKTOP_DYN_LIB) $(DIST_DESKTOP_LNK_LIB)
 	@echo "Packaged Desktop: $(DIST_DESKTOP_DIR)/"
 
 endif

@@ -31,7 +31,6 @@ HOST_OS          := $(shell uname -s)
 HOST_ARCH        := $(shell uname -m)
 EXE              :=
 NDK_CMD	         :=
-DYLIB_LNK_EXT    :=
 DESKTOP_LIB_NAME := $(LIB_NAME)
 
 ifeq ($(HOST_OS),Darwin)
@@ -42,7 +41,6 @@ else ifneq (,$(findstring MINGW,$(HOST_OS))$(findstring MSYS,$(HOST_OS)))
   # windows does not use leading lib naming convention
   DESKTOP_LIB_NAME := $(API_NAME)
   DYLIB_EXT        := dll
-  DYLIB_LNK_EXT    := dll.lib
   NDK_HOST_OS      := windows
   NDK_HOST_ARCH    := x86_64
   EXE              := .exe
@@ -121,10 +119,9 @@ $(DESKTOP_SHARED_LIB): $(STAMP)
 	cargo build --release
 	@mkdir -p $(BUILD_DIR)
 ifneq (,$(EXE))
+	cp target/release/$(DESKTOP_LIB_NAME).$(DYLIB_EXT) $(DESKTOP_SHARED_LIB)
 	# on Windows the build produces a .dll.lib for use at link time
-	cp  target/release/$(DESKTOP_LIB_NAME).$(DYLIB_EXT) \
-	    target/release/$(DESKTOP_LIB_NAME).$(DYLIB_LNK_EXT) \
-		$(BUILD_DIR)/
+	cp target/release/$(DESKTOP_LIB_NAME).$(DYLIB_EXT).lib $(BUILD_DIR)/$(DESKTOP_LIB_NAME).lib
 else ifeq ($(HOST_OS),Darwin)
 	cp target/release/$(DESKTOP_LIB_NAME).$(DYLIB_EXT) $(DESKTOP_SHARED_LIB)
 	install_name_tool -id @rpath/$(DESKTOP_LIB_NAME).$(DYLIB_EXT) $(DESKTOP_SHARED_LIB)
@@ -287,21 +284,21 @@ $(DIST_DESKTOP_DIR)/include/$(PASCAL_NAME).swift: $(GEN_SWIFT_BINDING)
 	@mkdir -p $(dir $@)
 	cp $(GEN_SWIFT_BINDING) $@
 
-DESKTOP_DIST_DYN_LIB := $(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).$(DYLIB_EXT)
-$(DESKTOP_DIST_DYN_LIB): $(DESKTOP_SHARED_LIB)
+DIST_DESKTOP_DYN_LIB := $(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).$(DYLIB_EXT)
+$(DIST_DESKTOP_DYN_LIB): $(DESKTOP_SHARED_LIB)
 	@mkdir -p $(dir $@)
 	cp $(DESKTOP_SHARED_LIB) $@
 
-DESKTOP_DIST_LNK_LIB :=
-ifneq (,$(DYLIB_LNK_EXT))
-DESKTOP_DIST_LNK_LIB :=	$(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).$(DYLIB_LNK_EXT)
-$(DESKTOP_DIST_LNK_LIB): $(DESKTOP_SHARED_LIB)
+DIST_DESKTOP_LNK_LIB :=
+ifneq (,$(EXE))
+DIST_DESKTOP_LNK_LIB :=	$(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).lib
+$(DIST_DESKTOP_LNK_LIB): $(DESKTOP_SHARED_LIB)
 	@mkdir -p $(dir $@)
-	cp $(BUILD_DIR)/$(DESKTOP_LIB_NAME).$(DYLIB_LNK_EXT) $@
+	cp $(BUILD_DIR)/$(DESKTOP_LIB_NAME).lib $@
 endif
 
 .PHONY: package-desktop
-package-desktop: $(STAMP) $(DIST_DESKTOP_DIR)/include/$(API_NAME).h $(DIST_DESKTOP_DIR)/include/$(PASCAL_NAME).swift $(DESKTOP_DIST_DYN_LIB) $(DESKTOP_DIST_LNK_LIB)
+package-desktop: $(STAMP) $(DIST_DESKTOP_DIR)/include/$(API_NAME).h $(DIST_DESKTOP_DIR)/include/$(PASCAL_NAME).swift $(DIST_DESKTOP_DYN_LIB) $(DIST_DESKTOP_LNK_LIB)
 	@echo "Packaged Desktop: $(DIST_DESKTOP_DIR)/"
 
 endif

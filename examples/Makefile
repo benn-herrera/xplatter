@@ -117,7 +117,7 @@ package-hello-all: package-hello-c package-hello-cpp package-hello-rust package-
 test-hello-impl-app-matrix: test-hello-impl-all
 	$(MAKE) IMPL=c    clean-hello-app-all test-hello-app-all
 	$(MAKE) IMPL=cpp  clean-hello-app-all test-hello-app-all
-#	$(MAKE) IMPL=go   clean-hello-app-all test-hello-app-all
+	$(MAKE) IMPL=go   clean-hello-app-all test-hello-app-all
 	$(MAKE) IMPL=rust clean-hello-app-all test-hello-app-all
 
 ## help: Show available targets
