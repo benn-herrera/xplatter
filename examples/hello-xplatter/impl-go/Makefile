@@ -100,10 +100,6 @@ ANDROID_MIN_API := 28
 
 IOS_MIN := 15.0
 
-# ── Emscripten ────────────────────────────────────────────────────────────────
-
-EMCC ?= emcc
-
 # ── Generated binding files ───────────────────────────────────────────────────
 
 GEN_DIR            := generated/

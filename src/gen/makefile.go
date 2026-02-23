@@ -169,7 +169,12 @@ ANDROID_MIN_API := 28
 
 IOS_MIN := 15.0
 
-# ── Emscripten ────────────────────────────────────────────────────────────────
+`)}
+
+// MakefileEmscriptenConfig emits the Emscripten SDK discovery variables.
+// Only needed for C and C++ impls which use cmake with the Emscripten toolchain.
+func MakefileEmscriptenConfig(b *strings.Builder) {
+	b.WriteString(`# ── Emscripten ────────────────────────────────────────────────────────────────
 # Windows EMSDK install: set EMSDK or EMSDK_PATH.
 # macOS/Linux package-manager install: em-config is used automatically.
 EMSDK_PATH ?= $(EMSDK)

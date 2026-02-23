@@ -121,18 +121,6 @@ func TestMakefileTargetConfig(t *testing.T) {
 	if !strings.Contains(content, "IOS_MIN") {
 		t.Error("missing iOS configuration")
 	}
-	if !strings.Contains(content, "EMSCRIPTEN_TOOLCHAIN") {
-		t.Error("missing Emscripten configuration")
-	}
-	if !strings.Contains(content, "EMSCRIPTEN_ROOT") {
-		t.Error("missing EMSCRIPTEN_ROOT intermediate variable")
-	}
-	if !strings.Contains(content, "em-config EMSCRIPTEN_ROOT") {
-		t.Error("missing em-config EMSCRIPTEN_ROOT for macOS/Linux package installs")
-	}
-	if !strings.Contains(content, `sed 's:\\\\:/:g'`) {
-		t.Error("missing EMSCRIPTEN_ROOT Windows path fixup")
-	}
 
 	// Windows platform detection
 	if !strings.Contains(content, "findstring MINGW,$(HOST_OS)") {
@@ -169,6 +157,25 @@ func TestMakefileTargetConfig(t *testing.T) {
 	}
 	if !strings.Contains(content, "export LIB") {
 		t.Error("missing LIB export for MSVC")
+	}
+}
+
+func TestMakefileEmscriptenConfig(t *testing.T) {
+	var b strings.Builder
+	MakefileEmscriptenConfig(&b)
+	content := b.String()
+
+	if !strings.Contains(content, "EMSCRIPTEN_TOOLCHAIN") {
+		t.Error("missing Emscripten configuration")
+	}
+	if !strings.Contains(content, "EMSCRIPTEN_ROOT") {
+		t.Error("missing EMSCRIPTEN_ROOT intermediate variable")
+	}
+	if !strings.Contains(content, "em-config EMSCRIPTEN_ROOT") {
+		t.Error("missing em-config EMSCRIPTEN_ROOT for macOS/Linux package installs")
+	}
+	if !strings.Contains(content, `sed 's:\\\\:/:g'`) {
+		t.Error("missing EMSCRIPTEN_ROOT Windows path fixup")
 	}
 }
 
