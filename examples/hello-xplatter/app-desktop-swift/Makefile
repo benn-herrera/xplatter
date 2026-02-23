@@ -1,3 +1,4 @@
+SHELL      := /bin/bash
 IMPL       ?= cpp
 IMPL_DIR   := ../impl-$(IMPL)
 BUILD_DIR  := build
