@@ -32,6 +32,7 @@ xplatter <command> [flags]
 | `generate` | Generate C ABI header, platform bindings, and impl scaffolding |
 | `validate` | Check API definition and FlatBuffers schemas without generating |
 | `init` | Scaffold a new project with starter API definition and FBS files |
+| `dump_schema` | Print the built-in API definition JSON Schema |
 | `version` | Print version and exit |
 
 **Global flags** (apply to all commands):
@@ -66,6 +67,12 @@ xplatter <command> [flags]
 | `-n, --name <name>` | API name (default: `my_api`) |
 | `--impl-lang <lang>` | Implementation language (default: `cpp`) |
 | `-o, --output <dir>` | Output directory (default: current directory) |
+
+**`dump_schema` flags:**
+
+| Flag | Description |
+|------|-------------|
+| `-o, --output <file>` | Write schema to file instead of stdout |
 
 **FlatBuffers compiler resolution order:**
 1. `--flatc` flag
@@ -118,7 +125,10 @@ Referenced as `handle:Name` in method signatures.
 |-------|----------|------|------------|
 | `name` | yes | string | `snake_case` |
 | `description` | no | string | Human-readable description |
-| `methods` | yes | array | At least one method |
+| `constructors` | no | array | Methods that create handles (same structure as `methods`) |
+| `methods` | no | array | Regular methods |
+
+At least one of `constructors` or `methods` must be present. When an interface declares `constructors`, the code gen tool auto-generates a matching destroy method for the handle returned by the constructor. Constructors are methods that return a handle type, are fallible, and take no handle input parameters.
 
 #### Methods
 
@@ -458,19 +468,30 @@ Controlled by `impl_lang`. Generates an abstract interface, C ABI shim, and stub
 | `cpp` | Abstract class (pure virtual) | `.cpp` with virtual dispatch shims | Concrete class with stubs |
 | `rust` | Trait definition | `extern "C"` functions → trait impl | Skeleton `impl` block |
 | `go` | Interface type | `//export` cgo → interface impl | Stub functions |
-| `c` | — | — | — |
+| `c` | — | — (impl exports C ABI directly) | Stub `.c` file with TODO bodies |
 
-With `c`, only the C API header is generated.
+All impl_langs additionally generate a Makefile (scaffold) and platform service stubs. With `c`, there is no abstract interface or shim layer — the implementation exports the C ABI functions directly.
 
 ### 9.2 Output File Manifest
 
+Files are either **regenerated** (overwritten each run) or **scaffold** (only written if the file doesn't exist, allowing user customization). Scaffold files are marked with *(scaffold)* below. Files marked with *(project)* are written to the parent of the output directory (e.g., for Makefiles that live at the project root).
+
 **Always:** `{api_name}.h` (C ABI header)
 
-**`impl_lang: cpp`** — `_interface.h` (abstract class), `_shim.cpp` (extern "C" shim), `_impl.h` + `_impl.cpp` (concrete stubs + factory)
+**`impl_lang: c`** — `{api_name}_impl.c` *(scaffold)*, `CMakeLists.txt` *(scaffold)*
 
-**`impl_lang: rust`** — `_trait.rs` (traits), `_ffi.rs` (extern "C" shims), `_impl.rs` (stubs), `_types.rs` (if types exist)
+**`impl_lang: cpp`** — `_interface.h` (abstract class), `_shim.cpp` (extern "C" shim), `_impl.h` + `_impl.cpp` *(scaffold)* (concrete stubs + factory), `CMakeLists.txt` *(scaffold)*
 
-**`impl_lang: go`** — `_interface.go` (interfaces), `_cgo.go` (//export shims), `_impl.go` (stubs), `_types.go` (if enums exist), and `_wasm.go` (if `web` is in targets; //go:wasmexport stubs for GOOS=wasip1 builds)
+**`impl_lang: rust`** — `_trait.rs` (traits), `_ffi.rs` (extern "C" shims), `_impl.rs` *(scaffold)* (stubs), `_types.rs` (if types exist), `Cargo.toml` *(scaffold)*, `src/lib.rs` *(scaffold)*
+
+**`impl_lang: go`** — `_interface.go` (interfaces), `_cgo.go` (//export shims), `_impl.go` *(scaffold)* (stubs), `_types.go` (if enums exist), `go.mod` *(scaffold)*, `.gitignore` *(scaffold)*, and `_wasm.go` (if `web` is in targets; //go:wasmexport stubs for GOOS=wasip1 builds)
+
+**All impl_langs additionally generate:**
+- `Makefile` *(scaffold, project)* — build rules for desktop, iOS, Android, WASM targets with platform detection, MSVC/NDK/Emscripten discovery, and packaging
+- `platform_services/desktop.c` *(scaffold, project)* — logging and resource stubs for desktop
+- `platform_services/ios.c` *(scaffold, project)* — logging via `os_log`, resource stubs for iOS
+- `platform_services/android.c` *(scaffold, project)* — logging via `__android_log_print`, resource stubs for Android
+- `platform_services/web.c` *(scaffold, project)* — no-op stubs for WASM
 
 **Platform bindings:** `android` → `{PascalCase}.kt` + `_jni.c` | `ios`/`macos` → `{PascalCase}.swift` | `web` → `{api_name}.js` | `windows`/`linux` → C header only
 
@@ -489,26 +510,20 @@ With `c`, only the C API header is generated.
 
 Duplicates are deduplicated (e.g., `ios` + `macos` → single `--swift`). Use `--skip-flatc` to suppress.
 
-### 9.3 Create/Destroy Method Detection
+### 9.3 Constructor and Destructor Handling
 
-The **C++ shim generator** uses heuristics to detect factory and teardown methods, which get special shim bodies:
+Constructors and destructors are handled deterministically — no heuristic scanning of method names or signatures.
 
-**Create method** — all of these must be true:
-- Method returns a handle type (`returns.type` is `handle:X`)
-- Method is fallible (has `error` field)
-- Method has **no** handle input parameters (pure factory — no existing handle to delegate through)
+**Constructors** are explicitly declared in the `constructors:` field of an interface definition. They are methods that create handles. `ConstructorHandleName()` on `InterfaceDef` identifies which handle an interface creates by inspecting the first constructor's return type.
 
-**Destroy method** — all of these must be true:
-- Method name starts with `"destroy"` or `"release"`
-- First parameter is a handle type
-- Method is infallible (no `error` field)
-- Method has no return value
+**Destructors** are auto-synthesized by the code gen tool. When an interface has constructors, `SyntheticDestructor()` generates a destroy method for that handle (e.g., handle `Greeter` → method `destroy_greeter` with a single `handle:Greeter` parameter). The destroy method is infallible and void.
 
-All other methods are "regular" — they find the first handle parameter, cast it to the implementation object, and delegate the call.
+**Shim behavior by language:**
 
-**Rust and Go** do not special-case create/destroy. Rust delegates all methods uniformly through trait dispatch (`TraitName::method(&Impl, ...)`); Go delegates through interface lookup and a handle map. Neither needs distinct factory/teardown bodies.
-
-**Swift and Kotlin bindings** use `FindDestroyInfo()` (which matches `destroy_` or `release_` prefix with a single handle parameter) to wire `deinit`/`close()` to the appropriate C function, but do not apply the full infallible/void check.
+- **C++ shim**: Create methods call `create_{api_name}_instance()`, check null, cast to handle, store in `*out_result`. Destroy methods cast handle back, `delete`. Regular methods cast handle to interface pointer and delegate.
+- **Rust**: All methods (including constructors and destructors) delegate uniformly through trait dispatch (`TraitName::method(&Impl, ...)`). No special factory/teardown bodies.
+- **Go**: All methods delegate through interface lookup and a handle map. Constructors call `allocHandle()`, destructors call `freeHandle()`.
+- **Swift and Kotlin bindings**: Wire the auto-generated destroy method to `deinit`/`close()` on the handle class.
 
 ### 9.4 C++ Generator Details
 
@@ -704,18 +719,15 @@ handles:
 
 interfaces:
   - name: lifecycle
-    methods:
+    constructors:
       - name: create_engine
         returns:
           type: handle:Engine
         error: Common.ErrorCode
-      - name: destroy_engine
-        parameters:
-          - name: engine
-            type: handle:Engine
+    # destroy_engine is auto-generated for handle:Engine
 
   - name: renderer
-    methods:
+    constructors:
       - name: create_renderer
         parameters:
           - name: engine
@@ -726,10 +738,8 @@ interfaces:
         returns:
           type: handle:Renderer
         error: Common.ErrorCode
-      - name: destroy_renderer
-        parameters:
-          - name: renderer
-            type: handle:Renderer
+    # destroy_renderer is auto-generated for handle:Renderer
+    methods:
       - name: begin_frame
         parameters:
           - name: renderer
@@ -742,7 +752,7 @@ interfaces:
         error: Common.ErrorCode
 
   - name: texture
-    methods:
+    constructors:
       - name: load_texture_from_path
         parameters:
           - name: renderer
@@ -763,10 +773,7 @@ interfaces:
         returns:
           type: handle:Texture
         error: Common.ErrorCode
-      - name: destroy_texture
-        parameters:
-          - name: texture
-            type: handle:Texture
+    # destroy_texture is auto-generated for handle:Texture
 
   - name: input
     methods:
@@ -836,7 +843,7 @@ int32_t  example_app_engine_resource_read(const char* name, uint8_t* buffer, uin
 EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_lifecycle_create_engine(
     engine_handle* out_result);
 EXAMPLE_APP_ENGINE_EXPORT void example_app_engine_lifecycle_destroy_engine(
-    engine_handle engine);
+    engine_handle engine);  /* auto-generated */
 
 /* renderer */
 EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_renderer_create_renderer(
@@ -844,7 +851,7 @@ EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_renderer_create_renderer(
     const Rendering_RendererConfig* config,
     renderer_handle* out_result);
 EXAMPLE_APP_ENGINE_EXPORT void example_app_engine_renderer_destroy_renderer(
-    renderer_handle renderer);
+    renderer_handle renderer);  /* auto-generated */
 EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_renderer_begin_frame(
     renderer_handle renderer);
 EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_renderer_end_frame(
@@ -862,7 +869,7 @@ EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_texture_load_texture_from_b
     Rendering_TextureFormat format,
     texture_handle* out_result);
 EXAMPLE_APP_ENGINE_EXPORT void example_app_engine_texture_destroy_texture(
-    texture_handle texture);
+    texture_handle texture);  /* auto-generated */
 
 /* input */
 EXAMPLE_APP_ENGINE_EXPORT int32_t example_app_engine_input_push_touch_events(

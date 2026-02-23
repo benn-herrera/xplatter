@@ -21,6 +21,9 @@ make vet                      # go vet
 # Validate example API definition against JSON Schema
 make validate
 
+# Dump the built-in JSON Schema to a file
+bin/xplatter dump_schema -o docs/api_definition_schema.json
+
 # Per-package tests (from src/)
 cd src && go test ./gen/...       # generators only
 cd src && go test ./loader/...    # YAML loader
@@ -28,21 +31,21 @@ cd src && go test ./resolver/...  # FBS type resolution
 cd src && go test ./validate/...  # semantic validation
 
 # Example integration tests (from examples/)
-cd examples && make test-hello-impls              # all impl languages
+cd examples && make test-hello-impl-all            # all impl languages
 cd examples && make test-hello-impl-c
 cd examples && make test-hello-impl-cpp
 cd examples && make test-hello-impl-rust
 cd examples && make test-hello-impl-go
 
 # App tests — consumer-side binding usage (from examples/)
-cd examples && make test-hello-apps               # all apps
+cd examples && make test-hello-app-all             # all apps
 cd examples && make test-hello-app-desktop-cpp
 cd examples && make test-hello-app-desktop-swift   # macOS only
 cd examples && make test-hello-app-ios             # macOS only
 cd examples && make test-hello-app-android         # requires Android SDK + NDK
 cd examples && make test-hello-app-web             # requires Emscripten
 
-# on-shot test of entire hello example impl vs app matrix
+# one-shot test of entire hello example impl vs app matrix (from root)
 make test-examples-hello-impl-app-matrix
 ```
 
@@ -50,20 +53,34 @@ make test-examples-hello-impl-app-matrix
 
 ```
 src/
-  cmd/          CLI commands (generate, validate, init, version)
+  cmd/          CLI commands
+    root.go        Root command setup (cobra)
+    generate.go    Generate command (codegen pipeline)
+    validate.go    Validate command (check API def + schemas)
+    init_cmd.go    Init command (scaffold new project)
+    dump_schema.go Dump the built-in JSON Schema to stdout or file
+    version.go     Print version
   gen/          All code generators — the core of the tool
     generator.go   Generator interface, registry, target/impl-lang mappings
     context.go     Generation context (API def + resolved types + output dir)
-    util.go        Naming utilities (PascalCase, camelCase, C type helpers)
+    util.go        Naming utilities (PascalCase, camelCase, C type helpers, destructor synthesis)
+    ctypes.go      C type definition helpers (WriteCTypedefs for cgo preambles)
     flatc.go       FlatBuffers compiler invocation
     cheader.go     C API header generator (always runs)
     kotlin.go      Kotlin + JNI bridge (Android)
     swift.go       Swift + C bridge (iOS, macOS)
     jswasm.go      JavaScript + WASM bindings (Web)
-    impl_cpp.go    C++ impl interface + shim + stubs
-    impl_rust.go   Rust impl trait + FFI + stubs
-    impl_go.go     Go impl interface + cgo shim + stubs
+    impl_c.go      C impl stub + CMakeLists.txt scaffold
+    impl_cpp.go    C++ impl interface + shim + stubs + CMakeLists.txt
+    impl_rust.go   Rust impl trait + FFI + stubs + Cargo.toml
+    impl_go.go     Go impl interface + cgo shim + stubs + go.mod
     impl_go_wasmexport.go  Go WASM impl (//go:wasmexport scaffolding for wasip1)
+    makefile.go    Makefile generation helpers (platform detection, MSVC/NDK/Emscripten config, packaging rules)
+    impl_makefile_c.go     C Makefile generator
+    impl_makefile_cpp.go   C++ Makefile generator
+    impl_makefile_rust.go  Rust Makefile generator
+    impl_makefile_go.go    Go Makefile generator
+    platform_services.go   Platform service stub generator (desktop, iOS, Android, web)
     *_test.go      Golden-file tests for each generator
   model/        API model types (APIDefinition, InterfaceDef, MethodDef, etc.)
     api.go         Type classification: IsPrimitive, IsString, IsBuffer, IsHandle, IsFlatBufferType
@@ -90,10 +107,11 @@ specs/          Top-level FlatBuffers specs (core_types.fbs, input_events.fbs)
       Generate(ctx *Context) ([]*OutputFile, error)
   }
   ```
-- **Output**: generators return `[]*OutputFile` where `OutputFile` has `Path` (relative) and `Content` ([]byte)
+- **Output**: generators return `[]*OutputFile` where `OutputFile` has `Path` (relative), `Content` ([]byte), `Scaffold` (bool — only write if file doesn't exist), and `ProjectFile` (bool — write to parent of output dir, e.g. for Makefiles)
 - **Golden-file testing**: `loadTestAPI(t, "minimal.yaml")` loads a test API + FBS types into a `*Context`, then compares `Generate()` output against files in `testdata/golden/`
-- **Naming utilities** in `gen/util.go`: `ToPascalCase`, `ToCamelCase`, `UpperSnakeCase`, `CABIFunctionName`, `HandleTypedefName`, `HandleStructName`, `ExportMacroName`, `BuildMacroName`, `CParamType`, `CReturnType`, `COutParamType`, `CollectErrorTypes`, `FindDestroyInfo`
-- **Type classification** in `model/api.go`: `IsPrimitive(t)`, `IsString(t)`, `IsBuffer(t)`, `IsHandle(t)`, `IsFlatBufferType(t)`, `PrimitiveCType(t)`, `FlatBufferCType(t)`, `HandleToSnake(name)`, `EffectiveTargets()`, `HandleByName(name)`
+- **Naming utilities** in `gen/util.go`: `ToPascalCase`, `ToCamelCase`, `UpperSnakeCase`, `CABIFunctionName`, `HandleTypedefName`, `HandleStructName`, `ExportMacroName`, `BuildMacroName`, `CParamType`, `CReturnType`, `COutParamType`, `CollectErrorTypes`, `DestructorMethodName`, `DestructorParam`, `InterfaceHasConstructors`, `SyntheticDestructor`, `GeneratedFileHeader`, `GeneratedFileHeaderBlock`
+- **C type helpers** in `gen/ctypes.go`: `WriteCTypedefs(b, handles, resolved)` — emits minimal C type definitions (handles, enums, structs, tables) for cgo preambles and non-header contexts
+- **Type classification** in `model/api.go`: `IsPrimitive(t)`, `IsString(t)`, `IsBuffer(t)`, `IsHandle(t)`, `IsFlatBufferType(t)`, `PrimitiveCType(t)`, `FlatBufferCType(t)`, `HandleToSnake(name)`, `EffectiveTargets()`, `HandleByName(name)`, `ConstructorHandleName()` (on `InterfaceDef`), plus package variables `AllTargets` and `ValidImplLangs`
 
 ## Generator Architecture
 
@@ -105,11 +123,14 @@ All generators follow the same pattern: iterate API interfaces, iterate methods,
   - `"ios"`, `"macos"` → `["swift"]`
   - `"web"` → `["jswasm"]`
   - `"windows"`, `"linux"` → `nil` (C header only)
-- **Impl-lang mapping** via `GeneratorsForImplLang(lang) string`:
-  - `"cpp"` → `"impl_cpp"`, `"rust"` → `"impl_rust"`, `"go"` → `"impl_go"`, `"c"` → `""` (no scaffolding)
+- **Impl-lang mapping** via `GeneratorsForImplLang(lang) []string`:
+  - `"cpp"` → `["impl_cpp", "impl_makefile_cpp", "impl_platform_services"]`
+  - `"rust"` → `["impl_rust", "impl_makefile_rust", "impl_platform_services"]`
+  - `"go"` → `["impl_go", "impl_makefile_go", "impl_platform_services"]`
+  - `"c"` → `["impl_c", "impl_makefile_c", "impl_platform_services"]`
 - **Impl-lang + targets mapping** via `GeneratorsForImplLangAndTargets(lang, targets) []string`:
   - `"go"` + `"web"` target → `["impl_go_wasm"]` (adds `//go:wasmexport` scaffolding alongside cgo shim)
-- **Create/destroy detection**: `FindDestroyInfo()` locates destroy methods for handles. Create methods are detected by heuristic (returns handle + fallible + no handle input). Generators use these to emit factory/teardown bodies in shims.
+- **Constructors and destructors**: Interfaces declare constructors separately from methods via the `constructors:` field. `ConstructorHandleName()` identifies which handle an interface creates. When an interface has constructors, `SyntheticDestructor()` auto-generates a destroy method for that handle. No heuristic scanning — constructors are explicit, destructors are deterministic.
 
 ## Adding a New Generator
 

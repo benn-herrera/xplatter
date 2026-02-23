@@ -87,8 +87,16 @@ Handles are referenced in method signatures as `handle:Name` (e.g., `handle:Engi
 interfaces:
   - name: lifecycle
     description: "Engine creation and teardown"
-    methods:
+    constructors:
       - name: create_engine
+        returns:
+          type: handle:Engine
+        error: Common.ErrorCode
+    # destroy_engine is auto-generated
+
+  - name: renderer
+    methods:
+      - name: begin_frame
         # ...
 ```
 
@@ -98,7 +106,19 @@ Interfaces group related methods. They have no runtime representation — they e
 |-------|----------|------|-------------|
 | `name` | yes | string | Interface name. Must be `snake_case`. Used in C ABI function naming. |
 | `description` | no | string | Human-readable description of this interface group. |
-| `methods` | yes | array | List of method definitions. At least one required. |
+| `constructors` | no | array | Constructor methods that create handles. Same structure as `methods`. When present, a matching destroy method is auto-generated. |
+| `methods` | no | array | Regular method definitions. |
+
+At least one of `constructors` or `methods` must be present.
+
+### Constructors
+
+Constructors are methods that create handles. They are declared in the `constructors:` field rather than `methods:`. When an interface has constructors, the code gen tool automatically generates a destroy method for the handle (e.g., `create_greeter` returning `handle:Greeter` will auto-generate `destroy_greeter` taking `handle:Greeter`).
+
+Constructor methods have the same structure as regular methods but are expected to:
+- Return a handle type (`returns.type` is `handle:Name`)
+- Be fallible (have an `error` field)
+- Take no handle input parameters (pure factories)
 
 ### Methods
 

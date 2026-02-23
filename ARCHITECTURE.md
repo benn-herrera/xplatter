@@ -33,20 +33,23 @@ All generated bindings route through the C ABI. The WASM/JS path uses C ABI expo
 ### Layer 2 — Implementation Interface & Scaffolding
 
 This is the second half of the delivered value. The combination of these layers provides the "one implementation -> mulitply consumable API" that addresses the multiplatform performance-critical application pain point.
-Code gen produces the complete implementation-side stack for the chosen language, as specified by the `impl_lang` field in the API definition. For each supported language, three things are generated:
+Code gen produces the complete implementation-side stack for the chosen language, as specified by the `impl_lang` field in the API definition. For each supported language, up to six things are generated:
 
 1. **Abstract interface** — the API contract expressed in the implementation language's idioms
 2. **C ABI shim** — generated bridge code that implements the exported C functions by delegating to the abstract interface, handling all marshalling between C types and language-native types
 3. **Stub implementation** — a skeleton that satisfies the abstract interface, ready for the consumer to fill in
+4. **Makefile** — build rules for desktop, iOS, Android, and WASM targets with platform detection, packaging, and codegen stamp (scaffold — only written once, user-customizable)
+5. **Platform service stubs** — per-platform C files implementing logging and resource access (desktop, iOS, Android, web)
+6. **Build system support** — CMakeLists.txt (C/C++), Cargo.toml (Rust), go.mod (Go)
 
 | `impl_lang` | Abstract Interface | C ABI Shim | Stubs |
 |-------------|-------------------|------------|-------|
 | `cpp` | Abstract class with pure virtual methods | `.cpp` implementing each C function via virtual dispatch on the handle | Concrete class with stub method bodies |
 | `rust` | Trait definition | `extern "C"` functions delegating to the trait impl | Skeleton `impl` block |
 | `go` | Interface type | `//export` cgo functions delegating to the interface impl | Stub functions |
-| `c` | — | — | — |
+| `c` | — | — (impl exports C ABI directly) | Stub `.c` file with TODO method bodies |
 
-With `c`, only the C API header is generated. This is the option for pure C implementations or any language not in the front-door path — the consumer implements the exported C functions directly.
+With `c`, a stub `.c` implementation file is generated alongside the C API header, plus a Makefile and platform service stubs. There is no shim layer — the implementation exports the C ABI functions directly. This is the option for pure C implementations or any language not in the front-door path.
 
 For supported languages, the consumer never writes C. They implement the abstract interface in their language, build, and the generated shim handles all C ABI compliance. Adding a new implementation language target never touches Layer 1.
 
@@ -118,8 +121,9 @@ The provider authors the API definition and FlatBuffers schemas, runs `xplatter 
 | iOS | XCFramework (static lib + headers) + SPM package with Swift binding |
 | Android | `.so` per ABI (arm64-v8a, armeabi-v7a, x86_64, x86) + Kotlin binding |
 | Web | `.wasm` module + JavaScript binding |
-| Desktop (C/C++) | Shared library (`.dylib`/`.so`/`.dll`) + C header |
-| Desktop (Swift) | Shared library + C header + Swift binding |
+| Desktop macOS/Linux (C/C++) | Shared library (`.dylib`/`.so`) + C header |
+| Desktop macOS (Swift) | Shared library + C header + Swift binding |
+| Desktop Windows | Shared library (`.dll`) + C header + import library (`.lib`) |
 
 The provider owns the code gen tool, the build infrastructure, and the implementation source. None of these are visible to the consumer.
 
@@ -136,7 +140,7 @@ This mirrors the standard library distribution model: the provider is the shared
 
 ### In the examples
 
-The `examples/hello-xplatter/` directory demonstrates both roles. The impl directories (`impl-c/`, `impl-cpp/`, `impl-rust/`, `impl-go/`) are provider-side — they run code gen, compile the implementation, and produce platform packages via `make packages`. The app directories (`app-ios/`, `app-android/`, `app-web/`, `app-desktop-cpp/`, `app-desktop-swift/`) are consumer-side — each has an `ensure-package` target that checks for the pre-built package and, if absent, triggers the provider's package build. But the app project itself only references the packaged artifacts. No app project runs code gen or reaches into implementation internals.
+The `examples/hello-xplatter/` directory demonstrates both roles. The impl directories (`impl-c/`, `impl-cpp/`, `impl-rust/`, `impl-go/`) are provider-side — they run code gen, compile the implementation, and produce platform packages via `make package-all`. The app directories (`app-desktop-cpp/`, `app-desktop-swift/`, `app-ios/`, `app-android/`, `app-web/`) are consumer-side — each has an `ensure-package` target that checks for the pre-built package and, if absent, triggers the provider's package build. But the app project itself only references the packaged artifacts. No app project runs code gen or reaches into implementation internals.
 
 ## The C ABI Boundary
 
@@ -187,6 +191,8 @@ Types defined in FlatBuffers schemas are referenced in the API definition by the
 ## API Definition Format
 
 The API is defined in YAML, validated by a [JSON Schema](./docs/api_definition_schema.json). See the [API Definition Specification](./docs/api_definition_spec.md) for the full reference and the [example definition](./docs/example_api_definition.yaml) for a working sample.
+
+Interfaces can declare `constructors:` separately from `methods:`. Constructors are methods that create handles. When an interface has constructors, the code gen tool auto-generates a matching destroy method for the handle. This eliminates the need for heuristic-based destroy detection and ensures create/destroy lifecycle pairs are always consistent.
 
 ## Technical Decisions
 

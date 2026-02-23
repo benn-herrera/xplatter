@@ -75,7 +75,7 @@ Working examples with API implementations in C, C++, Rust, and Go with front end
 ```bash
 # Run all implementation examples
 cd examples
-make test-hello-examples
+make test-hello-impl-all
 
 # Run individually
 make test-hello-impl-c
@@ -84,10 +84,12 @@ make test-hello-impl-rust
 make test-hello-impl-go
 
 # Run app examples (consumer-side binding usage)
+make test-hello-app-all               # all apps
 make test-hello-app-desktop-cpp
 make test-hello-app-desktop-swift     # macOS only
 make test-hello-app-ios               # macOS only (builds for simulator)
 make test-hello-app-android           # requires Android SDK + NDK
+make test-hello-app-web               # requires Emscripten
 ```
 
 ### Run the Tests
@@ -114,14 +116,15 @@ The `examples/hello-xplatter/` directory shows this workflow end-to-end for each
 - **Kotlin + JNI bridge** — idiomatic Kotlin API for Android
 - **Swift + C bridge** — idiomatic Swift API for iOS and macOS
 - **JavaScript + WASM bindings** — idiomatic JS API for web
-- **Implementation interface + C ABI shim + stub implementation** — for C++, Rust, or Go (controlled by `impl_lang` in the API definition)
+- **Implementation interface + C ABI shim + stub implementation** — for C, C++, Rust, or Go (controlled by `impl_lang` in the API definition)
+- **Makefile + platform service stubs** — build rules and platform-specific logging/resource stubs
 
 ## Project Structure
 
 ```
 src/                    Go source for the code gen tool
-  gen/                  All code generators (cheader, impl_cpp, impl_rust, impl_go, kotlin, swift, jswasm)
-  cmd/                  CLI commands (generate, validate, init, version)
+  gen/                  All code generators (cheader, impl_c, impl_cpp, impl_rust, impl_go, kotlin, swift, jswasm, makefiles, platform_services)
+  cmd/                  CLI commands (generate, validate, init, dump_schema, version)
   model/                API model types and type system
   loader/               YAML loading
   resolver/             FlatBuffers schema parsing and type resolution
@@ -178,27 +181,35 @@ These build consumer-facing apps that use the generated bindings. Platform avail
 
 ## Make Targets
 
+**Root Makefile:**
+
 | Target | Description |
 |--------|-------------|
 | `build` | Build `bin/xplatter` for the current platform |
 | `test` | Run all Go unit tests |
 | `test-v` | Run tests with verbose output |
-| `test-examples` | Build and run all implementation examples (C, C++, Rust, Go) |
-| `test-example-c` | Run the C example only |
-| `test-example-cpp` | Run the C++ example only |
-| `test-example-rust` | Run the Rust example only |
-| `test-example-go` | Run the Go example only |
-| `test-apps` | Build and test all app examples |
-| `test-app-desktop-cpp` | Build and test the C++ desktop app |
-| `test-app-desktop-swift` | Build and test the Swift desktop app (macOS only) |
-| `test-app-ios` | Build the iOS app for simulator (macOS only) |
-| `test-app-android` | Build the Android app (requires Android SDK + NDK) |
-| `test-app-web` | Build the Web/WASM app (requires Emscripten) |
+| `test-examples-hello-impl-app-matrix` | Build all hello impls and test all apps against all impls |
 | `validate` | Validate the example API definition |
 | `dist` | Build cross-platform SDK archive |
 | `fmt` | Format all Go source |
 | `vet` | Run `go vet` |
 | `clean` | Remove build artifacts |
+
+**Examples Makefile** (run from `examples/`):
+
+| Target | Description |
+|--------|-------------|
+| `test-hello-impl-all` | Build and run all implementation examples |
+| `test-hello-impl-c` | Run the C implementation example |
+| `test-hello-impl-cpp` | Run the C++ implementation example |
+| `test-hello-impl-rust` | Run the Rust implementation example |
+| `test-hello-impl-go` | Run the Go implementation example |
+| `test-hello-app-all` | Build and test all app examples |
+| `test-hello-app-desktop-cpp` | Build and test the C++ desktop app |
+| `test-hello-app-desktop-swift` | Build and test the Swift desktop app (macOS only) |
+| `test-hello-app-ios` | Build the iOS app for simulator (macOS only) |
+| `test-hello-app-android` | Build the Android app (requires Android SDK + NDK) |
+| `test-hello-app-web` | Build the Web/WASM app (requires Emscripten) |
 
 ## Design Overview
 

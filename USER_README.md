@@ -38,7 +38,7 @@ Working examples with API implementations in C, C++, Rust, and Go with front end
 ```bash
 # Run all implementation examples
 cd examples
-make test-hello-examples
+make test-hello-impl-all
 
 # Run individually
 make test-hello-impl-c
@@ -47,10 +47,12 @@ make test-hello-impl-rust
 make test-hello-impl-go
 
 # Run app examples (consumer-side binding usage)
+make test-hello-app-all               # all apps
 make test-hello-app-desktop-cpp
 make test-hello-app-desktop-swift     # macOS only
 make test-hello-app-ios               # macOS only (builds for simulator)
 make test-hello-app-android           # requires Android SDK + NDK
+make test-hello-app-web               # requires Emscripten
 ```
 
 ### Usage
