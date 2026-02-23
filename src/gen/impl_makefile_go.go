@@ -51,11 +51,11 @@ $(STAMP): $(API_DEF)
 	b.WriteString("GEN_GO_SOURCES := $(wildcard $(GEN_DIR)$(API_NAME)_*.go)\n")
 	b.WriteString("GEN_GO_COPIES  := $(notdir $(GEN_GO_SOURCES))\n\n")
 
-	b.WriteString(`.PHONY: run desktop-shared-lib clean
+	b.WriteString(`.PHONY: test desktop-shared-lib clean
 
 # ── Local build ──────────────────────────────────────────────────────────────
 
-run: $(STAMP)
+test: $(STAMP)
 	@mkdir -p $(BUILD_DIR)
 	CC="$(CGO_CC)" go build -o $(BUILD_DIR)/$(API_NAME)$(EXE) .
 	./$(BUILD_DIR)/$(API_NAME)$(EXE)
@@ -116,7 +116,7 @@ SIM_CC  := $(shell xcrun --sdk iphonesimulator --find clang 2>/dev/null)
 # $(4) = clang -target triple, $(5) = CC path, $(6) = sysroot
 define BUILD_IOS_ARCH
 
-$(DIST_DIR)/ios/obj/$(1)/$(LIB_NAME).a: $(STAMP)
+$(DIST_IOS_DIR)/obj/$(1)/$(LIB_NAME).a: $(STAMP)
 	@mkdir -p $$(dir $$@)
 	CGO_ENABLED=1 GOOS=ios GOARCH=$(2) \
 		CC="$(5)" \
@@ -144,7 +144,7 @@ func (g *GoMakefileGenerator) writeAndroidABIRules(b *strings.Builder, apiName s
 # parallel — each target writes/removes the same jni.c copy in the package dir.)
 define BUILD_ANDROID_ABI
 
-$(DIST_DIR)/android/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(STAMP)
+$(DIST_ANDROID_DIR)/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(STAMP)
 	@mkdir -p $$(dir $$@)
 	cp $(GEN_JNI_SOURCE) $(GEN_JNI_SOURCE_LOCAL)
 	CGO_ENABLED=1 GOOS=android GOARCH=$(2) $(4) \
@@ -164,7 +164,7 @@ $(eval $(call BUILD_ANDROID_ABI,x86,386,i686-linux-android$(ANDROID_MIN_API),))
 }
 
 func (g *GoMakefileGenerator) writeWASMBuildRule(b *strings.Builder) {
-	b.WriteString(`$(DIST_DIR)/web/$(API_NAME).wasm: $(STAMP)
+	b.WriteString(`$(DIST_WEB_DIR)/$(API_NAME).wasm: $(STAMP)
 	@mkdir -p $(dir $@)
 	GOOS=wasip1 GOARCH=wasm go build -o $@ .
 
