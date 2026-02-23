@@ -61,7 +61,7 @@ ifeq ($(HOST_OS),Darwin)
 		-L$(LIB_DIR) -lhello_xplatter \
 		-Wl,-rpath,@executable_path/../../impl-$(IMPL)/dist/desktop/lib
 else ifneq (,$(EXE))
-	$(CXX) /std:c++20 /EHsc /W4 /I$(HEADER_DIR) /Fo:$(BUILD_DIR)/ \
+	$(CXX) /nologo /std:c++20 /EHsc /W4 /I$(HEADER_DIR) /Fo:$(BUILD_DIR)/ \
 		/Fe:$@ main.cpp \
 		$(LIB_DIR)/hello_xplatter.dll.lib
 	cp $(LIB_DIR)/hello_xplatter.dll $(BUILD_DIR)/

@@ -126,22 +126,22 @@ func (g *CppMakefileGenerator) writeIOSArchRules(b *strings.Builder) {
 	b.WriteString(`# $(1) = arch dir name, $(2) = clang target triple, $(3) = SDK name
 define BUILD_IOS_ARCH
 
-$(DIST_DIR)/ios/obj/$(1)/impl.o: $(IMPL_SOURCES) $(GEN_HEADER)
+$(DIST_IOS_DIR)/obj/$(1)/impl.o: $(IMPL_SOURCES) $(GEN_HEADER)
 	@mkdir -p $$(dir $$@)
 	xcrun --sdk $(3) $(CXX) $(CXXFLAGS) $(LIB_VISIBILITY_FLAGS) \
 		-target $(2) -c -o $$@ $$<
 
-$(DIST_DIR)/ios/obj/$(1)/shim.o: $(SHIM_SOURCE) $(GEN_HEADER)
+$(DIST_IOS_DIR)/obj/$(1)/shim.o: $(SHIM_SOURCE) $(GEN_HEADER)
 	@mkdir -p $$(dir $$@)
 	xcrun --sdk $(3) $(CXX) $(CXXFLAGS) $(LIB_VISIBILITY_FLAGS) \
 		-target $(2) -c -o $$@ $$<
 
-$(DIST_DIR)/ios/obj/$(1)/platform.o: $(PLATFORM_SERVICES)/ios.c $(GEN_HEADER)
+$(DIST_IOS_DIR)/obj/$(1)/platform.o: $(PLATFORM_SERVICES)/ios.c $(GEN_HEADER)
 	@mkdir -p $$(dir $$@)
 	xcrun --sdk $(3) clang $(LIB_C_FLAGS) \
 		-target $(2) -c -o $$@ $$<
 
-$(DIST_DIR)/ios/obj/$(1)/$(LIB_NAME).a: $(DIST_DIR)/ios/obj/$(1)/impl.o $(DIST_DIR)/ios/obj/$(1)/shim.o $(DIST_DIR)/ios/obj/$(1)/platform.o
+$(DIST_IOS_DIR)/obj/$(1)/$(LIB_NAME).a: $(DIST_IOS_DIR)/obj/$(1)/impl.o $(DIST_IOS_DIR)/obj/$(1)/shim.o $(DIST_IOS_DIR)/obj/$(1)/platform.o
 	ar rcs $$@ $$^
 
 endef
@@ -156,21 +156,21 @@ $(eval $(call BUILD_IOS_ARCH,ios-sim-x86_64,x86_64-apple-ios$(IOS_MIN)-simulator
 func (g *CppMakefileGenerator) writeAndroidABIRules(b *strings.Builder) {
 	b.WriteString(`# $(1) = ABI name, $(2) = NDK target triple
 define BUILD_ANDROID_ABI
-$(DIST_DIR)/android/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(IMPL_SOURCES) $(SHIM_SOURCE) $(GEN_JNI_SOURCE) $(PLATFORM_SERVICES)/android.c $(GEN_HEADER)
-	@mkdir -p $(DIST_DIR)/android/obj/$(1) $$(dir $$@)
+$(DIST_ANDROID_DIR)/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(IMPL_SOURCES) $(SHIM_SOURCE) $(GEN_JNI_SOURCE) $(PLATFORM_SERVICES)/android.c $(GEN_HEADER)
+	@mkdir -p $(DIST_ANDROID_DIR)/obj/$(1) $$(dir $$@)
 	"$(NDK_BIN)/$(2)-clang++" $(CROSS_CXXFLAGS) -fPIC $(CROSS_VISIBILITY) \
-		-c -o $(DIST_DIR)/android/obj/$(1)/impl.o $(IMPL_SOURCES)
+		-c -o $(DIST_ANDROID_DIR)/obj/$(1)/impl.o $(IMPL_SOURCES)
 	"$(NDK_BIN)/$(2)-clang++" $(CROSS_CXXFLAGS) -fPIC $(CROSS_VISIBILITY) \
-		-c -o $(DIST_DIR)/android/obj/$(1)/shim.o $(SHIM_SOURCE)
+		-c -o $(DIST_ANDROID_DIR)/obj/$(1)/shim.o $(SHIM_SOURCE)
 	"$(NDK_BIN)/$(2)-clang" $(CROSS_LIB_C_FLAGS) -fPIC \
-		-c -o $(DIST_DIR)/android/obj/$(1)/jni.o $(GEN_JNI_SOURCE)
+		-c -o $(DIST_ANDROID_DIR)/obj/$(1)/jni.o $(GEN_JNI_SOURCE)
 	"$(NDK_BIN)/$(2)-clang" $(CROSS_LIB_C_FLAGS) -fPIC \
-		-c -o $(DIST_DIR)/android/obj/$(1)/platform.o $(PLATFORM_SERVICES)/android.c
+		-c -o $(DIST_ANDROID_DIR)/obj/$(1)/platform.o $(PLATFORM_SERVICES)/android.c
 	"$(NDK_BIN)/$(2)-clang++" -shared -static-libstdc++ -llog \
-		$(DIST_DIR)/android/obj/$(1)/impl.o \
-		$(DIST_DIR)/android/obj/$(1)/shim.o \
-		$(DIST_DIR)/android/obj/$(1)/jni.o \
-		$(DIST_DIR)/android/obj/$(1)/platform.o \
+		$(DIST_ANDROID_DIR)/obj/$(1)/impl.o \
+		$(DIST_ANDROID_DIR)/obj/$(1)/shim.o \
+		$(DIST_ANDROID_DIR)/obj/$(1)/jni.o \
+		$(DIST_ANDROID_DIR)/obj/$(1)/platform.o \
 		-o $$@
 
 endef

@@ -21,6 +21,24 @@ func (g *RustMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 
 	MakefileHeader(&b, ctx, "rust")
 	MakefileTargetConfig(&b)
+
+	// Rust-specific platform overrides: on Windows, Rust cdylib drops the
+	// "lib" prefix and cargo produces a .dll.lib import library alongside the DLL.
+	// DESKTOP_LIB_NAME / DESKTOP_SHARED_LIB are separate from LIB_NAME / SHARED_LIB
+	// because LIB_NAME retains the "lib" prefix for iOS static libs and Android .so files.
+	b.WriteString(`# ── Rust platform overrides ────────────────────────────────────────────────────
+DYLIB_LNK_EXT :=
+
+ifneq (,$(EXE))
+  # windows does not use leading lib naming convention
+  DESKTOP_LIB_NAME := $(API_NAME)
+  DYLIB_LNK_EXT    := dll.lib
+endif
+
+DESKTOP_SHARED_LIB := $(BUILD_DIR)/$(DESKTOP_LIB_NAME).$(DYLIB_EXT)
+
+`)
+
 	MakefileBindingVars(&b, apiName, "generated/")
 	MakefileWASMExports(&b, apiName, ctx.API)
 
@@ -34,23 +52,26 @@ CROSS_LIB_C_FLAGS := -std=c17 -Wall -Wextra -fvisibility=hidden -D$(BUILD_MACRO)
 	// Codegen stamp
 	MakefileCodegenStamp(&b, "rust", "-o generated")
 
-	b.WriteString(`.PHONY: run shared-lib clean
+	b.WriteString(`.PHONY: test desktop-shared-lib clean
 
-run: $(STAMP)
+test: $(STAMP)
 	cargo test
 
-shared-lib: $(SHARED_LIB)
+desktop-shared-lib: $(DESKTOP_SHARED_LIB)
 
-$(SHARED_LIB): $(STAMP)
+$(DESKTOP_SHARED_LIB): $(STAMP)
 	cargo build --release
 	@mkdir -p $(BUILD_DIR)
 ifneq (,$(EXE))
-	cp target/release/$(API_NAME).dll $(SHARED_LIB)
+	# on Windows the build produces a .dll.lib for use at link time
+	cp  target/release/$(DESKTOP_LIB_NAME).$(DYLIB_EXT) \
+	    target/release/$(DESKTOP_LIB_NAME).$(DYLIB_LNK_EXT) \
+		$(BUILD_DIR)/
 else ifeq ($(HOST_OS),Darwin)
-	cp target/release/$(LIB_NAME).$(DYLIB_EXT) $(SHARED_LIB)
-	install_name_tool -id @rpath/$(LIB_NAME).$(DYLIB_EXT) $(SHARED_LIB)
+	cp target/release/$(DESKTOP_LIB_NAME).$(DYLIB_EXT) $(DESKTOP_SHARED_LIB)
+	install_name_tool -id @rpath/$(DESKTOP_LIB_NAME).$(DYLIB_EXT) $(DESKTOP_SHARED_LIB)
 else
-	cp target/release/$(LIB_NAME).$(DYLIB_EXT) $(SHARED_LIB)
+	cp target/release/$(DESKTOP_LIB_NAME).$(DYLIB_EXT) $(DESKTOP_SHARED_LIB)
 endif
 
 clean:
@@ -74,8 +95,41 @@ clean:
 		g.writeWASMBuildRule(b)
 	})
 
-	// Desktop packaging
-	MakefilePackageDesktop(&b)
+	// Desktop packaging (Rust-specific: uses DESKTOP_LIB_NAME + DYLIB_LNK_EXT for import library)
+	b.WriteString(`# ══════════════════════════════════════════════════════════════════════════════
+# Desktop: C header + Swift binding + shared library
+# ══════════════════════════════════════════════════════════════════════════════
+
+ifneq (,$(call target_enabled,desktop))
+
+$(DIST_DESKTOP_DIR)/include/$(API_NAME).h: $(GEN_HEADER)
+	@mkdir -p $(dir $@)
+	cp $(GEN_HEADER) $@
+
+$(DIST_DESKTOP_DIR)/include/$(PASCAL_NAME).swift: $(GEN_SWIFT_BINDING)
+	@mkdir -p $(dir $@)
+	cp $(GEN_SWIFT_BINDING) $@
+
+DESKTOP_DIST_DYN_LIB := $(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).$(DYLIB_EXT)
+$(DESKTOP_DIST_DYN_LIB): $(DESKTOP_SHARED_LIB)
+	@mkdir -p $(dir $@)
+	cp $(DESKTOP_SHARED_LIB) $@
+
+DESKTOP_DIST_LNK_LIB :=
+ifneq (,$(DYLIB_LNK_EXT))
+DESKTOP_DIST_LNK_LIB :=	$(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).$(DYLIB_LNK_EXT)
+$(DESKTOP_DIST_LNK_LIB): $(DESKTOP_SHARED_LIB)
+	@mkdir -p $(dir $@)
+	cp $(BUILD_DIR)/$(DESKTOP_LIB_NAME).$(DYLIB_LNK_EXT) $@
+endif
+
+.PHONY: package-desktop
+package-desktop: $(STAMP) $(DIST_DESKTOP_DIR)/include/$(API_NAME).h $(DIST_DESKTOP_DIR)/include/$(PASCAL_NAME).swift $(DESKTOP_DIST_DYN_LIB) $(DESKTOP_DIST_LNK_LIB)
+	@echo "Packaged Desktop: $(DIST_DESKTOP_DIR)/"
+
+endif
+
+`)
 
 	// Aggregate
 	MakefileAggregateTargets(&b)
@@ -89,7 +143,7 @@ func (g *RustMakefileGenerator) writeIOSArchRules(b *strings.Builder) {
 	b.WriteString(`# $(1) = arch dir name, $(2) = Rust target triple
 define BUILD_IOS_ARCH
 
-$(DIST_DIR)/ios/obj/$(1)/$(LIB_NAME).a: $(STAMP)
+$(DIST_IOS_DIR)/obj/$(1)/$(LIB_NAME).a: $(STAMP)
 	@mkdir -p $$(dir $$@)
 	cargo build --release --target $(2)
 	cp target/$(2)/release/$(LIB_NAME).a $$@
@@ -107,15 +161,15 @@ func (g *RustMakefileGenerator) writeAndroidABIRules(b *strings.Builder) {
 	b.WriteString(`# $(1) = ABI name, $(2) = Rust target triple, $(3) = NDK target prefix, $(4) = uppercase Cargo target
 define BUILD_ANDROID_ABI
 
-$(DIST_DIR)/android/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(STAMP)
-	@mkdir -p $(DIST_DIR)/android/obj/$(1) $$(dir $$@)
+$(DIST_ANDROID_DIR)/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(STAMP)
+	@mkdir -p $(DIST_ANDROID_DIR)/obj/$(1) $$(dir $$@)
 	CARGO_TARGET_$(4)_LINKER="$(NDK_BIN)/$(3)-clang$(NDK_CMD)" \
 		PATH=$(NDK_BIN):$$$$PATH cargo build --release --target $(2)
 	"$(NDK_BIN)/$(3)-clang" $(CROSS_LIB_C_FLAGS) -fPIC \
-		-Igenerated -c -o $(DIST_DIR)/android/obj/$(1)/jni.o $(GEN_JNI_SOURCE)
+		-Igenerated -c -o $(DIST_ANDROID_DIR)/obj/$(1)/jni.o $(GEN_JNI_SOURCE)
 	"$(NDK_BIN)/$(3)-clang" -shared \
 		-Wl,--whole-archive target/$(2)/release/$(LIB_NAME).a -Wl,--no-whole-archive \
-		$(DIST_DIR)/android/obj/$(1)/jni.o \
+		$(DIST_ANDROID_DIR)/obj/$(1)/jni.o \
 		-ldl -lm -llog \
 		-o $$@
 
@@ -130,7 +184,7 @@ $(eval $(call BUILD_ANDROID_ABI,x86,i686-linux-android,i686-linux-android$(ANDRO
 }
 
 func (g *RustMakefileGenerator) writeWASMBuildRule(b *strings.Builder) {
-	b.WriteString(`$(DIST_DIR)/web/$(API_NAME).wasm: $(STAMP)
+	b.WriteString(`$(DIST_WEB_DIR)/$(API_NAME).wasm: $(STAMP)
 	@mkdir -p $(dir $@)
 	cargo build --release --target wasm32-unknown-unknown
 	cp target/wasm32-unknown-unknown/release/$(shell echo $(API_NAME) | tr '-' '_').wasm $@

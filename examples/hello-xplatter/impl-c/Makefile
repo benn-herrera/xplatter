@@ -14,6 +14,11 @@ BUILD_DIR := build
 DIST_DIR  := dist
 STAMP     := $(BUILD_DIR)/.generated
 
+DIST_WEB_DIR := $(DIST_DIR)/web
+DIST_IOS_DIR := $(DIST_DIR)/ios
+DIST_ANDROID_DIR := $(DIST_DIR)/android
+DIST_DESKTOP_DIR := $(DIST_DIR)/desktop
+
 # ── Target filtering ──────────────────────────────────────────────────────────
 
 TARGETS ?= ios android web desktop
@@ -44,6 +49,8 @@ else
   endif
 endif
 SHARED_LIB := $(BUILD_DIR)/$(LIB_NAME).$(DYLIB_EXT)
+DESKTOP_LIB_NAME := $(LIB_NAME)
+DESKTOP_SHARED_LIB := $(SHARED_LIB)
 
 # ── MSVC discovery (Windows only) ─────────────────────────────────────────────
 # If cl.exe is already on PATH (e.g. Developer Command Prompt), this is skipped.
@@ -196,23 +203,23 @@ clean:
 # iOS: static libs per arch → lipo → xcframework + SPM package
 # ══════════════════════════════════════════════════════════════════════════════
 
-ifneq ($(call target_enabled,ios),)
+ifneq (,$(call target_enabled,ios))
 ifeq ($(HOST_OS),Darwin)
 
 # $(1) = arch dir name, $(2) = clang target triple, $(3) = SDK name
 define BUILD_IOS_ARCH
 
-$(DIST_DIR)/ios/obj/$(1)/impl.o: $(IMPL_SOURCES) $(GEN_HEADER)
+$(DIST_IOS_DIR)/obj/$(1)/impl.o: $(IMPL_SOURCES) $(GEN_HEADER)
 	@mkdir -p $$(dir $$@)
 	xcrun --sdk $(3) clang $(CFLAGS) $(LIB_VISIBILITY_FLAGS) \
 		-target $(2) -c -o $$@ $$<
 
-$(DIST_DIR)/ios/obj/$(1)/platform.o: $(PLATFORM_SERVICES)/ios.c $(GEN_HEADER)
+$(DIST_IOS_DIR)/obj/$(1)/platform.o: $(PLATFORM_SERVICES)/ios.c $(GEN_HEADER)
 	@mkdir -p $$(dir $$@)
 	xcrun --sdk $(3) clang $(LIB_C_FLAGS) \
 		-target $(2) -c -o $$@ $$<
 
-$(DIST_DIR)/ios/obj/$(1)/$(LIB_NAME).a: $(DIST_DIR)/ios/obj/$(1)/impl.o $(DIST_DIR)/ios/obj/$(1)/platform.o
+$(DIST_IOS_DIR)/obj/$(1)/$(LIB_NAME).a: $(DIST_IOS_DIR)/obj/$(1)/impl.o $(DIST_IOS_DIR)/obj/$(1)/platform.o
 	ar rcs $$@ $$^
 
 endef
@@ -221,33 +228,33 @@ $(eval $(call BUILD_IOS_ARCH,ios-arm64,arm64-apple-ios$(IOS_MIN),iphoneos))
 $(eval $(call BUILD_IOS_ARCH,ios-sim-arm64,arm64-apple-ios$(IOS_MIN)-simulator,iphonesimulator))
 $(eval $(call BUILD_IOS_ARCH,ios-sim-x86_64,x86_64-apple-ios$(IOS_MIN)-simulator,iphonesimulator))
 
-$(DIST_DIR)/ios/obj/ios-sim-fat/$(LIB_NAME).a: $(DIST_DIR)/ios/obj/ios-sim-arm64/$(LIB_NAME).a $(DIST_DIR)/ios/obj/ios-sim-x86_64/$(LIB_NAME).a
+$(DIST_IOS_DIR)/obj/ios-sim-fat/$(LIB_NAME).a: $(DIST_IOS_DIR)/obj/ios-sim-arm64/$(LIB_NAME).a $(DIST_IOS_DIR)/obj/ios-sim-x86_64/$(LIB_NAME).a
 	@mkdir -p $(dir $@)
 	lipo -create $^ -output $@
 
-$(DIST_DIR)/ios/headers/module.modulemap: $(GEN_HEADER)
-	@mkdir -p $(DIST_DIR)/ios/headers
-	cp $(GEN_HEADER) $(DIST_DIR)/ios/headers/
+$(DIST_IOS_DIR)/headers/module.modulemap: $(GEN_HEADER)
+	@mkdir -p $(DIST_IOS_DIR)/headers
+	cp $(GEN_HEADER) $(DIST_IOS_DIR)/headers/
 	printf 'module C$(PASCAL_NAME) {\n    header "$(API_NAME).h"\n    export *\n}\n' > $@
 
-$(DIST_DIR)/ios/$(PASCAL_NAME).xcframework: $(DIST_DIR)/ios/obj/ios-arm64/$(LIB_NAME).a $(DIST_DIR)/ios/obj/ios-sim-fat/$(LIB_NAME).a $(DIST_DIR)/ios/headers/module.modulemap
+$(DIST_IOS_DIR)/$(PASCAL_NAME).xcframework: $(DIST_IOS_DIR)/obj/ios-arm64/$(LIB_NAME).a $(DIST_IOS_DIR)/obj/ios-sim-fat/$(LIB_NAME).a $(DIST_IOS_DIR)/headers/module.modulemap
 	rm -rf $@
 	xcodebuild -create-xcframework \
-		-library $(DIST_DIR)/ios/obj/ios-arm64/$(LIB_NAME).a -headers $(DIST_DIR)/ios/headers \
-		-library $(DIST_DIR)/ios/obj/ios-sim-fat/$(LIB_NAME).a -headers $(DIST_DIR)/ios/headers \
+		-library $(DIST_IOS_DIR)/obj/ios-arm64/$(LIB_NAME).a -headers $(DIST_IOS_DIR)/headers \
+		-library $(DIST_IOS_DIR)/obj/ios-sim-fat/$(LIB_NAME).a -headers $(DIST_IOS_DIR)/headers \
 		-output $@
 
-$(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Sources/$(PASCAL_NAME)Binding/$(PASCAL_NAME).swift: $(GEN_SWIFT_BINDING)
+$(DIST_IOS_DIR)/$(PASCAL_NAME)Lib/Sources/$(PASCAL_NAME)Binding/$(PASCAL_NAME).swift: $(GEN_SWIFT_BINDING)
 	@mkdir -p $(dir $@)
 	awk '{print} /^import Foundation$$/{print "import C$(PASCAL_NAME)"}' $(GEN_SWIFT_BINDING) > $@
 
-$(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Package.swift: $(DIST_DIR)/ios/$(PASCAL_NAME).xcframework
+$(DIST_IOS_DIR)/$(PASCAL_NAME)Lib/Package.swift: $(DIST_IOS_DIR)/$(PASCAL_NAME).xcframework
 	@mkdir -p $(dir $@)
 	printf '// swift-tools-version: 5.9\nimport PackageDescription\n\nlet package = Package(\n    name: "$(PASCAL_NAME)Lib",\n    platforms: [.iOS(.v15)],\n    products: [\n        .library(name: "$(PASCAL_NAME)Lib", targets: ["$(PASCAL_NAME)Binding"]),\n    ],\n    targets: [\n        .binaryTarget(name: "C$(PASCAL_NAME)", path: "../$(PASCAL_NAME).xcframework"),\n        .target(\n            name: "$(PASCAL_NAME)Binding",\n            dependencies: ["C$(PASCAL_NAME)"],\n            path: "Sources/$(PASCAL_NAME)Binding"\n        ),\n    ]\n)\n' > $@
 
 .PHONY: package-ios
-package-ios: $(DIST_DIR)/ios/$(PASCAL_NAME).xcframework $(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Package.swift $(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Sources/$(PASCAL_NAME)Binding/$(PASCAL_NAME).swift
-	@echo "Packaged iOS: $(DIST_DIR)/ios/"
+package-ios: $(DIST_IOS_DIR)/$(PASCAL_NAME).xcframework $(DIST_IOS_DIR)/$(PASCAL_NAME)Lib/Package.swift $(DIST_IOS_DIR)/$(PASCAL_NAME)Lib/Sources/$(PASCAL_NAME)Binding/$(PASCAL_NAME).swift
+	@echo "Packaged iOS: $(DIST_IOS_DIR)/"
 
 else
 
@@ -262,23 +269,23 @@ endif
 # Android: native libs per ABI + Kotlin binding + Gradle module
 # ══════════════════════════════════════════════════════════════════════════════
 
-ifneq ($(call target_enabled,android),)
+ifneq (,$(call target_enabled,android))
 
 # $(1) = ABI name, $(2) = NDK target triple
 define BUILD_ANDROID_ABI
 
-$(DIST_DIR)/android/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(IMPL_SOURCES) $(GEN_JNI_SOURCE) $(PLATFORM_SERVICES)/android.c $(GEN_HEADER)
-	@mkdir -p $(DIST_DIR)/android/obj/$(1) $$(dir $$@)
+$(DIST_ANDROID_DIR)/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(IMPL_SOURCES) $(GEN_JNI_SOURCE) $(PLATFORM_SERVICES)/android.c $(GEN_HEADER)
+	@mkdir -p $(DIST_ANDROID_DIR)/obj/$(1) $$(dir $$@)
 	"$(NDK_BIN)/$(2)-clang" $(CROSS_CFLAGS) -fPIC $(CROSS_VISIBILITY) \
-		-c -o $(DIST_DIR)/android/obj/$(1)/impl.o $(IMPL_SOURCES)
+		-c -o $(DIST_ANDROID_DIR)/obj/$(1)/impl.o $(IMPL_SOURCES)
 	"$(NDK_BIN)/$(2)-clang" $(CROSS_LIB_C_FLAGS) -fPIC \
-		-c -o $(DIST_DIR)/android/obj/$(1)/jni.o $(GEN_JNI_SOURCE)
+		-c -o $(DIST_ANDROID_DIR)/obj/$(1)/jni.o $(GEN_JNI_SOURCE)
 	"$(NDK_BIN)/$(2)-clang" $(CROSS_LIB_C_FLAGS) -fPIC \
-		-c -o $(DIST_DIR)/android/obj/$(1)/platform.o $(PLATFORM_SERVICES)/android.c
+		-c -o $(DIST_ANDROID_DIR)/obj/$(1)/platform.o $(PLATFORM_SERVICES)/android.c
 	"$(NDK_BIN)/$(2)-clang" -shared -llog \
-		$(DIST_DIR)/android/obj/$(1)/impl.o \
-		$(DIST_DIR)/android/obj/$(1)/jni.o \
-		$(DIST_DIR)/android/obj/$(1)/platform.o \
+		$(DIST_ANDROID_DIR)/obj/$(1)/impl.o \
+		$(DIST_ANDROID_DIR)/obj/$(1)/jni.o \
+		$(DIST_ANDROID_DIR)/obj/$(1)/platform.o \
 		-o $$@
 
 endef
@@ -289,28 +296,28 @@ $(eval $(call BUILD_ANDROID_ABI,x86_64,x86_64-linux-android$(ANDROID_MIN_API)))
 $(eval $(call BUILD_ANDROID_ABI,x86,i686-linux-android$(ANDROID_MIN_API)))
 
 ANDROID_NATIVE_LIBS := \
-	$(DIST_DIR)/android/src/main/jniLibs/arm64-v8a/$(LIB_NAME).so \
-	$(DIST_DIR)/android/src/main/jniLibs/armeabi-v7a/$(LIB_NAME).so \
-	$(DIST_DIR)/android/src/main/jniLibs/x86_64/$(LIB_NAME).so \
-	$(DIST_DIR)/android/src/main/jniLibs/x86/$(LIB_NAME).so
+	$(DIST_ANDROID_DIR)/src/main/jniLibs/arm64-v8a/$(LIB_NAME).so \
+	$(DIST_ANDROID_DIR)/src/main/jniLibs/armeabi-v7a/$(LIB_NAME).so \
+	$(DIST_ANDROID_DIR)/src/main/jniLibs/x86_64/$(LIB_NAME).so \
+	$(DIST_ANDROID_DIR)/src/main/jniLibs/x86/$(LIB_NAME).so
 
 ANDROID_KOTLIN_PKG := $(subst _,/,$(API_NAME))
 
-$(DIST_DIR)/android/src/main/kotlin/$(ANDROID_KOTLIN_PKG)/$(PASCAL_NAME).kt: $(GEN_KOTLIN_BINDING)
+$(DIST_ANDROID_DIR)/src/main/kotlin/$(ANDROID_KOTLIN_PKG)/$(PASCAL_NAME).kt: $(GEN_KOTLIN_BINDING)
 	@mkdir -p $(dir $@)
 	cp $(GEN_KOTLIN_BINDING) $@
 
-$(DIST_DIR)/android/build.gradle.kts:
+$(DIST_ANDROID_DIR)/build.gradle.kts:
 	@mkdir -p $(dir $@)
 	printf 'plugins {\n    id("com.android.library")\n    id("org.jetbrains.kotlin.android")\n}\n\nandroid {\n    namespace = "$(subst _,.,$(API_NAME))"\n    compileSdk = 34\n    defaultConfig {\n        minSdk = $(ANDROID_MIN_API)\n    }\n}\n' > $@
 
-$(DIST_DIR)/android/src/main/AndroidManifest.xml:
+$(DIST_ANDROID_DIR)/src/main/AndroidManifest.xml:
 	@mkdir -p $(dir $@)
 	printf '<?xml version="1.0" encoding="utf-8"?>\n<manifest />\n' > $@
 
 .PHONY: package-android
-package-android: $(ANDROID_NATIVE_LIBS) $(DIST_DIR)/android/src/main/kotlin/$(ANDROID_KOTLIN_PKG)/$(PASCAL_NAME).kt $(DIST_DIR)/android/build.gradle.kts $(DIST_DIR)/android/src/main/AndroidManifest.xml
-	@echo "Packaged Android: $(DIST_DIR)/android/"
+package-android: $(ANDROID_NATIVE_LIBS) $(DIST_ANDROID_DIR)/src/main/kotlin/$(ANDROID_KOTLIN_PKG)/$(PASCAL_NAME).kt $(DIST_ANDROID_DIR)/build.gradle.kts $(DIST_ANDROID_DIR)/src/main/AndroidManifest.xml
+	@echo "Packaged Android: $(DIST_ANDROID_DIR)/"
 
 endif
 
@@ -318,27 +325,27 @@ endif
 # Web: WASM + JS binding + package.json
 # ══════════════════════════════════════════════════════════════════════════════
 
-ifneq ($(call target_enabled,web),)
+ifneq (,$(call target_enabled,web))
 
-$(DIST_DIR)/web/$(API_NAME).wasm: $(STAMP) CMakeLists.txt
-	@mkdir -p $(DIST_DIR)/web
+$(DIST_WEB_DIR)/$(API_NAME).wasm: $(STAMP) CMakeLists.txt
+	@mkdir -p $(DIST_WEB_DIR)
 	cmake -S . -B build/web -G "Unix Makefiles" \
 		-DCMAKE_TOOLCHAIN_FILE=$(EMSCRIPTEN_TOOLCHAIN) \
 		-DCMAKE_BUILD_TYPE=Release
 	cmake --build build/web
 	cp build/web/$(API_NAME).wasm $@
 
-$(DIST_DIR)/web/$(API_NAME).js: $(GEN_JS_BINDING)
+$(DIST_WEB_DIR)/$(API_NAME).js: $(GEN_JS_BINDING)
 	@mkdir -p $(dir $@)
 	cp $(GEN_JS_BINDING) $@
 
-$(DIST_DIR)/web/package.json:
+$(DIST_WEB_DIR)/package.json:
 	@mkdir -p $(dir $@)
 	printf '{\n  "name": "$(API_NAME)",\n  "version": "0.1.0",\n  "type": "module",\n  "main": "$(API_NAME).js"\n}\n' > $@
 
 .PHONY: package-web
-package-web: $(DIST_DIR)/web/$(API_NAME).wasm $(DIST_DIR)/web/$(API_NAME).js $(DIST_DIR)/web/package.json
-	@echo "Packaged Web: $(DIST_DIR)/web/"
+package-web: $(DIST_WEB_DIR)/$(API_NAME).wasm $(DIST_WEB_DIR)/$(API_NAME).js $(DIST_WEB_DIR)/package.json
+	@echo "Packaged Web: $(DIST_WEB_DIR)/"
 
 endif
 
@@ -346,33 +353,33 @@ endif
 # Desktop: C header + Swift binding + shared library
 # ══════════════════════════════════════════════════════════════════════════════
 
-ifneq ($(call target_enabled,desktop),)
+ifneq (,$(call target_enabled,desktop))
 
-$(DIST_DIR)/desktop/include/$(API_NAME).h: $(GEN_HEADER)
+$(DIST_DESKTOP_DIR)/include/$(API_NAME).h: $(GEN_HEADER)
 	@mkdir -p $(dir $@)
 	cp $(GEN_HEADER) $@
 
-$(DIST_DIR)/desktop/include/$(PASCAL_NAME).swift: $(GEN_SWIFT_BINDING)
+$(DIST_DESKTOP_DIR)/include/$(PASCAL_NAME).swift: $(GEN_SWIFT_BINDING)
 	@mkdir -p $(dir $@)
 	cp $(GEN_SWIFT_BINDING) $@
 
-$(DIST_DIR)/desktop/lib/$(LIB_NAME).$(DYLIB_EXT): $(SHARED_LIB)
+$(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).$(DYLIB_EXT): $(DESKTOP_SHARED_LIB)
 	@mkdir -p $(dir $@)
-	cp $(SHARED_LIB) $@
+	cp $(DESKTOP_SHARED_LIB) $@
 
 ifneq (,$(EXE))
-$(DIST_DIR)/desktop/lib/$(API_NAME).lib: $(SHARED_LIB)
+$(DIST_DESKTOP_DIR)/lib/$(API_NAME).lib: $(DESKTOP_SHARED_LIB)
 	@mkdir -p $(dir $@)
 	cp $(BUILD_DIR)/$(API_NAME).lib $@
 endif
 
 .PHONY: package-desktop
 ifneq (,$(EXE))
-package-desktop: $(STAMP) $(DIST_DIR)/desktop/include/$(API_NAME).h $(DIST_DIR)/desktop/include/$(PASCAL_NAME).swift $(DIST_DIR)/desktop/lib/$(LIB_NAME).$(DYLIB_EXT) $(DIST_DIR)/desktop/lib/$(API_NAME).lib
+package-desktop: $(STAMP) $(DIST_DESKTOP_DIR)/include/$(API_NAME).h $(DIST_DESKTOP_DIR)/include/$(PASCAL_NAME).swift $(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).$(DYLIB_EXT) $(DIST_DESKTOP_DIR)/lib/$(API_NAME).lib
 else
-package-desktop: $(STAMP) $(DIST_DIR)/desktop/include/$(API_NAME).h $(DIST_DIR)/desktop/include/$(PASCAL_NAME).swift $(DIST_DIR)/desktop/lib/$(LIB_NAME).$(DYLIB_EXT)
+package-desktop: $(STAMP) $(DIST_DESKTOP_DIR)/include/$(API_NAME).h $(DIST_DESKTOP_DIR)/include/$(PASCAL_NAME).swift $(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).$(DYLIB_EXT)
 endif
-	@echo "Packaged Desktop: $(DIST_DIR)/desktop/"
+	@echo "Packaged Desktop: $(DIST_DESKTOP_DIR)/"
 
 endif
 
@@ -381,16 +388,16 @@ endif
 # ══════════════════════════════════════════════════════════════════════════════
 
 PACKAGE_TARGETS :=
-ifneq ($(call target_enabled,ios),)
+ifneq (,$(call target_enabled,ios))
 PACKAGE_TARGETS += package-ios
 endif
-ifneq ($(call target_enabled,android),)
+ifneq (,$(call target_enabled,android))
 PACKAGE_TARGETS += package-android
 endif
-ifneq ($(call target_enabled,web),)
+ifneq (,$(call target_enabled,web))
 PACKAGE_TARGETS += package-web
 endif
-ifneq ($(call target_enabled,desktop),)
+ifneq (,$(call target_enabled,desktop))
 PACKAGE_TARGETS += package-desktop
 endif
 
