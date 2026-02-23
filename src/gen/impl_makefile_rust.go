@@ -22,20 +22,13 @@ func (g *RustMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	MakefileHeader(&b, ctx, "rust")
 	MakefileTargetConfig(&b)
 
-	// Rust-specific platform overrides: on Windows, Rust cdylib drops the
-	// "lib" prefix and cargo produces a .dll.lib import library alongside the DLL.
-	// DESKTOP_LIB_NAME / DESKTOP_SHARED_LIB are separate from LIB_NAME / SHARED_LIB
-	// because LIB_NAME retains the "lib" prefix for iOS static libs and Android .so files.
+	// Rust-specific: NDK_CMD is needed for Android cross-compilation with cargo.
+	// Windows NDK uses .cmd extension for clang wrappers.
 	b.WriteString(`# ── Rust platform overrides ────────────────────────────────────────────────────
-DYLIB_LNK_EXT :=
-
+NDK_CMD :=
 ifneq (,$(EXE))
-  # windows does not use leading lib naming convention
-  DESKTOP_LIB_NAME := $(API_NAME)
-  DYLIB_LNK_EXT    := dll.lib
+  NDK_CMD := .cmd
 endif
-
-DESKTOP_SHARED_LIB := $(BUILD_DIR)/$(DESKTOP_LIB_NAME).$(DYLIB_EXT)
 
 `)
 
@@ -63,10 +56,9 @@ $(DESKTOP_SHARED_LIB): $(STAMP)
 	cargo build --release
 	@mkdir -p $(BUILD_DIR)
 ifneq (,$(EXE))
+	cp target/release/$(DESKTOP_LIB_NAME).$(DYLIB_EXT) $(DESKTOP_SHARED_LIB)
 	# on Windows the build produces a .dll.lib for use at link time
-	cp  target/release/$(DESKTOP_LIB_NAME).$(DYLIB_EXT) \
-	    target/release/$(DESKTOP_LIB_NAME).$(DYLIB_LNK_EXT) \
-		$(BUILD_DIR)/
+	cp target/release/$(DESKTOP_LIB_NAME).$(DYLIB_EXT).lib $(BUILD_DIR)/$(DESKTOP_LIB_NAME).lib
 else ifeq ($(HOST_OS),Darwin)
 	cp target/release/$(DESKTOP_LIB_NAME).$(DYLIB_EXT) $(DESKTOP_SHARED_LIB)
 	install_name_tool -id @rpath/$(DESKTOP_LIB_NAME).$(DYLIB_EXT) $(DESKTOP_SHARED_LIB)
@@ -95,41 +87,8 @@ clean:
 		g.writeWASMBuildRule(b)
 	})
 
-	// Desktop packaging (Rust-specific: uses DESKTOP_LIB_NAME + DYLIB_LNK_EXT for import library)
-	b.WriteString(`# ══════════════════════════════════════════════════════════════════════════════
-# Desktop: C header + Swift binding + shared library
-# ══════════════════════════════════════════════════════════════════════════════
-
-ifneq (,$(call target_enabled,desktop))
-
-$(DIST_DESKTOP_DIR)/include/$(API_NAME).h: $(GEN_HEADER)
-	@mkdir -p $(dir $@)
-	cp $(GEN_HEADER) $@
-
-$(DIST_DESKTOP_DIR)/include/$(PASCAL_NAME).swift: $(GEN_SWIFT_BINDING)
-	@mkdir -p $(dir $@)
-	cp $(GEN_SWIFT_BINDING) $@
-
-DESKTOP_DIST_DYN_LIB := $(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).$(DYLIB_EXT)
-$(DESKTOP_DIST_DYN_LIB): $(DESKTOP_SHARED_LIB)
-	@mkdir -p $(dir $@)
-	cp $(DESKTOP_SHARED_LIB) $@
-
-DESKTOP_DIST_LNK_LIB :=
-ifneq (,$(DYLIB_LNK_EXT))
-DESKTOP_DIST_LNK_LIB :=	$(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).$(DYLIB_LNK_EXT)
-$(DESKTOP_DIST_LNK_LIB): $(DESKTOP_SHARED_LIB)
-	@mkdir -p $(dir $@)
-	cp $(BUILD_DIR)/$(DESKTOP_LIB_NAME).$(DYLIB_LNK_EXT) $@
-endif
-
-.PHONY: package-desktop
-package-desktop: $(STAMP) $(DIST_DESKTOP_DIR)/include/$(API_NAME).h $(DIST_DESKTOP_DIR)/include/$(PASCAL_NAME).swift $(DESKTOP_DIST_DYN_LIB) $(DESKTOP_DIST_LNK_LIB)
-	@echo "Packaged Desktop: $(DIST_DESKTOP_DIR)/"
-
-endif
-
-`)
+	// Desktop packaging
+	MakefilePackageDesktop(&b)
 
 	// Aggregate
 	MakefileAggregateTargets(&b)

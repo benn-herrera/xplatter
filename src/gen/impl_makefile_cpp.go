@@ -55,7 +55,7 @@ CROSS_LIB_C_FLAGS    := -std=c17 -Wall -Wextra $(CROSS_VISIBILITY)
 	// Codegen stamp
 	MakefileCodegenStamp(&b, "cpp", "-o generated")
 
-	b.WriteString(`.PHONY: run shared-lib clean
+	b.WriteString(`.PHONY: run desktop-shared-lib clean
 
 # ── Local build ──────────────────────────────────────────────────────────────
 
@@ -76,18 +76,18 @@ else
 endif
 	./$(BUILD_DIR)/$(API_NAME)$(EXE)
 
-shared-lib: $(SHARED_LIB)
+desktop-shared-lib: $(DESKTOP_SHARED_LIB)
 
-$(SHARED_LIB): $(STAMP)
+$(DESKTOP_SHARED_LIB): $(STAMP)
 	@mkdir -p $(BUILD_DIR)
 ifeq ($(HOST_OS),Darwin)
 	$(CXX) $(CXXFLAGS) $(LIB_VISIBILITY_FLAGS) -shared -fPIC \
-		-Wl,-install_name,@rpath/$(LIB_NAME).$(DYLIB_EXT) \
+		-Wl,-install_name,@rpath/$(DESKTOP_LIB_NAME).$(DYLIB_EXT) \
 		-o $@ $(IMPL_SOURCES) $(SHIM_SOURCE) $(PLATFORM_SERVICES)/desktop.c
 else ifneq (,$(EXE))
 	$(CXX) /nologo /LD $(LIB_VISIBILITY_FLAGS) $(CXXFLAGS) \
 		$(IMPL_SOURCES) $(SHIM_SOURCE) $(PLATFORM_SERVICES)/desktop.c \
-		/Fe:$@ /link /IMPLIB:$(BUILD_DIR)/$(API_NAME).lib
+		/Fe:$@ /link /IMPLIB:$(BUILD_DIR)/$(DESKTOP_LIB_NAME).lib
 else
 	$(CXX) $(CXXFLAGS) $(LIB_VISIBILITY_FLAGS) -shared -fPIC \
 		-o $@ $(IMPL_SOURCES) $(SHIM_SOURCE) $(PLATFORM_SERVICES)/desktop.c

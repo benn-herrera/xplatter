@@ -142,24 +142,36 @@ func TestMakefileTargetConfig(t *testing.T) {
 	if !strings.Contains(content, "findstring MSYS,$(HOST_OS)") {
 		t.Error("missing MSYS detection for Windows")
 	}
-	if !strings.Contains(content, "DYLIB_EXT     := dll") {
+	if !strings.Contains(content, "DYLIB_EXT        := dll") {
 		t.Error("missing dll extension for Windows")
 	}
-	if !strings.Contains(content, "EXE           := .exe") {
+	if !strings.Contains(content, "EXE              := .exe") {
 		t.Error("missing EXE variable for Windows")
 	}
-	if !strings.Contains(content, "NDK_HOST_OS   := windows") {
+	if !strings.Contains(content, "NDK_HOST_OS      := windows") {
 		t.Error("missing NDK_HOST_OS windows")
 	}
-	if !strings.Contains(content, "EXE       :=") {
+	if !strings.Contains(content, "EXE              :=") {
 		t.Error("missing EXE default (empty) initialization")
 	}
 	// Desktop naming indirection
 	if !strings.Contains(content, "DESKTOP_LIB_NAME := $(LIB_NAME)") {
 		t.Error("missing DESKTOP_LIB_NAME default")
 	}
-	if !strings.Contains(content, "DESKTOP_SHARED_LIB := $(SHARED_LIB)") {
-		t.Error("missing DESKTOP_SHARED_LIB default")
+	if !strings.Contains(content, "DESKTOP_LIB_NAME := $(API_NAME)") {
+		t.Error("missing DESKTOP_LIB_NAME Windows override")
+	}
+	if !strings.Contains(content, "DESKTOP_SHARED_LIB := $(BUILD_DIR)/$(DESKTOP_LIB_NAME).$(DYLIB_EXT)") {
+		t.Error("missing DESKTOP_SHARED_LIB definition")
+	}
+	// Bare SHARED_LIB (not part of DESKTOP_SHARED_LIB) should not be present
+	noDesktop := strings.ReplaceAll(content, "DESKTOP_SHARED_LIB", "")
+	if strings.Contains(noDesktop, "SHARED_LIB") {
+		t.Error("bare SHARED_LIB should not appear — replaced by DESKTOP_SHARED_LIB")
+	}
+	// NDK_CMD should not be in shared config (Rust-specific)
+	if strings.Contains(content, "NDK_CMD") {
+		t.Error("NDK_CMD should not appear in shared MakefileTargetConfig — it's Rust-specific")
 	}
 }
 
@@ -269,6 +281,34 @@ func TestMakefilePackageIOS_StubTarget(t *testing.T) {
 	}
 	if darwinIdx >= elseIdx {
 		t.Error("else clause should come after Darwin conditional")
+	}
+}
+
+func TestMakefilePackageDesktop(t *testing.T) {
+	var b strings.Builder
+	MakefilePackageDesktop(&b)
+	content := b.String()
+
+	// Named variables for dist library paths
+	if !strings.Contains(content, "DIST_DESKTOP_DYN_LIB := $(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).$(DYLIB_EXT)") {
+		t.Error("missing DIST_DESKTOP_DYN_LIB variable")
+	}
+	if !strings.Contains(content, "DIST_DESKTOP_LNK_LIB :=\n") {
+		t.Error("missing DIST_DESKTOP_LNK_LIB default (empty)")
+	}
+	if !strings.Contains(content, "DIST_DESKTOP_LNK_LIB := $(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).lib") {
+		t.Error("missing DIST_DESKTOP_LNK_LIB Windows value")
+	}
+	// Copy source for import lib should use DESKTOP_LIB_NAME
+	if !strings.Contains(content, "cp $(BUILD_DIR)/$(DESKTOP_LIB_NAME).lib $@") {
+		t.Error("missing import lib copy using DESKTOP_LIB_NAME")
+	}
+	// Single package-desktop dep line (no ifneq duplication)
+	if !strings.Contains(content, "package-desktop: $(STAMP)") {
+		t.Error("missing package-desktop target")
+	}
+	if !strings.Contains(content, "$(DIST_DESKTOP_DYN_LIB) $(DIST_DESKTOP_LNK_LIB)") {
+		t.Error("missing DIST_DESKTOP_DYN_LIB and DIST_DESKTOP_LNK_LIB in package-desktop deps")
 	}
 }
 

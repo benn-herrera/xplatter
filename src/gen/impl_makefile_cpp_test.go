@@ -73,9 +73,9 @@ func TestCppMakefileGenerator_Content(t *testing.T) {
 		t.Error("missing main.cpp in run target")
 	}
 
-	// Shared lib
-	if !strings.Contains(content, "shared-lib: $(SHARED_LIB)") {
-		t.Error("missing shared-lib target")
+	// Desktop shared lib
+	if !strings.Contains(content, "desktop-shared-lib: $(DESKTOP_SHARED_LIB)") {
+		t.Error("missing desktop-shared-lib target")
 	}
 	if !strings.Contains(content, "-shared -fPIC") {
 		t.Error("missing shared library flags")

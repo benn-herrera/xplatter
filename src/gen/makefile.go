@@ -96,20 +96,20 @@ target_enabled = $(filter $(1),$(TARGETS))
 
 # ── Host platform detection ────────────────────────────────────────────────────
 
-HOST_OS   := $(shell uname -s)
-HOST_ARCH := $(shell uname -m)
-EXE       :=
-NDK_CMD   :=
+HOST_OS          := $(shell uname -s)
+HOST_ARCH        := $(shell uname -m)
+EXE              :=
+DESKTOP_LIB_NAME := $(LIB_NAME)
 ifeq ($(HOST_OS),Darwin)
   DYLIB_EXT     := dylib
   NDK_HOST_OS   := darwin
   NDK_HOST_ARCH := x86_64
 else ifneq (,$(findstring MINGW,$(HOST_OS))$(findstring MSYS,$(HOST_OS)))
-  DYLIB_EXT     := dll
-  NDK_HOST_OS   := windows
-  NDK_HOST_ARCH := x86_64
-  EXE           := .exe
-  NDK_CMD       := .cmd
+  DESKTOP_LIB_NAME := $(API_NAME)
+  DYLIB_EXT        := dll
+  NDK_HOST_OS      := windows
+  NDK_HOST_ARCH    := x86_64
+  EXE              := .exe
 else
   DYLIB_EXT    := so
   NDK_HOST_OS  := linux
@@ -119,9 +119,7 @@ else
     NDK_HOST_ARCH := x86_64
   endif
 endif
-SHARED_LIB := $(BUILD_DIR)/$(LIB_NAME).$(DYLIB_EXT)
-DESKTOP_LIB_NAME := $(LIB_NAME)
-DESKTOP_SHARED_LIB := $(SHARED_LIB)
+DESKTOP_SHARED_LIB := $(BUILD_DIR)/$(DESKTOP_LIB_NAME).$(DYLIB_EXT)
 
 # ── NDK configuration ─────────────────────────────────────────────────────────
 # ANDK/ASDK normalize backslashes to forward slashes for Windows compatibility.
@@ -366,8 +364,10 @@ endif
 }
 
 // MakefilePackageDesktop emits Desktop packaging rules.
-// Uses DESKTOP_LIB_NAME and DESKTOP_SHARED_LIB so Rust (which drops the lib prefix
+// Uses DESKTOP_LIB_NAME and DESKTOP_SHARED_LIB so Rust/Go (which drop the lib prefix
 // on Windows) can override them without affecting iOS/Android LIB_NAME.
+// Uses DIST_DESKTOP_DYN_LIB / DIST_DESKTOP_LNK_LIB named variables so the
+// package-desktop dependency line doesn't need EXE-conditional duplication.
 func MakefilePackageDesktop(b *strings.Builder) {
 	b.WriteString(`# ══════════════════════════════════════════════════════════════════════════════
 # Desktop: C header + Swift binding + shared library
@@ -383,22 +383,21 @@ $(DIST_DESKTOP_DIR)/include/$(PASCAL_NAME).swift: $(GEN_SWIFT_BINDING)
 	@mkdir -p $(dir $@)
 	cp $(GEN_SWIFT_BINDING) $@
 
-$(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).$(DYLIB_EXT): $(DESKTOP_SHARED_LIB)
+DIST_DESKTOP_DYN_LIB := $(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).$(DYLIB_EXT)
+$(DIST_DESKTOP_DYN_LIB): $(DESKTOP_SHARED_LIB)
 	@mkdir -p $(dir $@)
 	cp $(DESKTOP_SHARED_LIB) $@
 
+DIST_DESKTOP_LNK_LIB :=
 ifneq (,$(EXE))
-$(DIST_DESKTOP_DIR)/lib/$(API_NAME).lib: $(DESKTOP_SHARED_LIB)
+DIST_DESKTOP_LNK_LIB := $(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).lib
+$(DIST_DESKTOP_LNK_LIB): $(DESKTOP_SHARED_LIB)
 	@mkdir -p $(dir $@)
-	cp $(BUILD_DIR)/$(API_NAME).lib $@
+	cp $(BUILD_DIR)/$(DESKTOP_LIB_NAME).lib $@
 endif
 
 .PHONY: package-desktop
-ifneq (,$(EXE))
-package-desktop: $(STAMP) $(DIST_DESKTOP_DIR)/include/$(API_NAME).h $(DIST_DESKTOP_DIR)/include/$(PASCAL_NAME).swift $(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).$(DYLIB_EXT) $(DIST_DESKTOP_DIR)/lib/$(API_NAME).lib
-else
-package-desktop: $(STAMP) $(DIST_DESKTOP_DIR)/include/$(API_NAME).h $(DIST_DESKTOP_DIR)/include/$(PASCAL_NAME).swift $(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).$(DYLIB_EXT)
-endif
+package-desktop: $(STAMP) $(DIST_DESKTOP_DIR)/include/$(API_NAME).h $(DIST_DESKTOP_DIR)/include/$(PASCAL_NAME).swift $(DIST_DESKTOP_DYN_LIB) $(DIST_DESKTOP_LNK_LIB)
 	@echo "Packaged Desktop: $(DIST_DESKTOP_DIR)/"
 
 endif

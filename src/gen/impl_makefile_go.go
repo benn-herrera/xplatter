@@ -28,7 +28,7 @@ func (g *GoMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 	b.WriteString("# ── CGO compiler ────────────────────────────────────────────────────────────\n\n")
 	b.WriteString("CGO_CC := clang\n")
 	b.WriteString("ifneq (,$(EXE))\n")
-	b.WriteString("  CGO_CC := zig cc -target x86_64-windows-gnu\n")
+	b.WriteString("  CGO_CC := zig cc\n")
 	b.WriteString("endif\n\n")
 
 	MakefileBindingVars(&b, apiName, "generated/")
@@ -51,7 +51,7 @@ $(STAMP): $(API_DEF)
 	b.WriteString("GEN_GO_SOURCES := $(wildcard $(GEN_DIR)$(API_NAME)_*.go)\n")
 	b.WriteString("GEN_GO_COPIES  := $(notdir $(GEN_GO_SOURCES))\n\n")
 
-	b.WriteString(`.PHONY: run shared-lib clean
+	b.WriteString(`.PHONY: run desktop-shared-lib clean
 
 # ── Local build ──────────────────────────────────────────────────────────────
 
@@ -60,13 +60,18 @@ run: $(STAMP)
 	CC="$(CGO_CC)" go build -o $(BUILD_DIR)/$(API_NAME)$(EXE) .
 	./$(BUILD_DIR)/$(API_NAME)$(EXE)
 
-shared-lib: $(SHARED_LIB)
+desktop-shared-lib: $(DESKTOP_SHARED_LIB)
 
-$(SHARED_LIB): $(STAMP)
+$(DESKTOP_SHARED_LIB): $(STAMP)
 ifeq ($(HOST_OS),Darwin)
-	CC="$(CGO_CC)" go build -buildmode=c-shared -ldflags='-extldflags "-Wl,-install_name,@rpath/$(LIB_NAME).$(DYLIB_EXT)"' -o $(SHARED_LIB) .
+	CC="$(CGO_CC)" go build -buildmode=c-shared -ldflags='-extldflags "-Wl,-install_name,@rpath/$(LIB_NAME).$(DYLIB_EXT)"' -o $(DESKTOP_SHARED_LIB) .
 else
-	CC="$(CGO_CC)" go build -buildmode=c-shared -o $(SHARED_LIB) .
+	CC="$(CGO_CC)" go build -buildmode=c-shared -o $(DESKTOP_SHARED_LIB) .
+ifneq (,$(EXE))
+	awk 'BEGIN { print "EXPORTS"; } /^extern "C"/ { next; } /^extern / { gsub(/\(/, " "); print $$3; }' \
+	    $(BUILD_DIR)/$(API_NAME).h > $(BUILD_DIR)/$(DESKTOP_LIB_NAME).def
+	zig dlltool -d $(BUILD_DIR)/$(DESKTOP_LIB_NAME).def -D $(DESKTOP_SHARED_LIB) -l $(BUILD_DIR)/$(DESKTOP_LIB_NAME).lib
+endif
 endif
 
 clean:

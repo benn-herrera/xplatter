@@ -55,7 +55,7 @@ $(GEN_HEADER) $(GEN_SWIFT_BINDING) $(GEN_KOTLIN_BINDING) $(GEN_JS_BINDING) $(GEN
 	// Codegen stamp
 	MakefileCodegenStamp(&b, "c", "-o generated")
 
-	b.WriteString(`.PHONY: run shared-lib clean
+	b.WriteString(`.PHONY: run desktop-shared-lib clean
 
 # ── Local build ──────────────────────────────────────────────────────────────
 
@@ -72,18 +72,18 @@ else
 endif
 	./$(BUILD_DIR)/$(API_NAME)$(EXE)
 
-shared-lib: $(SHARED_LIB)
+desktop-shared-lib: $(DESKTOP_SHARED_LIB)
 
-$(SHARED_LIB): $(STAMP)
+$(DESKTOP_SHARED_LIB): $(STAMP)
 	@mkdir -p $(BUILD_DIR)
 ifeq ($(HOST_OS),Darwin)
 	$(CC) $(CFLAGS) $(LIB_VISIBILITY_FLAGS) -shared -fPIC \
-		-Wl,-install_name,@rpath/$(LIB_NAME).$(DYLIB_EXT) \
+		-Wl,-install_name,@rpath/$(DESKTOP_LIB_NAME).$(DYLIB_EXT) \
 		-o $@ $(IMPL_SOURCES) $(PLATFORM_SERVICES)/desktop.c
 else ifneq (,$(EXE))
 	$(CC) /nologo /LD $(LIB_VISIBILITY_FLAGS) $(CFLAGS) \
 		$(IMPL_SOURCES) $(PLATFORM_SERVICES)/desktop.c \
-		/Fe:$@ /link /IMPLIB:$(BUILD_DIR)/$(API_NAME).lib
+		/Fe:$@ /link /IMPLIB:$(BUILD_DIR)/$(DESKTOP_LIB_NAME).lib
 else
 	$(CC) $(CFLAGS) $(LIB_VISIBILITY_FLAGS) -shared -fPIC \
 		-o $@ $(IMPL_SOURCES) $(PLATFORM_SERVICES)/desktop.c

@@ -60,8 +60,12 @@ func TestGoMakefileGenerator_Content(t *testing.T) {
 	if !strings.Contains(content, "CGO_CC := clang") {
 		t.Error("missing CGO_CC := clang default")
 	}
-	if !strings.Contains(content, "CGO_CC := zig cc -target x86_64-windows-gnu") {
+	if !strings.Contains(content, "CGO_CC := zig cc\n") {
 		t.Error("missing CGO_CC Windows override")
+	}
+	// zig dlltool import lib generation on Windows
+	if !strings.Contains(content, "zig dlltool") {
+		t.Error("missing zig dlltool import lib generation for Windows")
 	}
 
 	// Codegen stamp with -o generated
