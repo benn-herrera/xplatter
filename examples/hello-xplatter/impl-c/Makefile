@@ -358,8 +358,18 @@ $(DIST_DIR)/desktop/lib/$(LIB_NAME).$(DYLIB_EXT): $(SHARED_LIB)
 	@mkdir -p $(dir $@)
 	cp $(SHARED_LIB) $@
 
+ifneq (,$(EXE))
+$(DIST_DIR)/desktop/lib/$(API_NAME).lib: $(SHARED_LIB)
+	@mkdir -p $(dir $@)
+	cp $(BUILD_DIR)/$(API_NAME).lib $@
+endif
+
 .PHONY: package-desktop
+ifneq (,$(EXE))
+package-desktop: $(STAMP) $(DIST_DIR)/desktop/include/$(API_NAME).h $(DIST_DIR)/desktop/include/$(PASCAL_NAME).swift $(DIST_DIR)/desktop/lib/$(LIB_NAME).$(DYLIB_EXT) $(DIST_DIR)/desktop/lib/$(API_NAME).lib
+else
 package-desktop: $(STAMP) $(DIST_DIR)/desktop/include/$(API_NAME).h $(DIST_DIR)/desktop/include/$(PASCAL_NAME).swift $(DIST_DIR)/desktop/lib/$(LIB_NAME).$(DYLIB_EXT)
+endif
 	@echo "Packaged Desktop: $(DIST_DIR)/desktop/"
 
 endif
