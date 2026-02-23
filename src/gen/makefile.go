@@ -188,7 +188,7 @@ func MakefileEmscriptenConfig(b *strings.Builder) {
 # Windows EMSDK install: set EMSDK or EMSDK_PATH.
 # macOS/Linux package-manager install: em-config is used automatically.
 EMSDK_PATH ?= $(EMSDK)
-ifneq ($(EMSDK_PATH),)
+ifneq (,$(EMSDK_PATH))
   EMSCRIPTEN_ROOT := $(EMSDK_PATH)/upstream/emscripten
 else
   EMSCRIPTEN_ROOT := $(shell em-config EMSCRIPTEN_ROOT 2>/dev/null)
@@ -233,7 +233,7 @@ func MakefilePackageIOS(b *strings.Builder, buildArchRule func(b *strings.Builde
 # iOS: static libs per arch → lipo → xcframework + SPM package
 # ══════════════════════════════════════════════════════════════════════════════
 
-ifneq ($(call target_enabled,ios),)
+ifneq (,$(call target_enabled,ios))
 ifeq ($(HOST_OS),Darwin)
 
 `)
@@ -285,7 +285,7 @@ func MakefilePackageAndroid(b *strings.Builder, buildABIRule func(b *strings.Bui
 # Android: native libs per ABI + Kotlin binding + Gradle module
 # ══════════════════════════════════════════════════════════════════════════════
 
-ifneq ($(call target_enabled,android),)
+ifneq (,$(call target_enabled,android))
 
 `)
 	buildABIRule(b)
@@ -340,7 +340,7 @@ func MakefilePackageWeb(b *strings.Builder, buildWASMRule func(b *strings.Builde
 # Web: WASM + JS binding + package.json
 # ══════════════════════════════════════════════════════════════════════════════
 
-ifneq ($(call target_enabled,web),)
+ifneq (,$(call target_enabled,web))
 
 `)
 	buildWASMRule(b)
@@ -372,7 +372,7 @@ func MakefilePackageDesktop(b *strings.Builder) {
 # Desktop: C header + Swift binding + shared library
 # ══════════════════════════════════════════════════════════════════════════════
 
-ifneq ($(call target_enabled,desktop),)
+ifneq (,$(call target_enabled,desktop))
 
 $(DIST_DESKTOP_DIR)/include/$(API_NAME).h: $(GEN_HEADER)
 	@mkdir -p $(dir $@)
@@ -411,16 +411,16 @@ func MakefileAggregateTargets(b *strings.Builder) {
 # ══════════════════════════════════════════════════════════════════════════════
 
 PACKAGE_TARGETS :=
-ifneq ($(call target_enabled,ios),)
+ifneq (,$(call target_enabled,ios))
 PACKAGE_TARGETS += package-ios
 endif
-ifneq ($(call target_enabled,android),)
+ifneq (,$(call target_enabled,android))
 PACKAGE_TARGETS += package-android
 endif
-ifneq ($(call target_enabled,web),)
+ifneq (,$(call target_enabled,web))
 PACKAGE_TARGETS += package-web
 endif
-ifneq ($(call target_enabled,desktop),)
+ifneq (,$(call target_enabled,desktop))
 PACKAGE_TARGETS += package-desktop
 endif
 

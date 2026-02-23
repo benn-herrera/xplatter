@@ -21,7 +21,6 @@ func (g *RustMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 
 	MakefileHeader(&b, ctx, "rust")
 	MakefileTargetConfig(&b)
-	MakefileMSVCDiscovery(&b)
 
 	// Rust-specific: NDK_CMD is needed for Android cross-compilation with cargo.
 	// Windows NDK uses .cmd extension for clang wrappers.
