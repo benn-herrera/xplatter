@@ -20,12 +20,12 @@ define gen-impl
 endef
 
 .PHONY: default build-xplatter build-xplatter-in-dist build-xplatter-for-dev \
-       test-hello-impl-c test-hello-impl-cpp test-hello-impl-rust test-hello-impl-go test-hello-impls \
-       test-hello-app-desktop-cpp test-hello-app-desktop-swift test-hello-app-ios test-hello-app-android test-hello-app-web test-hello-apps \
+       test-hello-impl-c test-hello-impl-cpp test-hello-impl-rust test-hello-impl-go test-hello-impl-all \
+       test-hello-app-desktop-cpp test-hello-app-desktop-swift test-hello-app-ios test-hello-app-android test-hello-app-web test-hello-app-all \
        package-hello-c package-hello-cpp package-hello-go package-hello-rust package-hello-all \
        help
 
-default: test-hello-apps
+default: test-hello-app-all
 
 ## build: Ensure a valid xplatter binary is available
 build-xplatter-in-dist:
@@ -56,8 +56,8 @@ test-hello-impl-go: build-xplatter
 	$(call gen-impl,hello-xplatter/impl-go,go,-o generated)
 	$(MAKE) -C hello-xplatter/impl-go XPLATTER=$(XPLATTER_ABS) test
 
-## test-hello-impls: Run all hello example implementations
-test-hello-impls: test-hello-impl-c test-hello-impl-cpp test-hello-impl-rust test-hello-impl-go
+## test-hello-impl-all: Run all hello example implementations
+test-hello-impl-all: test-hello-impl-c test-hello-impl-cpp test-hello-impl-rust test-hello-impl-go
 
 ## test-hello-app-desktop-cpp: Build and test the hello C++ desktop app
 test-hello-app-desktop-cpp: build-xplatter
@@ -81,9 +81,9 @@ test-hello-app-android: build-xplatter
 test-hello-app-web: build-xplatter
 	$(MAKE) -C hello-xplatter/app-web IMPL=$(IMPL) test
 
-## test-hello-apps: Run all app tests
-test-hello-apps: test-hello-app-desktop-cpp test-hello-app-desktop-swift test-hello-app-ios test-hello-app-android test-hello-app-web
-clean-hello-apps:
+## test-hello-app-all: Run all app tests
+test-hello-app-all: test-hello-app-desktop-cpp test-hello-app-desktop-swift test-hello-app-ios test-hello-app-android test-hello-app-web
+clean-hello-app-all:
 	$(MAKE) -C hello-xplatter/app-desktop-cpp clean
 	$(MAKE) -C hello-xplatter/app-desktop-swift clean
 	$(MAKE) -C hello-xplatter/app-ios clean
@@ -114,11 +114,11 @@ package-hello-rust: build-xplatter
 package-hello-all: package-hello-c package-hello-cpp package-hello-rust package-hello-go
 
 ## test-examples-hello-impl-app-matrix: build all hello example api impls and test all apps against all api impls
-test-hello-impl-app-matrix: test-hello-impls
-	$(MAKE) IMPL=c    clean-hello-apps test-hello-apps
-	$(MAKE) IMPL=cpp  clean-hello-apps test-hello-apps
-	$(MAKE) IMPL=go   clean-hello-apps test-hello-apps
-	$(MAKE) IMPL=rust clean-hello-apps test-hello-apps
+test-hello-impl-app-matrix: test-hello-impl-all
+	$(MAKE) IMPL=c    clean-hello-app-all test-hello-app-all
+	$(MAKE) IMPL=cpp  clean-hello-app-all test-hello-app-all
+	$(MAKE) IMPL=go   clean-hello-app-all test-hello-app-all
+	$(MAKE) IMPL=rust clean-hello-app-all test-hello-app-all
 
 ## help: Show available targets
 help:
