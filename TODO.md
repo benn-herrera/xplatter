@@ -4,23 +4,13 @@
 * items on the todo list are addressed one encapsulated (## headed) issue at a time in top down order. The task is to be accomplished starting in planning mode and then moving on to execution.
 * when completed they are marked done (## DONE - [description]) and moved to the end of the file for archival purposes
 
-## AGENTS.md, ARCHITECTURE.md, and docs/DETAILED_SPEC.md have fallen behind the implementation state.
-* Assess the current state of the code and bring those documents up to date.
-
 ## _IGNORE THIS LINE AND EVERYTHING BELOW IT IN THIS FILE - STAGING AREA FOR FUTURE WORK_
-
-## app-desktop-cpp not linking to all impls
-* linking to impl-c and impl-cpp working
-* linking to impl-rust not working
-* linking to impl-go not working
 
 ## architecture discussion: leveraging zig to reduce developer and user setup complexity
 * can we use its c and c++ compiler drop in replacement capabilities to simplify our Makefiles
   * maybe eliminate use of cmake?
-  * maybe eliminate need for android NDK?
-  * maybe eliminate need for emscripten?
+  * maybe eliminate need for cl.exe at all on windows?
  
-
 ## in GC'd languages (Swift, Kotlin, JavaScript)   
   * the generated bindings should map constructors (create functions) to setup functions that replace the string 'create' in the name with 'setup' 
   * a destructor should map a bound to a function called 'teardown'. 
