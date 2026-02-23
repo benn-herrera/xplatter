@@ -30,31 +30,28 @@ target_enabled = $(filter $(1),$(TARGETS))
 HOST_OS          := $(shell uname -s)
 HOST_ARCH        := $(shell uname -m)
 EXE              :=
-NDK_CMD	         :=
+NDK_CMD          :=
 DESKTOP_LIB_NAME := $(LIB_NAME)
-
 ifeq ($(HOST_OS),Darwin)
   DYLIB_EXT     := dylib
   NDK_HOST_OS   := darwin
   NDK_HOST_ARCH := x86_64
 else ifneq (,$(findstring MINGW,$(HOST_OS))$(findstring MSYS,$(HOST_OS)))
-  # windows does not use leading lib naming convention
   DESKTOP_LIB_NAME := $(API_NAME)
   DYLIB_EXT        := dll
   NDK_HOST_OS      := windows
   NDK_HOST_ARCH    := x86_64
   EXE              := .exe
-  NDK_CMD		   := .cmd
+  NDK_CMD          := .cmd
 else
-  DYLIB_EXT       := so
-  NDK_HOST_OS     := linux
+  DYLIB_EXT    := so
+  NDK_HOST_OS  := linux
   ifeq ($(HOST_ARCH),aarch64)
     NDK_HOST_ARCH := aarch64
   else
     NDK_HOST_ARCH := x86_64
   endif
 endif
-
 DESKTOP_SHARED_LIB := $(BUILD_DIR)/$(DESKTOP_LIB_NAME).$(DYLIB_EXT)
 
 # ── NDK configuration ─────────────────────────────────────────────────────────
@@ -108,7 +105,7 @@ $(STAMP): $(API_DEF)
 	$(XPLATTER) generate --impl-lang rust -o generated $(API_DEF)
 	@touch $@
 
-.PHONY: test shared-lib clean
+.PHONY: test desktop-shared-lib clean
 
 test: $(STAMP)
 	cargo test
@@ -291,7 +288,7 @@ $(DIST_DESKTOP_DYN_LIB): $(DESKTOP_SHARED_LIB)
 
 DIST_DESKTOP_LNK_LIB :=
 ifneq (,$(EXE))
-DIST_DESKTOP_LNK_LIB :=	$(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).lib
+DIST_DESKTOP_LNK_LIB := $(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).lib
 $(DIST_DESKTOP_LNK_LIB): $(DESKTOP_SHARED_LIB)
 	@mkdir -p $(dir $@)
 	cp $(BUILD_DIR)/$(DESKTOP_LIB_NAME).lib $@

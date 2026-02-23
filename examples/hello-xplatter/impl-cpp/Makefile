@@ -385,7 +385,7 @@ ifneq (,$(EXE))
 DIST_DESKTOP_LNK_LIB := $(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).lib
 $(DIST_DESKTOP_LNK_LIB): $(DESKTOP_SHARED_LIB)
 	@mkdir -p $(dir $@)
-	cp $(BUILD_DIR)/$(API_NAME).lib $@
+	cp $(BUILD_DIR)/$(DESKTOP_LIB_NAME).lib $@
 endif
 
 .PHONY: package-desktop

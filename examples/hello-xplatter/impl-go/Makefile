@@ -31,7 +31,7 @@ HOST_OS          := $(shell uname -s)
 HOST_ARCH        := $(shell uname -m)
 EXE              :=
 DESKTOP_LIB_NAME := $(LIB_NAME)
-CGO_CC	  := clang
+CGO_CC           := clang
 ifeq ($(HOST_OS),Darwin)
   DYLIB_EXT     := dylib
   NDK_HOST_OS   := darwin
