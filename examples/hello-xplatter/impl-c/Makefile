@@ -107,6 +107,8 @@ ifneq ($(EMSDK_PATH),)
 else
   EMSCRIPTEN_ROOT := $(shell em-config EMSCRIPTEN_ROOT 2>/dev/null)
 endif
+# has no effect on Linux, macOS, required for path fixup on Windows
+EMSCRIPTEN_ROOT := $(shell echo "$(EMSCRIPTEN_ROOT)" | sed 's:\\\\:/:g')
 EMSCRIPTEN_TOOLCHAIN := $(EMSCRIPTEN_ROOT)/cmake/Modules/Platform/Emscripten.cmake
 
 # ── Generated binding files ───────────────────────────────────────────────────

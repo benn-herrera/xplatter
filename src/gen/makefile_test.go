@@ -130,6 +130,9 @@ func TestMakefileTargetConfig(t *testing.T) {
 	if !strings.Contains(content, "em-config EMSCRIPTEN_ROOT") {
 		t.Error("missing em-config EMSCRIPTEN_ROOT for macOS/Linux package installs")
 	}
+	if !strings.Contains(content, `sed 's:\\\\:/:g'`) {
+		t.Error("missing EMSCRIPTEN_ROOT Windows path fixup")
+	}
 
 	// Windows platform detection
 	if !strings.Contains(content, "findstring MINGW,$(HOST_OS)") {
