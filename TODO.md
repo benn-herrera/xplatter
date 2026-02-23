@@ -4,12 +4,12 @@
 * items on the todo list are addressed one encapsulated (## headed) issue at a time in top down order. The task is to be accomplished starting in planning mode and then moving on to execution.
 * when completed they are marked done (## DONE - [description]) and moved to the end of the file for archival purposes
 
+## _IGNORE THIS LINE AND EVERYTHING BELOW IT IN THIS FILE - STAGING AREA FOR FUTURE WORK_
+
 ## app-desktop-cpp not linking to all impls
 * linking to impl-c and impl-cpp working
 * linking to impl-rust not working
 * linking to impl-go not working
-
-## _IGNORE THIS LINE AND EVERYTHING BELOW IT IN THIS FILE - STAGING AREA FOR FUTURE WORK_
 
 ## architecture discussion: leveraging zig to reduce developer and user setup complexity
 * can we use its c and c++ compiler drop in replacement capabilities to simplify our Makefiles

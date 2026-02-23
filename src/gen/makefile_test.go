@@ -242,10 +242,10 @@ func TestMakefileAggregateTargets(t *testing.T) {
 	MakefileAggregateTargets(&b)
 	content := b.String()
 
-	if !strings.Contains(content, "packages: $(PACKAGE_TARGETS)") {
-		t.Error("missing packages target")
+	if !strings.Contains(content, "package-all: $(PACKAGE_TARGETS)") {
+		t.Error("missing package-all target")
 	}
-	if !strings.Contains(content, "build: packages") {
+	if !strings.Contains(content, "build: package-all") {
 		t.Error("missing build alias")
 	}
 }

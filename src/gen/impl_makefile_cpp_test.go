@@ -122,8 +122,8 @@ func TestCppMakefileGenerator_Content(t *testing.T) {
 	if !strings.Contains(content, "package-desktop") {
 		t.Error("missing package-desktop target")
 	}
-	if !strings.Contains(content, "packages: $(PACKAGE_TARGETS)") {
-		t.Error("missing aggregate packages target")
+	if !strings.Contains(content, "package-all: $(PACKAGE_TARGETS)") {
+		t.Error("missing aggregate package-all target")
 	}
 }
 

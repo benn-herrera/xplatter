@@ -93,22 +93,22 @@ clean-hello-apps:
 ## package-hello-c: Build cross-platform packages for C impl
 package-hello-c: build-xplatter
 	$(call gen-impl,hello-xplatter/impl-c,c,-o generated)
-	$(MAKE) -C hello-xplatter/impl-c XPLATTER=$(XPLATTER_ABS) packages
+	$(MAKE) -C hello-xplatter/impl-c XPLATTER=$(XPLATTER_ABS) package-all
 
 ## package-hello-cpp: Build cross-platform packages for C++ impl
 package-hello-cpp: build-xplatter
 	$(call gen-impl,hello-xplatter/impl-cpp,cpp,-o generated)
-	$(MAKE) -C hello-xplatter/impl-cpp XPLATTER=$(XPLATTER_ABS) packages
+	$(MAKE) -C hello-xplatter/impl-cpp XPLATTER=$(XPLATTER_ABS) package-all
 
 ## package-hello-go: Build cross-platform packages for Go impl
 package-hello-go: build-xplatter
 	$(call gen-impl,hello-xplatter/impl-go,go,-o generated)
-	$(MAKE) -C hello-xplatter/impl-go XPLATTER=$(XPLATTER_ABS) packages
+	$(MAKE) -C hello-xplatter/impl-go XPLATTER=$(XPLATTER_ABS) package-all
 
 ## package-hello-rust: Build cross-platform packages for Rust impl
 package-hello-rust: build-xplatter
 	$(call gen-impl,hello-xplatter/impl-rust,rust,-o generated)
-	$(MAKE) -C hello-xplatter/impl-rust XPLATTER=$(XPLATTER_ABS) packages
+	$(MAKE) -C hello-xplatter/impl-rust XPLATTER=$(XPLATTER_ABS) package-all
 
 ## package-hello-all: Build packages for all implementations
 package-hello-all: package-hello-c package-hello-cpp package-hello-rust package-hello-go
