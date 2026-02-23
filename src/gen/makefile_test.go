@@ -141,8 +141,13 @@ func TestMakefileTargetConfig(t *testing.T) {
 	if !strings.Contains(content, "EXE       :=") {
 		t.Error("missing EXE default (empty) initialization")
 	}
+}
 
-	// MSVC discovery (Windows only)
+func TestMakefileMSVCDiscovery(t *testing.T) {
+	var b strings.Builder
+	MakefileMSVCDiscovery(&b)
+	content := b.String()
+
 	if !strings.Contains(content, "VSWHERE") {
 		t.Error("missing VSWHERE for MSVC discovery")
 	}

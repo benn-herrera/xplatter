@@ -21,6 +21,7 @@ func (g *CMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 
 	MakefileHeader(&b, ctx, "c")
 	MakefileTargetConfig(&b)
+	MakefileMSVCDiscovery(&b)
 	MakefileEmscriptenConfig(&b)
 	MakefileBindingVars(&b, apiName, "generated/")
 	MakefileWASMExports(&b, apiName, ctx.API)
