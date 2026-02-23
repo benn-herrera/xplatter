@@ -544,8 +544,8 @@ The `impl_lang` field determines what implementation scaffolding is generated. E
 
 | `impl_lang` | Required Tools |
 |-------------|---------------|
-| `c` | C11 compiler (cc/gcc/clang) |
-| `cpp` | C++20 compiler (c++/g++/clang++), C11 compiler |
+| `c` | C11 compiler (clang) |
+| `cpp` | C++20 compiler (clang++), C11 compiler |
 | `rust` | Rust toolchain (rustc + cargo) |
 | `go` | Go 1.25+, cgo-compatible C compiler |
 

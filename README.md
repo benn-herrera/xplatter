@@ -151,8 +151,8 @@ These build and test the API implementation in each supported language. They run
 
 | Example | Required Tools |
 |---------|---------------|
-| C (`test-example-c`) | C11 compiler (cc/gcc/clang) |
-| C++ (`test-example-cpp`) | C++20 compiler (c++/g++/clang++), C11 compiler |
+| C (`test-example-c`) | C11 compiler (clang) |
+| C++ (`test-example-cpp`) | C++20 compiler (clang++), C11 compiler |
 | Rust (`test-example-rust`) | Rust toolchain (rustc + cargo) |
 | Go (`test-example-go`) | Go 1.25+, cgo-compatible C compiler |
 

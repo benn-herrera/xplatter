@@ -35,7 +35,7 @@ ifneq (,$(EXE))
   endif
   CXX := cl.exe
 else
-  CXX ?= clang++
+  CXX := clang++
 endif
 
 TARGET := $(BUILD_DIR)/hello_app$(EXE)
