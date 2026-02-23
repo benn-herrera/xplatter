@@ -21,6 +21,7 @@ func (g *RustMakefileGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 
 	MakefileHeader(&b, ctx, "rust")
 	MakefileTargetConfig(&b)
+	MakefileMSVCDiscovery(&b)
 
 	// Rust-specific: NDK_CMD is needed for Android cross-compilation with cargo.
 	// Windows NDK uses .cmd extension for clang wrappers.
@@ -102,7 +103,7 @@ func (g *RustMakefileGenerator) writeIOSArchRules(b *strings.Builder) {
 	b.WriteString(`# $(1) = arch dir name, $(2) = Rust target triple
 define BUILD_IOS_ARCH
 
-$(DIST_IOS_DIR)/obj/$(1)/$(LIB_NAME).a: $(STAMP)
+$(DIST_DIR)/ios/obj/$(1)/$(LIB_NAME).a: $(STAMP)
 	@mkdir -p $$(dir $$@)
 	cargo build --release --target $(2)
 	cp target/$(2)/release/$(LIB_NAME).a $$@
@@ -120,15 +121,15 @@ func (g *RustMakefileGenerator) writeAndroidABIRules(b *strings.Builder) {
 	b.WriteString(`# $(1) = ABI name, $(2) = Rust target triple, $(3) = NDK target prefix, $(4) = uppercase Cargo target
 define BUILD_ANDROID_ABI
 
-$(DIST_ANDROID_DIR)/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(STAMP)
-	@mkdir -p $(DIST_ANDROID_DIR)/obj/$(1) $$(dir $$@)
+$(DIST_DIR)/android/src/main/jniLibs/$(1)/$(LIB_NAME).so: $(STAMP)
+	@mkdir -p $(DIST_DIR)/android/obj/$(1) $$(dir $$@)
 	CARGO_TARGET_$(4)_LINKER="$(NDK_BIN)/$(3)-clang$(NDK_CMD)" \
 		PATH=$(NDK_BIN):$$$$PATH cargo build --release --target $(2)
 	"$(NDK_BIN)/$(3)-clang" $(CROSS_LIB_C_FLAGS) -fPIC \
-		-Igenerated -c -o $(DIST_ANDROID_DIR)/obj/$(1)/jni.o $(GEN_JNI_SOURCE)
+		-Igenerated -c -o $(DIST_DIR)/android/obj/$(1)/jni.o $(GEN_JNI_SOURCE)
 	"$(NDK_BIN)/$(3)-clang" -shared \
 		-Wl,--whole-archive target/$(2)/release/$(LIB_NAME).a -Wl,--no-whole-archive \
-		$(DIST_ANDROID_DIR)/obj/$(1)/jni.o \
+		$(DIST_DIR)/android/obj/$(1)/jni.o \
 		-ldl -lm -llog \
 		-o $$@
 
@@ -143,7 +144,7 @@ $(eval $(call BUILD_ANDROID_ABI,x86,i686-linux-android,i686-linux-android$(ANDRO
 }
 
 func (g *RustMakefileGenerator) writeWASMBuildRule(b *strings.Builder) {
-	b.WriteString(`$(DIST_WEB_DIR)/$(API_NAME).wasm: $(STAMP)
+	b.WriteString(`$(DIST_DIR)/web/$(API_NAME).wasm: $(STAMP)
 	@mkdir -p $(dir $@)
 	cargo build --release --target wasm32-unknown-unknown
 	cp target/wasm32-unknown-unknown/release/$(shell echo $(API_NAME) | tr '-' '_').wasm $@

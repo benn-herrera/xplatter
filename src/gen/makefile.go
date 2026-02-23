@@ -79,11 +79,6 @@ func MakefileHeader(b *strings.Builder, ctx *Context, implLang string) {
 	fmt.Fprintf(b, "BUILD_DIR := build\n")
 	fmt.Fprintf(b, "DIST_DIR  := dist\n")
 	fmt.Fprintf(b, "STAMP     := $(BUILD_DIR)/.generated\n\n")
-
-	fmt.Fprintf(b, "DIST_WEB_DIR := $(DIST_DIR)/web\n")
-	fmt.Fprintf(b, "DIST_IOS_DIR := $(DIST_DIR)/ios\n")
-	fmt.Fprintf(b, "DIST_ANDROID_DIR := $(DIST_DIR)/android\n")
-	fmt.Fprintf(b, "DIST_DESKTOP_DIR := $(DIST_DIR)/desktop\n\n")
 }
 
 // MakefileTargetConfig emits target filtering, NDK, iOS, and platform detection.
@@ -234,39 +229,39 @@ func MakefilePackageIOS(b *strings.Builder, buildArchRule func(b *strings.Builde
 # iOS: static libs per arch → lipo → xcframework + SPM package
 # ══════════════════════════════════════════════════════════════════════════════
 
-ifneq (,$(call target_enabled,ios))
+ifneq ($(call target_enabled,ios),)
 ifeq ($(HOST_OS),Darwin)
 
 `)
 	buildArchRule(b)
 
-	b.WriteString(`$(DIST_IOS_DIR)/obj/ios-sim-fat/$(LIB_NAME).a: $(DIST_IOS_DIR)/obj/ios-sim-arm64/$(LIB_NAME).a $(DIST_IOS_DIR)/obj/ios-sim-x86_64/$(LIB_NAME).a
+	b.WriteString(`$(DIST_DIR)/ios/obj/ios-sim-fat/$(LIB_NAME).a: $(DIST_DIR)/ios/obj/ios-sim-arm64/$(LIB_NAME).a $(DIST_DIR)/ios/obj/ios-sim-x86_64/$(LIB_NAME).a
 	@mkdir -p $(dir $@)
 	lipo -create $^ -output $@
 
-$(DIST_IOS_DIR)/headers/module.modulemap: $(GEN_HEADER)
-	@mkdir -p $(DIST_IOS_DIR)/headers
-	cp $(GEN_HEADER) $(DIST_IOS_DIR)/headers/
+$(DIST_DIR)/ios/headers/module.modulemap: $(GEN_HEADER)
+	@mkdir -p $(DIST_DIR)/ios/headers
+	cp $(GEN_HEADER) $(DIST_DIR)/ios/headers/
 	printf 'module C$(PASCAL_NAME) {\n    header "$(API_NAME).h"\n    export *\n}\n' > $@
 
-$(DIST_IOS_DIR)/$(PASCAL_NAME).xcframework: $(DIST_IOS_DIR)/obj/ios-arm64/$(LIB_NAME).a $(DIST_IOS_DIR)/obj/ios-sim-fat/$(LIB_NAME).a $(DIST_IOS_DIR)/headers/module.modulemap
+$(DIST_DIR)/ios/$(PASCAL_NAME).xcframework: $(DIST_DIR)/ios/obj/ios-arm64/$(LIB_NAME).a $(DIST_DIR)/ios/obj/ios-sim-fat/$(LIB_NAME).a $(DIST_DIR)/ios/headers/module.modulemap
 	rm -rf $@
 	xcodebuild -create-xcframework \
-		-library $(DIST_IOS_DIR)/obj/ios-arm64/$(LIB_NAME).a -headers $(DIST_IOS_DIR)/headers \
-		-library $(DIST_IOS_DIR)/obj/ios-sim-fat/$(LIB_NAME).a -headers $(DIST_IOS_DIR)/headers \
+		-library $(DIST_DIR)/ios/obj/ios-arm64/$(LIB_NAME).a -headers $(DIST_DIR)/ios/headers \
+		-library $(DIST_DIR)/ios/obj/ios-sim-fat/$(LIB_NAME).a -headers $(DIST_DIR)/ios/headers \
 		-output $@
 
-$(DIST_IOS_DIR)/$(PASCAL_NAME)Lib/Sources/$(PASCAL_NAME)Binding/$(PASCAL_NAME).swift: $(GEN_SWIFT_BINDING)
+$(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Sources/$(PASCAL_NAME)Binding/$(PASCAL_NAME).swift: $(GEN_SWIFT_BINDING)
 	@mkdir -p $(dir $@)
 	awk '{print} /^import Foundation$$/{print "import C$(PASCAL_NAME)"}' $(GEN_SWIFT_BINDING) > $@
 
-$(DIST_IOS_DIR)/$(PASCAL_NAME)Lib/Package.swift: $(DIST_IOS_DIR)/$(PASCAL_NAME).xcframework
+$(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Package.swift: $(DIST_DIR)/ios/$(PASCAL_NAME).xcframework
 	@mkdir -p $(dir $@)
 	printf '// swift-tools-version: 5.9\nimport PackageDescription\n\nlet package = Package(\n    name: "$(PASCAL_NAME)Lib",\n    platforms: [.iOS(.v15)],\n    products: [\n        .library(name: "$(PASCAL_NAME)Lib", targets: ["$(PASCAL_NAME)Binding"]),\n    ],\n    targets: [\n        .binaryTarget(name: "C$(PASCAL_NAME)", path: "../$(PASCAL_NAME).xcframework"),\n        .target(\n            name: "$(PASCAL_NAME)Binding",\n            dependencies: ["C$(PASCAL_NAME)"],\n            path: "Sources/$(PASCAL_NAME)Binding"\n        ),\n    ]\n)\n' > $@
 
 .PHONY: package-ios
-package-ios: $(DIST_IOS_DIR)/$(PASCAL_NAME).xcframework $(DIST_IOS_DIR)/$(PASCAL_NAME)Lib/Package.swift $(DIST_IOS_DIR)/$(PASCAL_NAME)Lib/Sources/$(PASCAL_NAME)Binding/$(PASCAL_NAME).swift
-	@echo "Packaged iOS: $(DIST_IOS_DIR)/"
+package-ios: $(DIST_DIR)/ios/$(PASCAL_NAME).xcframework $(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Package.swift $(DIST_DIR)/ios/$(PASCAL_NAME)Lib/Sources/$(PASCAL_NAME)Binding/$(PASCAL_NAME).swift
+	@echo "Packaged iOS: $(DIST_DIR)/ios/"
 
 else
 
@@ -286,34 +281,34 @@ func MakefilePackageAndroid(b *strings.Builder, buildABIRule func(b *strings.Bui
 # Android: native libs per ABI + Kotlin binding + Gradle module
 # ══════════════════════════════════════════════════════════════════════════════
 
-ifneq (,$(call target_enabled,android))
+ifneq ($(call target_enabled,android),)
 
 `)
 	buildABIRule(b)
 
 	b.WriteString(`ANDROID_NATIVE_LIBS := \
-	$(DIST_ANDROID_DIR)/src/main/jniLibs/arm64-v8a/$(LIB_NAME).so \
-	$(DIST_ANDROID_DIR)/src/main/jniLibs/armeabi-v7a/$(LIB_NAME).so \
-	$(DIST_ANDROID_DIR)/src/main/jniLibs/x86_64/$(LIB_NAME).so \
-	$(DIST_ANDROID_DIR)/src/main/jniLibs/x86/$(LIB_NAME).so
+	$(DIST_DIR)/android/src/main/jniLibs/arm64-v8a/$(LIB_NAME).so \
+	$(DIST_DIR)/android/src/main/jniLibs/armeabi-v7a/$(LIB_NAME).so \
+	$(DIST_DIR)/android/src/main/jniLibs/x86_64/$(LIB_NAME).so \
+	$(DIST_DIR)/android/src/main/jniLibs/x86/$(LIB_NAME).so
 
 ANDROID_KOTLIN_PKG := $(subst _,/,$(API_NAME))
 
-$(DIST_ANDROID_DIR)/src/main/kotlin/$(ANDROID_KOTLIN_PKG)/$(PASCAL_NAME).kt: $(GEN_KOTLIN_BINDING)
+$(DIST_DIR)/android/src/main/kotlin/$(ANDROID_KOTLIN_PKG)/$(PASCAL_NAME).kt: $(GEN_KOTLIN_BINDING)
 	@mkdir -p $(dir $@)
 	cp $(GEN_KOTLIN_BINDING) $@
 
-$(DIST_ANDROID_DIR)/build.gradle.kts:
+$(DIST_DIR)/android/build.gradle.kts:
 	@mkdir -p $(dir $@)
 	printf 'plugins {\n    id("com.android.library")\n    id("org.jetbrains.kotlin.android")\n}\n\nandroid {\n    namespace = "$(subst _,.,$(API_NAME))"\n    compileSdk = 34\n    defaultConfig {\n        minSdk = $(ANDROID_MIN_API)\n    }\n}\n' > $@
 
-$(DIST_ANDROID_DIR)/src/main/AndroidManifest.xml:
+$(DIST_DIR)/android/src/main/AndroidManifest.xml:
 	@mkdir -p $(dir $@)
 	printf '<?xml version="1.0" encoding="utf-8"?>\n<manifest />\n' > $@
 
 .PHONY: package-android
-package-android: $(ANDROID_NATIVE_LIBS) $(DIST_ANDROID_DIR)/src/main/kotlin/$(ANDROID_KOTLIN_PKG)/$(PASCAL_NAME).kt $(DIST_ANDROID_DIR)/build.gradle.kts $(DIST_ANDROID_DIR)/src/main/AndroidManifest.xml
-	@echo "Packaged Android: $(DIST_ANDROID_DIR)/"
+package-android: $(ANDROID_NATIVE_LIBS) $(DIST_DIR)/android/src/main/kotlin/$(ANDROID_KOTLIN_PKG)/$(PASCAL_NAME).kt $(DIST_DIR)/android/build.gradle.kts $(DIST_DIR)/android/src/main/AndroidManifest.xml
+	@echo "Packaged Android: $(DIST_DIR)/android/"
 
 endif
 
@@ -324,8 +319,8 @@ endif
 // The rule is identical for C and C++ — Emscripten's toolchain file handles
 // language detection, so no per-language customisation is needed.
 func MakefileWASMBuildRule(b *strings.Builder) {
-	b.WriteString(`$(DIST_WEB_DIR)/$(API_NAME).wasm: $(STAMP) CMakeLists.txt
-	@mkdir -p $(DIST_WEB_DIR)
+	b.WriteString(`$(DIST_DIR)/web/$(API_NAME).wasm: $(STAMP) CMakeLists.txt
+	@mkdir -p $(DIST_DIR)/web
 	cmake -S . -B build/web -G "Unix Makefiles" \
 		-DCMAKE_TOOLCHAIN_FILE=$(EMSCRIPTEN_TOOLCHAIN) \
 		-DCMAKE_BUILD_TYPE=Release
@@ -341,22 +336,22 @@ func MakefilePackageWeb(b *strings.Builder, buildWASMRule func(b *strings.Builde
 # Web: WASM + JS binding + package.json
 # ══════════════════════════════════════════════════════════════════════════════
 
-ifneq (,$(call target_enabled,web))
+ifneq ($(call target_enabled,web),)
 
 `)
 	buildWASMRule(b)
 
-	b.WriteString(`$(DIST_WEB_DIR)/$(API_NAME).js: $(GEN_JS_BINDING)
+	b.WriteString(`$(DIST_DIR)/web/$(API_NAME).js: $(GEN_JS_BINDING)
 	@mkdir -p $(dir $@)
 	cp $(GEN_JS_BINDING) $@
 
-$(DIST_WEB_DIR)/package.json:
+$(DIST_DIR)/web/package.json:
 	@mkdir -p $(dir $@)
 	printf '{\n  "name": "$(API_NAME)",\n  "version": "0.1.0",\n  "type": "module",\n  "main": "$(API_NAME).js"\n}\n' > $@
 
 .PHONY: package-web
-package-web: $(DIST_WEB_DIR)/$(API_NAME).wasm $(DIST_WEB_DIR)/$(API_NAME).js $(DIST_WEB_DIR)/package.json
-	@echo "Packaged Web: $(DIST_WEB_DIR)/"
+package-web: $(DIST_DIR)/web/$(API_NAME).wasm $(DIST_DIR)/web/$(API_NAME).js $(DIST_DIR)/web/package.json
+	@echo "Packaged Web: $(DIST_DIR)/web/"
 
 endif
 
@@ -373,32 +368,32 @@ func MakefilePackageDesktop(b *strings.Builder) {
 # Desktop: C header + Swift binding + shared library
 # ══════════════════════════════════════════════════════════════════════════════
 
-ifneq (,$(call target_enabled,desktop))
+ifneq ($(call target_enabled,desktop),)
 
-$(DIST_DESKTOP_DIR)/include/$(API_NAME).h: $(GEN_HEADER)
+$(DIST_DIR)/desktop/include/$(API_NAME).h: $(GEN_HEADER)
 	@mkdir -p $(dir $@)
 	cp $(GEN_HEADER) $@
 
-$(DIST_DESKTOP_DIR)/include/$(PASCAL_NAME).swift: $(GEN_SWIFT_BINDING)
+$(DIST_DIR)/desktop/include/$(PASCAL_NAME).swift: $(GEN_SWIFT_BINDING)
 	@mkdir -p $(dir $@)
 	cp $(GEN_SWIFT_BINDING) $@
 
-DIST_DESKTOP_DYN_LIB := $(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).$(DYLIB_EXT)
+DIST_DESKTOP_DYN_LIB := $(DIST_DIR)/desktop/lib/$(DESKTOP_LIB_NAME).$(DYLIB_EXT)
 $(DIST_DESKTOP_DYN_LIB): $(DESKTOP_SHARED_LIB)
 	@mkdir -p $(dir $@)
 	cp $(DESKTOP_SHARED_LIB) $@
 
 DIST_DESKTOP_LNK_LIB :=
 ifneq (,$(EXE))
-DIST_DESKTOP_LNK_LIB := $(DIST_DESKTOP_DIR)/lib/$(DESKTOP_LIB_NAME).lib
+DIST_DESKTOP_LNK_LIB := $(DIST_DIR)/desktop/lib/$(DESKTOP_LIB_NAME).lib
 $(DIST_DESKTOP_LNK_LIB): $(DESKTOP_SHARED_LIB)
 	@mkdir -p $(dir $@)
 	cp $(BUILD_DIR)/$(DESKTOP_LIB_NAME).lib $@
 endif
 
 .PHONY: package-desktop
-package-desktop: $(STAMP) $(DIST_DESKTOP_DIR)/include/$(API_NAME).h $(DIST_DESKTOP_DIR)/include/$(PASCAL_NAME).swift $(DIST_DESKTOP_DYN_LIB) $(DIST_DESKTOP_LNK_LIB)
-	@echo "Packaged Desktop: $(DIST_DESKTOP_DIR)/"
+package-desktop: $(STAMP) $(DIST_DIR)/desktop/include/$(API_NAME).h $(DIST_DIR)/desktop/include/$(PASCAL_NAME).swift $(DIST_DESKTOP_DYN_LIB) $(DIST_DESKTOP_LNK_LIB)
+	@echo "Packaged Desktop: $(DIST_DIR)/desktop/"
 
 endif
 
@@ -412,16 +407,16 @@ func MakefileAggregateTargets(b *strings.Builder) {
 # ══════════════════════════════════════════════════════════════════════════════
 
 PACKAGE_TARGETS :=
-ifneq (,$(call target_enabled,ios))
+ifneq ($(call target_enabled,ios),)
 PACKAGE_TARGETS += package-ios
 endif
-ifneq (,$(call target_enabled,android))
+ifneq ($(call target_enabled,android),)
 PACKAGE_TARGETS += package-android
 endif
-ifneq (,$(call target_enabled,web))
+ifneq ($(call target_enabled,web),)
 PACKAGE_TARGETS += package-web
 endif
-ifneq (,$(call target_enabled,desktop))
+ifneq ($(call target_enabled,desktop),)
 PACKAGE_TARGETS += package-desktop
 endif
 
