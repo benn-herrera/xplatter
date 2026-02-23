@@ -129,12 +129,12 @@ WASM_EXPORTS := ["_malloc","_free","_hello_xplatter_lifecycle_create_greeter","_
 PLATFORM_SERVICES := platform_services
 
 ifneq (,$(EXE))
-CC         := cl
+CC         := cl.exe
 CFLAGS     := /W4 /std:c17 /I. /I$(GEN_DIR) /D$(BUILD_MACRO) /Fo:$(BUILD_DIR)/
 LIB_VISIBILITY_FLAGS := /D$(BUILD_MACRO)
 LIB_C_FLAGS := /std:c17 /W4 $(LIB_VISIBILITY_FLAGS)
 else
-CC         ?= cc
+CC         ?= clang
 CFLAGS     := -Wall -Wextra -std=c17 -I. -I$(GEN_DIR)
 LIB_VISIBILITY_FLAGS := -fvisibility=hidden -D$(BUILD_MACRO)
 LIB_C_FLAGS := -std=c17 -Wall -Wextra $(LIB_VISIBILITY_FLAGS)

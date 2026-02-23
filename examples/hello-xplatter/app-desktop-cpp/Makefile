@@ -33,9 +33,9 @@ ifneq (,$(EXE))
     export INCLUDE := $(MSVC_DIR)/include;$(WIN_SDK_ROOT)/Include/$(WIN_SDK_VER)/ucrt;$(WIN_SDK_ROOT)/Include/$(WIN_SDK_VER)/shared;$(WIN_SDK_ROOT)/Include/$(WIN_SDK_VER)/um
     export LIB := $(MSVC_DIR)/lib/x64;$(WIN_SDK_ROOT)/Lib/$(WIN_SDK_VER)/ucrt/x64;$(WIN_SDK_ROOT)/Lib/$(WIN_SDK_VER)/um/x64
   endif
-  CXX := cl
+  CXX := cl.exe
 else
-  CXX ?= c++
+  CXX ?= clang++
 endif
 
 TARGET := $(BUILD_DIR)/hello_app$(EXE)

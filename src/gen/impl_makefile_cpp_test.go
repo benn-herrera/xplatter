@@ -55,7 +55,7 @@ func TestCppMakefileGenerator_Content(t *testing.T) {
 	}
 
 	// C++ specific
-	if !strings.Contains(content, "CXX        ?= c++") {
+	if !strings.Contains(content, "CXX        ?= clang++") {
 		t.Error("missing CXX variable")
 	}
 	if !strings.Contains(content, "-std=c++20") {

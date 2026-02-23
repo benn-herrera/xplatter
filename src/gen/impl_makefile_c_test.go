@@ -49,8 +49,8 @@ func TestCMakefileGenerator_Content(t *testing.T) {
 
 	content := string(files[0].Content)
 
-	// C specific: uses cc, not c++
-	if !strings.Contains(content, "CC         ?= cc") {
+	// C specific: uses clang, not clang++
+	if !strings.Contains(content, "CC         ?= clang") {
 		t.Error("missing CC variable")
 	}
 	if !strings.Contains(content, "IMPL_LANG := c") {
