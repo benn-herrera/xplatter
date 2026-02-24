@@ -12,8 +12,6 @@ GNU Make under MSYS2/bash on Windows does not inherit the Developer Command Prom
 
 **Fix (impl-c, impl-cpp):** Write a temp `.cmd` file via `printf` that calls `vcvarsall.bat` then re-invokes `$(MAKE) $(MAKECMDGOALS)`. Run the `.cmd` with `.\\_msvc_setup.cmd`. The inner make finds `cl.exe` on PATH and skips the bootstrap block. The outer make's real targets are guarded with `ifdef _DO_BOOTSTRAP / @: / else / real recipe / endif` so they no-op in the outer context.
 
-**Alternative (app-desktop-cpp):** Manually locate `vswhere.exe`, read `Microsoft.VCToolsVersion.default.txt`, construct `MSVC_BIN`, and `export PATH := $(MSVC_BIN);$(PATH)`. This is more fragile but works for simple single-pass cases.
-
 ### vswhere outputs backslash paths
 
 `vswhere.exe -property installationPath` returns Windows backslash paths. GNU Make and bash use forward slashes. A path like `C:\Program Files\Microsoft Visual Studio` causes Make to interpret `\n` as a line continuation and other sequences as escape codes.
