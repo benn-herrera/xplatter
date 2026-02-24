@@ -1,6 +1,6 @@
 # Platform Hazards Reference
 
-This document catalogs platform-specific hazards encountered in xplatter's example `impl` and `app` Makefiles, along with the workarounds that resolve each one. It is organized by platform and topic. Every hazard entry states the problem and the fix — no filler.
+This document catalogs platform-specific hazards encountered in xplatter's example `impl` and `app` Makefiles, along with the workarounds that resolve each one. It is organized by platform and topic. This dense packet of lore might save someone a bit of frustration and misery.
 
 ---
 
@@ -10,9 +10,9 @@ This document catalogs platform-specific hazards encountered in xplatter's examp
 
 GNU Make under MSYS2/bash on Windows does not inherit the Developer Command Prompt environment. `cl.exe` is not on PATH by default. The official mechanism is `vcvarsall.bat x64`, but calling it from bash cannot propagate the environment to the parent shell — bat files run in a subprocess and the parent shell sees none of their exports.
 
-**Fix (impl-c, impl-cpp):** Write a temp `.cmd` file via `printf` that calls `vcvarsall.bat` then re-invokes `$(MAKE) $(MAKECMDGOALS)`. Run the `.cmd` with `.\\_msvc_setup.cmd`. The inner make finds `cl.exe` on PATH and skips the bootstrap block. The outer make's real targets are guarded with `ifdef _DO_BOOTSTRAP / @: / else / real recipe / endif` so they no-op in the outer context.
+**Fix (impl-c, impl-cpp, app-desktop-cpp):** Write a temp `.cmd` file via `printf` that calls `vcvarsall.bat` then re-invokes `$(MAKE) $(MAKECMDGOALS)`. Run the `.cmd` with `.\\_msvc_setup.cmd`. The inner make finds `cl.exe` on PATH and skips the bootstrap block. The outer make's real targets are guarded with `ifdef _DO_BOOTSTRAP / @: / else / real recipe / endif` so they no-op in the outer context.
 
-### vswhere outputs backslash paths
+### backslash paths on windows can cause problems with gnu make
 
 `vswhere.exe -property installationPath` returns Windows backslash paths. GNU Make and bash use forward slashes. A path like `C:\Program Files\Microsoft Visual Studio` causes Make to interpret `\n` as a line continuation and other sequences as escape codes.
 
@@ -116,7 +116,7 @@ The awk pattern used: match lines starting with `extern ` but not `extern "C"`, 
 
 ## Windows / Paths in Make
 
-### Backslashes in environment variables
+### Backslashes in environment variables cause problems in gnu make
 
 Windows environment variables set by Windows tools (`ANDROID_NDK`, `ANDROID_SDK`, `LOCALAPPDATA`, `EMSDK`, vcvarsall output) use backslash separators. GNU Make and bash use forward slashes, making these values unusable as path components without normalization.
 
@@ -192,7 +192,7 @@ Linux's dynamic linker supports `$ORIGIN` as a placeholder for the directory con
 
 ### Emscripten root location differs between install methods
 
-Package manager installs (Homebrew, apt): `em-config EMSCRIPTEN_ROOT` returns the root. EMSDK installs: `$EMSDK/upstream/emscripten`. On Windows, the EMSDK path may contain backslashes.
+Package manager installs (Homebrew, apt): `em-config EMSCRIPTEN_ROOT` returns the root. EMSDK installer installs: `$EMSDK/upstream/emscripten`. On Windows, the EMSDK path may contain backslashes.
 
 **Fix:** Check `EMSDK_PATH` first, fall back to `em-config`, then apply `sed 's:\\\\:/:g'` unconditionally (a no-op on Unix). The CMake toolchain file lives at `$(EMSCRIPTEN_ROOT)/cmake/Modules/Platform/Emscripten.cmake`.
 
