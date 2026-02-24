@@ -11,8 +11,6 @@
 * unless otherwise instructed in the task item read ./AGENTS.md and ./ARCHITECTURE.md to acquire context if you have not already done so.
 * when a task is completed mark it as done (## DONE - [description]) and move it to the end of the file for archival purposes.
 
-## ensure method and constructor names are not allowed to collide. name collisions must be fatal errors.
-
 ## _IGNORE THIS LINE AND EVERYTHING BELOW IT IN THIS FILE - STAGING AREA FOR FUTURE WORK_
  
 ## in GC'd languages (Swift, Kotlin, JavaScript)   

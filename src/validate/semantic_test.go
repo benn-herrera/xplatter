@@ -199,6 +199,57 @@ func TestValidate_UnresolvedFlatBufferType(t *testing.T) {
 	}
 }
 
+func TestValidate_MethodCollidesWithSyntheticDestructor(t *testing.T) {
+	api := &model.APIDefinition{
+		API: model.APIMetadata{
+			Name:     "test_api",
+			Version:  "0.1.0",
+			ImplLang: "c",
+		},
+		FlatBuffers: []string{"specs/common.fbs"},
+		Handles: []model.HandleDef{
+			{Name: "Engine"},
+		},
+		Interfaces: []model.InterfaceDef{
+			{
+				Name: "lifecycle",
+				Constructors: []model.MethodDef{
+					{
+						Name:    "create",
+						Returns: &model.ReturnDef{Type: "handle:Engine"},
+						Error:   "Common.ErrorCode",
+					},
+				},
+				Methods: []model.MethodDef{
+					{
+						// "destroy_engine" is the synthetic destructor name — must be rejected
+						Name: "destroy_engine",
+						Parameters: []model.ParameterDef{
+							{Name: "engine", Type: "handle:Engine"},
+						},
+					},
+				},
+			},
+		},
+	}
+	types := resolver.ResolvedTypes{
+		"Common.ErrorCode": &resolver.TypeInfo{Kind: resolver.TypeKindEnum},
+	}
+	result := Validate(api, types, "", nil)
+	if result.IsValid() {
+		t.Error("expected validation error: method name collides with synthetic destructor")
+	}
+	found := false
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "destroy_engine") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected error mentioning destroy_engine, got: %s", result.Error())
+	}
+}
+
 func TestValidate_CollectsAllErrors(t *testing.T) {
 	api := minimalAPI()
 	// Add multiple errors: duplicate handle + string return + unresolved handle ref

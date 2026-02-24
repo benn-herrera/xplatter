@@ -147,7 +147,15 @@ func Validate(def *model.APIDefinition, resolvedTypes resolver.ResolvedTypes, fi
 			}
 		}
 
-		// Check for duplicate method names within interface (and collision with constructors)
+		// Reserve the synthetic destructor name so any user method with the same name
+		// is caught as a collision. The destructor is auto-generated for any interface
+		// that has constructors, producing destroy_<snake_handle> at the C ABI level.
+		if constructorHandleName != "" {
+			destructorName := "destroy_" + model.HandleToSnake(constructorHandleName)
+			allNames[destructorName] = true
+		}
+
+		// Check for duplicate method names within interface (and collision with constructors/destructor)
 		for j, method := range iface.Methods {
 			methodPath := fmt.Sprintf("%s.methods[%d]", ifacePath, j)
 			if allNames[method.Name] {
