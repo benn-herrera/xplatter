@@ -122,10 +122,27 @@ func writeHandleClasses(b *strings.Builder, api *model.APIDefinition) {
 		return
 	}
 
+	// Map handle name → WASM destructor export name for interfaces with constructors.
+	apiName := api.API.Name
+	handleDestructor := make(map[string]string)
+	for _, iface := range api.Interfaces {
+		if handleName, ok := iface.ConstructorHandleName(); ok {
+			destructor := SyntheticDestructor(handleName)
+			handleDestructor[handleName] = CABIFunctionName(apiName, iface.Name, destructor.Name)
+		}
+	}
+
 	b.WriteString("// Handle wrapper classes\n")
 	for _, h := range api.Handles {
-		className := h.Name // Already PascalCase
-		fmt.Fprintf(b, `class %[1]s {
+		destroyFunc, hasDestructor := handleDestructor[h.Name]
+		writeHandleClass(b, h.Name, destroyFunc, hasDestructor)
+	}
+}
+
+// writeHandleClass writes a single handle wrapper class.
+// If hasDestructor is true, dispose() calls the WASM destructor before zeroing the pointer.
+func writeHandleClass(b *strings.Builder, className, destroyFunc string, hasDestructor bool) {
+	fmt.Fprintf(b, `class %[1]s {
   #ptr;
 
   /** @internal */
@@ -141,11 +158,26 @@ func writeHandleClasses(b *strings.Builder, api *model.APIDefinition) {
     return this.#ptr;
   }
 
-  dispose() {
+`, className)
+
+	if hasDestructor {
+		fmt.Fprintf(b, `  dispose() {
+    if (this.#ptr !== 0) {
+      _wasm.exports.%s(this.#ptr);
+      this.#ptr = 0;
+    }
+  }
+
+`, destroyFunc)
+	} else {
+		b.WriteString(`  dispose() {
     this.#ptr = 0;
   }
 
-  close() {
+`)
+	}
+
+	b.WriteString(`  close() {
     this.dispose();
   }
 
@@ -154,8 +186,7 @@ func writeHandleClasses(b *strings.Builder, api *model.APIDefinition) {
   }
 }
 
-`, className)
-	}
+`)
 }
 
 // writeWASIPolyfill emits _buildWasiImports(), a minimal WASI snapshot_preview1

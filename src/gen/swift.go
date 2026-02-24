@@ -58,15 +58,12 @@ func (g *SwiftGenerator) Generate(ctx *Context) ([]*OutputFile, error) {
 // writeSwiftErrorEnum writes a Swift enum conforming to Error for a FlatBuffer error code type.
 func writeSwiftErrorEnum(b *strings.Builder, errType string, resolved resolver.ResolvedTypes) {
 	swiftName := swiftErrorEnumName(errType)
-	b.WriteString(fmt.Sprintf("public enum %s: Int32, Error {\n", swiftName))
-	// We generate a case for each possible error value. Since we don't know the
-	// enum values from the FBS at codegen time (we only know it's an enum), we
-	// generate a raw-value based pattern that the C code returns.
-	b.WriteString("    case ok = 0\n")
-	b.WriteString("    case invalidArgument = 1\n")
-	b.WriteString("    case outOfMemory = 2\n")
-	b.WriteString("    case notFound = 3\n")
-	b.WriteString("    case internalError = 4\n")
+	fmt.Fprintf(b, "public enum %s: Int32, Error {\n", swiftName)
+	if info, ok := resolved[errType]; ok && info.Kind == resolver.TypeKindEnum {
+		for _, val := range info.EnumValues {
+			fmt.Fprintf(b, "    case %s = %d\n", ToCamelCase(val.Name), val.Value)
+		}
+	}
 	b.WriteString("}\n\n")
 }
 

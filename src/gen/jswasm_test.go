@@ -50,6 +50,28 @@ func TestJSWASMGenerator_ESModuleExports(t *testing.T) {
 	}
 }
 
+func TestJSWASMGenerator_DisposeCallsDestructor(t *testing.T) {
+	ctx := loadTestAPI(t, "minimal.yaml")
+	gen := &JSWASMGenerator{}
+
+	files, err := gen.Generate(ctx)
+	if err != nil {
+		t.Fatalf("generation failed: %v", err)
+	}
+
+	content := string(files[0].Content)
+
+	// dispose() must call the WASM destructor, not just zero the pointer
+	if !strings.Contains(content, "_wasm.exports.test_api_lifecycle_destroy_engine(this.#ptr)") {
+		t.Error("dispose() must call the WASM destructor")
+	}
+
+	// dispose() must be idempotent — guard against double-free
+	if !strings.Contains(content, "if (this.#ptr !== 0)") {
+		t.Error("dispose() must guard against calling destructor on already-disposed handle")
+	}
+}
+
 func TestJSWASMGenerator_HandleClass(t *testing.T) {
 	ctx := loadTestAPI(t, "minimal.yaml")
 	gen := &JSWASMGenerator{}

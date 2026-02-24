@@ -3,6 +3,8 @@ package gen
 import (
 	"strings"
 	"testing"
+
+	"github.com/benn-herrera/xplatter/resolver"
 )
 
 func TestGoWASMImplGenerator_Basic(t *testing.T) {
@@ -218,6 +220,36 @@ func TestGoWASMImplGenerator_FallibleNoReturnReturnsInt32(t *testing.T) {
 	// create_engine is fallible with handle return → (out_result uintptr) int32
 	if !strings.Contains(content, "out_result uintptr) int32") {
 		t.Error("fallible-with-return method missing int32 return type and out_result param")
+	}
+}
+
+func TestGoWASMImplGenerator_ReturnMarshalAlignment(t *testing.T) {
+	// Verify writeWasmReturnMarshal uses aligned offsets matching wasmStructLayout.
+	// A struct with uint8 followed by int32 must have the int32 at offset 4 (aligned),
+	// not offset 1 (sequential/wrong). Before the fix, sequential offsets were used.
+	resolved := resolver.ResolvedTypes{
+		"Test.Mixed": &resolver.TypeInfo{
+			Kind: resolver.TypeKindStruct,
+			Fields: []resolver.FieldDef{
+				{Name: "flag", Type: "uint8"},
+				{Name: "value", Type: "int32"},
+			},
+		},
+	}
+	var b strings.Builder
+	writeWasmReturnMarshal(&b, "Test.Mixed", "handle", resolved)
+	output := b.String()
+
+	// flag is at offset 0 (no padding needed before first field)
+	if !strings.Contains(output, "out_result + 0") {
+		t.Errorf("expected flag at offset 0, got:\n%s", output)
+	}
+	// value must be at offset 4 (aligned to 4 bytes), not offset 1 (sequential)
+	if strings.Contains(output, "out_result + 1") {
+		t.Errorf("int32 field written at offset 1 (unaligned) — alignment padding missing:\n%s", output)
+	}
+	if !strings.Contains(output, "out_result + 4") {
+		t.Errorf("expected int32 field at offset 4 (aligned), got:\n%s", output)
 	}
 }
 

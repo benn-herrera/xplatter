@@ -346,16 +346,17 @@ func writeWasmReturnMarshal(b *strings.Builder, retType string, handleParamName 
 		return
 	}
 
-	// FlatBuffer struct — marshal fields into WASM linear memory
-	info, ok := resolved[retType]
-	if !ok {
+	// FlatBuffer struct — marshal fields into WASM linear memory using aligned layout,
+	// matching the layout computed by the JS side (wasmStructLayout in jswasm.go).
+	_, layoutFields := wasmStructLayout(retType, resolved)
+	if layoutFields == nil {
 		b.WriteString("\t_ = result // TODO: marshal FlatBuffer return type to WASM\n")
 		return
 	}
 
 	// Collect string fields for caching
 	var stringGoExprs []string
-	for _, f := range info.Fields {
+	for _, f := range layoutFields {
 		if f.Type == "string" {
 			stringGoExprs = append(stringGoExprs, "result."+ToPascalCase(f.Name))
 		}
@@ -366,40 +367,18 @@ func writeWasmReturnMarshal(b *strings.Builder, retType string, handleParamName 
 			handleParamName, strings.Join(stringGoExprs, ", "))
 	}
 
-	// Write fields at sequential offsets in the struct.
-	// In WASM32: pointers and handles are uint32 (4 bytes), strings are uint32 pointers.
-	offset := 0
 	strIdx := 0
-	for _, f := range info.Fields {
+	for _, f := range layoutFields {
 		if f.Type == "string" {
-			fmt.Fprintf(b, "\t*(*uint32)(unsafe.Pointer(out_result + %d)) = uint32(strPtrs[%d])\n", offset, strIdx)
+			fmt.Fprintf(b, "\t*(*uint32)(unsafe.Pointer(out_result + %d)) = uint32(strPtrs[%d])\n", f.Offset, strIdx)
 			strIdx++
-			offset += 4
 		} else {
 			goFieldName := ToPascalCase(f.Name)
-			wasmSize := goWasmFieldSize(f.Type)
 			wasmGoType := goWasmFieldGoType(f.Type)
 			fmt.Fprintf(b, "\t*(*%s)(unsafe.Pointer(out_result + %d)) = %s(result.%s)\n",
-				wasmGoType, offset, wasmGoType, goFieldName)
-			offset += wasmSize
+				wasmGoType, f.Offset, wasmGoType, goFieldName)
 		}
 	}
-}
-
-// goWasmFieldSize returns the byte size of a field in WASM32 linear memory.
-func goWasmFieldSize(t string) int {
-	switch t {
-	case "bool", "int8", "uint8":
-		return 1
-	case "int16", "uint16":
-		return 2
-	case "int32", "uint32", "float32":
-		return 4
-	case "int64", "uint64", "float64":
-		return 8
-	}
-	// Pointer/handle types in WASM32
-	return 4
 }
 
 // goWasmFieldGoType returns the Go type to use for writing a field into WASM memory.
