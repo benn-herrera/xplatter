@@ -259,6 +259,13 @@ func writeWasmExportFunc(b *strings.Builder, apiName, ifaceName string, method *
 
 // writeWasmRegularBody writes the body of a regular method in the WASM shim,
 // delegating to the Go interface.
+// writeWasmRegularBody generates the body for a regular (non-create/destroy) WASM export function.
+//
+// Structural note: this function is intentionally parallel to writeCgoRegularBody in impl_go.go
+// but is NOT shared. See the comment on writeCgoRegularBody for the full rationale. Key WASM
+// differences: handles are integer IDs in _wasmHandles (no pointer cast needed); strings arrive
+// as uintptr into linear memory and are converted with _cstring; primitives are already the
+// correct Go types from //go:wasmexport and require no cast.
 func writeWasmRegularBody(b *strings.Builder, ifaceName string, method *model.MethodDef, resolved resolver.ResolvedTypes) {
 	hasError := method.Error != ""
 	hasReturn := method.Returns != nil

@@ -377,6 +377,18 @@ func writeCgoExportFunc(b *strings.Builder, apiName, ifaceName string, method *m
 
 // writeCgoRegularBody writes the body of a regular method in the cgo shim,
 // delegating to the Go interface.
+// writeCgoRegularBody generates the body for a regular (non-create/destroy) CGo export function.
+//
+// Structural note: this function is intentionally parallel to writeWasmRegularBody in
+// impl_go_wasmexport.go but is NOT shared. The two implement different ABIs:
+//   - cgo receives CGo C-typed parameters; handles are looked up via _handles keyed on pointer
+//     identity (uintptr(unsafe.Pointer(p))); strings are converted with C.GoString; primitives
+//     need explicit Go-type casts (e.g. int32(p)) because CGo types differ from Go types.
+//   - WASM receives native Go numeric types from //go:wasmexport; handles are looked up via
+//     _wasmHandles keyed on integer IDs; strings are converted with _cstring; primitives are
+//     already the right Go type and need no cast.
+//
+// As FlatBuffer marshaling is implemented the return paths will diverge further. Do not merge.
 func writeCgoRegularBody(b *strings.Builder, ifaceName string, method *model.MethodDef, resolved resolver.ResolvedTypes) {
 	hasError := method.Error != ""
 	hasReturn := method.Returns != nil

@@ -146,4 +146,4 @@ Priority ordered. Items requiring discussion before action are marked.
 - [x] **#6** Replace `p.Type[7:]` with `model.IsHandle()` in `jniToCArg` — `kotlin.go` line 694 *(one-line fix)*
 - [x] **#4** Extract `computeWASMExportNames` helper from `ComputeWASMExports` / `ComputeWASMExportsCSV` — `makefile.go`
 - [x] **#8** Add cross-reference comments documenting deliberate Swift/Kotlin instance-method classification asymmetry — `swift.go`, `kotlin.go`
-- [ ] **#2** *(discuss first)* Decide: merge `writeCgoRegularBody` / `writeWasmRegularBody` into a shared helper, or document divergence and add cross-reference comments — `impl_go.go`, `impl_go_wasmexport.go`
+- [x] **#2** *(discussed)* Accepted duplication — the two functions implement different ABIs (CGo vs. WASM linear memory) that are structurally similar by coincidence and will diverge further as FlatBuffer marshaling is added. Added cross-reference comments documenting the intentional separation — `impl_go.go`, `impl_go_wasmexport.go`
