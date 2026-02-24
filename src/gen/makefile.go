@@ -8,43 +8,38 @@ import (
 	"github.com/benn-herrera/xplatter/model"
 )
 
+// computeWASMExportNames returns the raw WASM export function names (without JSON quoting).
+func computeWASMExportNames(apiName string, api *model.APIDefinition) []string {
+	names := []string{"_malloc", "_free"}
+	for _, iface := range api.Interfaces {
+		for _, ctor := range iface.Constructors {
+			names = append(names, "_"+CABIFunctionName(apiName, iface.Name, ctor.Name))
+		}
+		if handleName, ok := iface.ConstructorHandleName(); ok {
+			names = append(names, "_"+CABIFunctionName(apiName, iface.Name, DestructorMethodName(handleName)))
+		}
+		for _, method := range iface.Methods {
+			names = append(names, "_"+CABIFunctionName(apiName, iface.Name, method.Name))
+		}
+	}
+	return names
+}
+
 // ComputeWASMExports returns the WASM export function names as a JSON array string
 // for Emscripten's -s EXPORTED_FUNCTIONS. Includes _malloc, _free, and all C ABI function names.
 func ComputeWASMExports(apiName string, api *model.APIDefinition) string {
-	exports := []string{`"_malloc"`, `"_free"`}
-	for _, iface := range api.Interfaces {
-		for _, ctor := range iface.Constructors {
-			fn := "_" + CABIFunctionName(apiName, iface.Name, ctor.Name)
-			exports = append(exports, `"`+fn+`"`)
-		}
-		if handleName, ok := iface.ConstructorHandleName(); ok {
-			fn := "_" + CABIFunctionName(apiName, iface.Name, DestructorMethodName(handleName))
-			exports = append(exports, `"`+fn+`"`)
-		}
-		for _, method := range iface.Methods {
-			fn := "_" + CABIFunctionName(apiName, iface.Name, method.Name)
-			exports = append(exports, `"`+fn+`"`)
-		}
+	names := computeWASMExportNames(apiName, api)
+	quoted := make([]string, len(names))
+	for i, n := range names {
+		quoted[i] = `"` + n + `"`
 	}
-	return "[" + strings.Join(exports, ",") + "]"
+	return "[" + strings.Join(quoted, ",") + "]"
 }
 
 // ComputeWASMExportsCSV returns WASM export function names as a comma-separated string
 // for embedding in CMakeLists.txt EXPORTED_FUNCTIONS without JSON quoting issues.
 func ComputeWASMExportsCSV(apiName string, api *model.APIDefinition) string {
-	exports := []string{"_malloc", "_free"}
-	for _, iface := range api.Interfaces {
-		for _, ctor := range iface.Constructors {
-			exports = append(exports, "_"+CABIFunctionName(apiName, iface.Name, ctor.Name))
-		}
-		if handleName, ok := iface.ConstructorHandleName(); ok {
-			exports = append(exports, "_"+CABIFunctionName(apiName, iface.Name, DestructorMethodName(handleName)))
-		}
-		for _, method := range iface.Methods {
-			exports = append(exports, "_"+CABIFunctionName(apiName, iface.Name, method.Name))
-		}
-	}
-	return strings.Join(exports, ",")
+	return strings.Join(computeWASMExportNames(apiName, api), ",")
 }
 
 // APIDefRelPath computes the relative path from the project root to the API definition file.
