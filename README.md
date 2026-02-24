@@ -33,6 +33,7 @@ Examples would be projects implementing on-device inference, media processing, a
     -  Xcode and Xcode command line tools
     - ```brew install cmake```
   - Windows:
+    - !NOTE! run all make commands on Windows from git bash.
     - Gnu make: ```winget install -e --id GnuWin32.Make```
       - OR if Android NDK installed, add ${ANDROID_NDK}/prebuilt/windows-x86_64/bin to PATH
     - winget install zig (cgo on windows needs a drop-in compiler replacement that is clang-compatible)
