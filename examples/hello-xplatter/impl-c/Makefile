@@ -70,17 +70,15 @@ ifneq (,$(EXE))
     endif
     _VCVARSALL := $(shell echo "$(_VS_PATH)/VC/Auxiliary/Build/vcvarsall.bat")
     _TMP_CMD := _msvc_setup_$(shell date '+%s').cmd
-    _DO_BOOTSTRAP := 1
+    _MSVC_BOOSTRAPPED := 1
     .PHONY: _msvc_bootstrap
     _msvc_bootstrap:
-	@printf '@call "%s" x64 >nul 2>&1\r\n@"$(MAKE)" $(MAKECMDGOALS)\r\n' "$(_VCVARSALL)" > $(_TMP_CMD)
-	@.\\$(_TMP_CMD)
-	@rm -f $(_TMP_CMD)
-    Makefile: ;
+		@printf '@call "%s" x64 >nul 2>&1\r\n@"$(MAKE)" $(MAKECMDGOALS)\r\n' "$(_VCVARSALL)" > $(_TMP_CMD)
+		@.\\$(_TMP_CMD)
+		@rm -f $(_TMP_CMD)
     %: _msvc_bootstrap ;
   endif
 endif
-
 
 # ── NDK configuration ─────────────────────────────────────────────────────────
 # ANDK/ASDK normalize backslashes to forward slashes for Windows compatibility.
@@ -172,7 +170,7 @@ $(STAMP): $(API_DEF)
 IMPL_SOURCES := $(API_NAME)_impl.c
 
 test: $(STAMP)
-ifdef _DO_BOOTSTRAP
+ifdef _MSVC_BOOSTRAPPED
 	@:
 else
 	@mkdir -p $(BUILD_DIR)
@@ -189,7 +187,7 @@ endif
 desktop-shared-lib: $(DESKTOP_SHARED_LIB)
 
 $(DESKTOP_SHARED_LIB): $(STAMP)
-ifdef _DO_BOOTSTRAP
+ifdef _MSVC_BOOSTRAPPED
 	@:
 else
 	@mkdir -p $(BUILD_DIR)

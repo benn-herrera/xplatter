@@ -186,8 +186,8 @@ func TestMakefileMSVCDiscovery(t *testing.T) {
 	if !strings.Contains(content, "vcvarsall.bat") {
 		t.Error("missing vcvarsall.bat path construction")
 	}
-	if !strings.Contains(content, "_DO_BOOTSTRAP") {
-		t.Error("missing _DO_BOOTSTRAP flag")
+	if !strings.Contains(content, "_MSVC_BOOSTRAPPED") {
+		t.Error("missing _MSVC_BOOSTRAPPED flag")
 	}
 	if !strings.Contains(content, "_msvc_bootstrap") {
 		t.Error("missing _msvc_bootstrap target")

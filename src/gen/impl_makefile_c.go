@@ -62,7 +62,7 @@ $(GEN_HEADER) $(GEN_SWIFT_BINDING) $(GEN_KOTLIN_BINDING) $(GEN_JS_BINDING) $(GEN
 IMPL_SOURCES := $(API_NAME)_impl.c
 
 test: $(STAMP)
-ifdef _DO_BOOTSTRAP
+ifdef _MSVC_BOOSTRAPPED
 	@:
 else
 	@mkdir -p $(BUILD_DIR)
@@ -79,7 +79,7 @@ endif
 desktop-shared-lib: $(DESKTOP_SHARED_LIB)
 
 $(DESKTOP_SHARED_LIB): $(STAMP)
-ifdef _DO_BOOTSTRAP
+ifdef _MSVC_BOOSTRAPPED
 	@:
 else
 	@mkdir -p $(BUILD_DIR)

@@ -155,7 +155,7 @@ IOS_MIN := 15.0
 // no-op. Otherwise, vcvarsall.bat is located via vswhere and make re-executes
 // itself inside the MSVC environment it establishes. A temp .cmd file is used
 // to avoid bash→cmd quoting issues with paths containing spaces.
-// _DO_BOOTSTRAP is set so that recipes requiring cl.exe are no-ops in the
+// _MSVC_BOOSTRAPPED is set so that recipes requiring cl.exe are no-ops in the
 // outer make invocation (the inner make handles them with cl.exe on PATH).
 func MakefileMSVCDiscovery(b *strings.Builder) {
 	b.WriteString(`# ── MSVC discovery (Windows only) ─────────────────────────────────────────────
@@ -176,13 +176,12 @@ ifneq (,$(EXE))
     endif
     _VCVARSALL := $(shell echo "$(_VS_PATH)/VC/Auxiliary/Build/vcvarsall.bat")
     _TMP_CMD   := _msvc_setup_$(shell date '+%s').cmd
-    _DO_BOOTSTRAP := 1
+    _MSVC_BOOSTRAPPED := 1
     .PHONY: _msvc_bootstrap
     _msvc_bootstrap:
-	@printf '@call "%s" x64 >nul 2>&1\r\n@"$(MAKE)" $(MAKECMDGOALS)\r\n' "$(_VCVARSALL)" > $(_TMP_CMD)
-	@.\\$(_TMP_CMD)
-	@rm -f $(_TMP_CMD)
-    Makefile: ;
+		@printf '@call "%s" x64 >nul 2>&1\r\n@"$(MAKE)" $(MAKECMDGOALS)\r\n' "$(_VCVARSALL)" > $(_TMP_CMD)
+		@.\\$(_TMP_CMD)
+		@rm -f $(_TMP_CMD)
     %: _msvc_bootstrap ;
   endif
 endif
