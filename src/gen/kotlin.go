@@ -134,7 +134,6 @@ func isInstanceMethod(method model.MethodDef, handleName string) bool {
 func writeKotlinInstanceMethod(b *strings.Builder, ifaceName string, method *model.MethodDef, pascalName string) {
 	methodName := ToCamelCase(method.Name)
 	nativeName := jniNativeMethodName(ifaceName, method.Name)
-	hasError := method.Error != ""
 	hasReturn := method.Returns != nil
 
 	// Build Kotlin parameters (skip the first handle param — it's 'this')
@@ -162,44 +161,8 @@ func writeKotlinInstanceMethod(b *strings.Builder, ifaceName string, method *mod
 		fmt.Fprintf(b, "    fun %s(%s) {\n", methodName, paramStr)
 	}
 
-	// Method body
 	callArgs := strings.Join(nativeCallArgs, ", ")
-	if hasError {
-		if hasReturn {
-			retType := method.Returns.Type
-			if model.IsFlatBufferType(retType) {
-				// FlatBuffer return: JNI throws exception, native returns data class directly
-				fmt.Fprintf(b, "        return %s.%s(%s)\n", pascalName, nativeName, callArgs)
-			} else {
-				// Handle or primitive: LongArray pattern [errorCode, result]
-				fmt.Fprintf(b, "        val result = %s.%s(%s)\n", pascalName, nativeName, callArgs)
-				fmt.Fprintf(b, "        if (result[0] != 0L) throw %s(result[0].toInt())\n",
-					kotlinErrorExceptionName(method.Error))
-				if _, ok := model.IsHandle(retType); ok {
-					fmt.Fprintf(b, "        return %s(result[1])\n", kotlinHandleReturnType(retType))
-				} else {
-					fmt.Fprintf(b, "        return result[1]\n")
-				}
-			}
-		} else {
-			// Fallible without return
-			fmt.Fprintf(b, "        val rc = %s.%s(%s)\n", pascalName, nativeName, callArgs)
-			fmt.Fprintf(b, "        if (rc != 0) throw %s(rc)\n",
-				kotlinErrorExceptionName(method.Error))
-		}
-	} else {
-		if hasReturn {
-			retType := method.Returns.Type
-			if _, ok := model.IsHandle(retType); ok {
-				fmt.Fprintf(b, "        return %s(%s.%s(%s))\n",
-					kotlinHandleReturnType(retType), pascalName, nativeName, callArgs)
-			} else {
-				fmt.Fprintf(b, "        return %s.%s(%s)\n", pascalName, nativeName, callArgs)
-			}
-		} else {
-			fmt.Fprintf(b, "        %s.%s(%s)\n", pascalName, nativeName, callArgs)
-		}
-	}
+	writeKotlinMethodBody(b, fmt.Sprintf("%s.%s(%s)", pascalName, nativeName, callArgs), method)
 
 	fmt.Fprintf(b, "    }\n\n")
 }
@@ -215,7 +178,7 @@ func writeKotlinNativeObject(b *strings.Builder, api *model.APIDefinition, pasca
 	// Factory methods: explicit constructors from each interface
 	for _, iface := range api.Interfaces {
 		for i := range iface.Constructors {
-			writeKotlinFactoryMethod(b, iface.Name, &iface.Constructors[i], pascalName)
+			writeKotlinFactoryMethod(b, iface.Name, &iface.Constructors[i])
 		}
 	}
 
@@ -223,7 +186,7 @@ func writeKotlinNativeObject(b *strings.Builder, api *model.APIDefinition, pasca
 	for _, iface := range api.Interfaces {
 		for i := range iface.Methods {
 			if !isAnyInstanceMethod(iface.Methods[i], api) {
-				writeKotlinFactoryMethod(b, iface.Name, &iface.Methods[i], pascalName)
+				writeKotlinFactoryMethod(b, iface.Name, &iface.Methods[i])
 			}
 		}
 	}
@@ -260,10 +223,9 @@ func isAnyInstanceMethod(method model.MethodDef, api *model.APIDefinition) bool 
 }
 
 // writeKotlinFactoryMethod writes a top-level factory method (e.g., createEngine).
-func writeKotlinFactoryMethod(b *strings.Builder, ifaceName string, method *model.MethodDef, pascalName string) {
+func writeKotlinFactoryMethod(b *strings.Builder, ifaceName string, method *model.MethodDef) {
 	methodName := ToCamelCase(method.Name)
 	nativeName := jniNativeMethodName(ifaceName, method.Name)
-	hasError := method.Error != ""
 	hasReturn := method.Returns != nil
 
 	var ktParams []string
@@ -287,15 +249,27 @@ func writeKotlinFactoryMethod(b *strings.Builder, ifaceName string, method *mode
 	}
 
 	callArgs := strings.Join(nativeCallArgs, ", ")
+	writeKotlinMethodBody(b, fmt.Sprintf("%s(%s)", nativeName, callArgs), method)
+
+	fmt.Fprintf(b, "    }\n\n")
+}
+
+// writeKotlinMethodBody emits the body of a Kotlin wrapper method given a pre-built
+// native call expression. The four-case dispatch (hasError × hasReturn) is identical
+// for instance methods and factory methods — only the call expression differs.
+func writeKotlinMethodBody(b *strings.Builder, callExpr string, method *model.MethodDef) {
+	hasError := method.Error != ""
+	hasReturn := method.Returns != nil
+
 	if hasError {
 		if hasReturn {
 			retType := method.Returns.Type
 			if model.IsFlatBufferType(retType) {
 				// FlatBuffer return: JNI throws exception, native returns data class directly
-				fmt.Fprintf(b, "        return %s(%s)\n", nativeName, callArgs)
+				fmt.Fprintf(b, "        return %s\n", callExpr)
 			} else {
-				// Handle or primitive: LongArray pattern
-				fmt.Fprintf(b, "        val result = %s(%s)\n", nativeName, callArgs)
+				// Handle or primitive: LongArray pattern [errorCode, result]
+				fmt.Fprintf(b, "        val result = %s\n", callExpr)
 				fmt.Fprintf(b, "        if (result[0] != 0L) throw %s(result[0].toInt())\n",
 					kotlinErrorExceptionName(method.Error))
 				if _, ok := model.IsHandle(retType); ok {
@@ -305,7 +279,8 @@ func writeKotlinFactoryMethod(b *strings.Builder, ifaceName string, method *mode
 				}
 			}
 		} else {
-			fmt.Fprintf(b, "        val rc = %s(%s)\n", nativeName, callArgs)
+			// Fallible without return
+			fmt.Fprintf(b, "        val rc = %s\n", callExpr)
 			fmt.Fprintf(b, "        if (rc != 0) throw %s(rc)\n",
 				kotlinErrorExceptionName(method.Error))
 		}
@@ -313,17 +288,14 @@ func writeKotlinFactoryMethod(b *strings.Builder, ifaceName string, method *mode
 		if hasReturn {
 			retType := method.Returns.Type
 			if _, ok := model.IsHandle(retType); ok {
-				fmt.Fprintf(b, "        return %s(%s(%s))\n",
-					kotlinHandleReturnType(retType), nativeName, callArgs)
+				fmt.Fprintf(b, "        return %s(%s)\n", kotlinHandleReturnType(retType), callExpr)
 			} else {
-				fmt.Fprintf(b, "        return %s(%s)\n", nativeName, callArgs)
+				fmt.Fprintf(b, "        return %s\n", callExpr)
 			}
 		} else {
-			fmt.Fprintf(b, "        %s(%s)\n", nativeName, callArgs)
+			fmt.Fprintf(b, "        %s\n", callExpr)
 		}
 	}
-
-	fmt.Fprintf(b, "    }\n\n")
 }
 
 // writeKotlinNativeDecl writes a JNI external native method declaration.
