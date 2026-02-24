@@ -4,7 +4,7 @@ xplatter takes an API spec and generates performant bindings for every major use
 Define a performance-critical API and implement it once in the cross-platform system language of your choice and get a set of ready-to-use, idiomatic API packages for mobile, web, and desktop.
 
 ## Why
-AI makes exploring solution space much faster and cheaper, but it still takes human effort and inference expenditure to keep it on track. Bindings and glue code are highly rote and require perfect predictability & repeatability. Tradional mechanistic code gen is faster and cheaper for this application. It allows token budgets and human attention to be spent on solving the problem instead of maintaining the scaffold.
+AI makes exploring solution space much faster and cheaper, but it still takes human and inference effort to keep it on track. Bindings and glue code are highly rote and very finicky. They require perfect predictability & repeatability. Tradional mechanistic code gen is faster, cheaper, more reliable for this application. It allows token budgets and human attention to be spent on solving the problem instead of maintaining the scaffold.
 
 ## Who
 This tool benefits projects that need to deliver performance critical logic behind platform-natural U/X across multiple (or all) user-facing platforms - Android, iOS, mobile web, desktop web, Linux, macOS, Windows.

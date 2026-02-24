@@ -4,7 +4,7 @@ xplatter takes an API spec and generates performant bindings for every major use
 Define a performance-critical API and implement it once in the cross-platform system language of your choice and get a set of ready-to-use, idiomatic API packages for mobile, web, and desktop.
 
 ## Why
-AI makes exploring solution space much faster and cheaper, but it still takes human effort and inference expenditure to keep it on track. Bindings and glue code are highly rote and require perfect predictability & repeatability. Tradional mechanistic code gen is faster and cheaper for this application. It allows token budgets and human attention to be spent on solving the problem instead of maintaining the scaffold.
+AI makes exploring solution space much faster and cheaper, but it still takes human and inference effort to keep it on track. Bindings and glue code are highly rote and very finicky. They require perfect predictability & repeatability. Tradional mechanistic code gen is faster, cheaper, more reliable for this application. It allows token budgets and human attention to be spent on solving the problem instead of maintaining the scaffold.
 
 ## Who
 This tool benefits projects that need to deliver performance critical logic behind platform-natural U/X across multiple (or all) user-facing platforms - Android, iOS, mobile web, desktop web, Linux, macOS, Windows.
@@ -14,16 +14,15 @@ Examples would be projects implementing on-device inference, media processing, a
 
 ### Prerequisites
 
-- **Go 1.25+**
+- **Go 1.25+** for building the tool and go backed implementation example
   - Linux: 
     - this did NOT work for me on WSL2: ```sudo apt install golang```
     - this did: ```GO_VERSION=1.26.0 && curl -sL https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz | tar -C ${HOME}/.local -xzf -```
       - if you are replacing an existing installation be sure to remove the old installation first.
       - add ${HOME}/.local/go/bin to PATH or make symbolic links in ${HOME}/.local/bin to go and gofmt
-
   - macOS: ```brew install go ```
   - Windows: ```winget install GoLang.Go```
-- **flatc** (FlatBuffers compiler — required for per-language struct codegen)
+- **flatc** FlatBuffers compiler for per-language struct codegen
   - Linux: ```sudo snap install flatbuffers```
   - macOS: ```brew install flatbuffers```
   - Windows: ```winget install flatbuffers```
