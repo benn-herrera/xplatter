@@ -11,25 +11,6 @@
 * unless otherwise instructed in the task item read ./AGENTS.md and ./ARCHITECTURE.md to acquire context if you have not already done so.
 * when a task is completed mark it as done (## DONE - [description]) and move it to the end of the file for archival purposes.
 
-## Code State Review - use architecture review agent
-* review the implementation of the xplatter tool (src/)
-* these items are particular concerns but are not an exhaustive list
-  * duplicate code blocks
-  * excessive functionality multiplexing in single functions (death by flags)
-    * e.g. functions with excessively moded behavior that would be clearer split up or re-designed
-  * abstraction layering violations
-  * abstraction inversions (simple capabilities achieved via complex use of insufficient API)
-  * overexposure of data - wide propagation of structures needed for narrow purposes
-* some of the above may require discussion in the context of pragmatism vs. purity tradeoffs
-* overriding principle: tool user experience quality and consistency is the highest priority.
-  * truism: users just want good stuff, they don't care about the developer's problems.
-  * this tool addresses a messy, hard problem. that's why there's value in providing a solution.
-  * some features are best left out if the cost in complexity would compromise the rest of the tool or significantly impede refinement and development.
-* produce a list of areas of concern. 
-  * rate each of them on a 1-10 scale
-    * 1: possible concern, you need more information or guidance
-    * 10: absolutely a problem, no question that it needs to be addressed
-
 ## _IGNORE THIS LINE AND EVERYTHING BELOW IT IN THIS FILE - STAGING AREA FOR FUTURE WORK_
  
 ## in GC'd languages (Swift, Kotlin, JavaScript)   
