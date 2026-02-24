@@ -662,8 +662,8 @@ func jniToCArg(p *model.ParameterDef) []string {
 		// This is simplified — in production you'd use GetByteArrayElements etc.
 		return []string{"(" + CParamType(p.Type, p.Transfer) + ")" + name, "(uint32_t)" + name + "Len"}
 	}
-	if _, ok := model.IsHandle(p.Type); ok {
-		return []string{"(" + HandleTypedefName(p.Type[7:]) + ")" + name}
+	if handleName, ok := model.IsHandle(p.Type); ok {
+		return []string{"(" + HandleTypedefName(handleName) + ")" + name}
 	}
 	if model.IsPrimitive(p.Type) {
 		return []string{"(" + model.PrimitiveCType(p.Type) + ")" + name}
