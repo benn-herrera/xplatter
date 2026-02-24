@@ -62,6 +62,9 @@ $(GEN_HEADER) $(GEN_SWIFT_BINDING) $(GEN_KOTLIN_BINDING) $(GEN_JS_BINDING) $(GEN
 IMPL_SOURCES := $(API_NAME)_impl.c
 
 test: $(STAMP)
+ifdef _DO_BOOTSTRAP
+	@:
+else
 	@mkdir -p $(BUILD_DIR)
 ifneq (,$(EXE))
 	$(CC) /nologo $(CFLAGS) /Fe:$(BUILD_DIR)/$(API_NAME).exe \
@@ -71,10 +74,14 @@ else
 		$(IMPL_SOURCES) $(PLATFORM_SERVICES)/desktop.c main.c
 endif
 	./$(BUILD_DIR)/$(API_NAME)$(EXE)
+endif
 
 desktop-shared-lib: $(DESKTOP_SHARED_LIB)
 
 $(DESKTOP_SHARED_LIB): $(STAMP)
+ifdef _DO_BOOTSTRAP
+	@:
+else
 	@mkdir -p $(BUILD_DIR)
 ifeq ($(HOST_OS),Darwin)
 	$(CC) $(CFLAGS) $(LIB_VISIBILITY_FLAGS) -shared -fPIC \
@@ -87,6 +94,7 @@ else ifneq (,$(EXE))
 else
 	$(CC) $(CFLAGS) $(LIB_VISIBILITY_FLAGS) -shared -fPIC \
 		-o $@ $(IMPL_SOURCES) $(PLATFORM_SERVICES)/desktop.c
+endif
 endif
 
 clean:

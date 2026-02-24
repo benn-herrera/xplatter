@@ -180,20 +180,20 @@ func TestMakefileMSVCDiscovery(t *testing.T) {
 	MakefileMSVCDiscovery(&b)
 	content := b.String()
 
-	if !strings.Contains(content, "VSWHERE") {
-		t.Error("missing VSWHERE for MSVC discovery")
+	if !strings.Contains(content, "_VSWHERE") {
+		t.Error("missing _VSWHERE for MSVC discovery")
 	}
-	if !strings.Contains(content, "MSVC_DIR") {
-		t.Error("missing MSVC_DIR variable")
+	if !strings.Contains(content, "vcvarsall.bat") {
+		t.Error("missing vcvarsall.bat path construction")
 	}
-	if !strings.Contains(content, "WIN_SDK_ROOT") {
-		t.Error("missing WIN_SDK_ROOT for Windows SDK")
+	if !strings.Contains(content, "_DO_BOOTSTRAP") {
+		t.Error("missing _DO_BOOTSTRAP flag")
 	}
-	if !strings.Contains(content, "export INCLUDE") {
-		t.Error("missing INCLUDE export for MSVC")
+	if !strings.Contains(content, "_msvc_bootstrap") {
+		t.Error("missing _msvc_bootstrap target")
 	}
-	if !strings.Contains(content, "export LIB") {
-		t.Error("missing LIB export for MSVC")
+	if !strings.Contains(content, "$(MAKECMDGOALS)") {
+		t.Error("missing MAKECMDGOALS in bootstrap re-invocation")
 	}
 }
 

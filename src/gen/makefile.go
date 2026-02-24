@@ -150,31 +150,40 @@ IOS_MIN := 15.0
 
 // MakefileMSVCDiscovery emits the MSVC toolchain discovery block.
 // Only needed for C and C++ impls which compile with cl.exe.
+//
+// If cl.exe is already on PATH (Developer Command Prompt), the block is a
+// no-op. Otherwise, vcvarsall.bat is located via vswhere and make re-executes
+// itself inside the MSVC environment it establishes. A temp .cmd file is used
+// to avoid bash→cmd quoting issues with paths containing spaces.
+// _DO_BOOTSTRAP is set so that recipes requiring cl.exe are no-ops in the
+// outer make invocation (the inner make handles them with cl.exe on PATH).
 func MakefileMSVCDiscovery(b *strings.Builder) {
 	b.WriteString(`# ── MSVC discovery (Windows only) ─────────────────────────────────────────────
-# If cl.exe is already on PATH (e.g. Developer Command Prompt), this is skipped.
-# Otherwise, uses vswhere.exe to locate Visual Studio and sets up paths.
-# Override MSVC_DIR to point to a custom MSVC toolset directory.
+# If cl.exe is already on PATH (e.g. Developer Command Prompt), nothing to do.
+# Otherwise, locate vcvarsall.bat via vswhere and re-execute make inside the
+# MSVC environment it establishes. The second invocation finds cl.exe on PATH
+# and skips this block entirely.
 
 ifneq (,$(EXE))
-  PROGRAMFILES_X86 ?= $(shell cmd //C "echo %ProgramFiles(x86)%" 2>/dev/null | tr -d '\r')
-  VSWHERE := $(PROGRAMFILES_X86)/Microsoft Visual Studio/Installer/vswhere.exe
   ifeq (,$(shell which cl.exe 2>/dev/null))
-    ifndef MSVC_DIR
-      VS_PATH := $(shell "$(VSWHERE)" -latest -products '*' \
-          -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 \
-          -property installationPath -format value 2>/dev/null | tr -d '\r')
-      MSVC_VER := $(shell cat "$(VS_PATH)/VC/Auxiliary/Build/Microsoft.VCToolsVersion.default.txt" 2>/dev/null | tr -d '\r')
-      MSVC_DIR := $(VS_PATH)/VC/Tools/MSVC/$(MSVC_VER)
+    PROGRAMFILES_X86 ?= $(shell cmd //C "echo %ProgramFiles(x86)%" 2>/dev/null | tr -d '\r')
+    _VSWHERE   := $(PROGRAMFILES_X86)/Microsoft Visual Studio/Installer/vswhere.exe
+    _VS_PATH   := $(shell "$(_VSWHERE)" -latest -products '*' \
+        -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 \
+        -property installationPath -format value 2>/dev/null | tr -d '\r' | sed 's:\\\\:/:g')
+    ifeq (,$(_VS_PATH))
+      $(error Visual Studio with MSVC not found. Install VS with the "Desktop development with C++" workload.)
     endif
-    MSVC_BIN  := $(MSVC_DIR)/bin/Hostx64/x64
-    export PATH := $(MSVC_BIN);$(PATH)
-
-    WIN_SDK_ROOT ?= $(PROGRAMFILES_X86)/Windows Kits/10
-    WIN_SDK_VER  ?= $(shell ls "$(WIN_SDK_ROOT)/Include" 2>/dev/null | sort -V | tail -1)
-
-    export INCLUDE := $(MSVC_DIR)/include;$(WIN_SDK_ROOT)/Include/$(WIN_SDK_VER)/ucrt;$(WIN_SDK_ROOT)/Include/$(WIN_SDK_VER)/shared;$(WIN_SDK_ROOT)/Include/$(WIN_SDK_VER)/um
-    export LIB := $(MSVC_DIR)/lib/x64;$(WIN_SDK_ROOT)/Lib/$(WIN_SDK_VER)/ucrt/x64;$(WIN_SDK_ROOT)/Lib/$(WIN_SDK_VER)/um/x64
+    _VCVARSALL := $(shell echo "$(_VS_PATH)/VC/Auxiliary/Build/vcvarsall.bat")
+    _TMP_CMD   := _msvc_setup_$(shell date '+%s').cmd
+    _DO_BOOTSTRAP := 1
+    .PHONY: _msvc_bootstrap
+    _msvc_bootstrap:
+	@printf '@call "%s" x64 >nul 2>&1\r\n@"$(MAKE)" $(MAKECMDGOALS)\r\n' "$(_VCVARSALL)" > $(_TMP_CMD)
+	@.\\$(_TMP_CMD)
+	@rm -f $(_TMP_CMD)
+    Makefile: ;
+    %: _msvc_bootstrap ;
   endif
 endif
 
