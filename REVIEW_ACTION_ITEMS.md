@@ -141,7 +141,7 @@ Priority ordered. Items requiring discussion before action are marked.
 - [x] **#5** Fix Swift error enum codegen to emit real enum cases from `ResolvedTypes` instead of hardcoded placeholders — `swift.go` `writeSwiftErrorEnum` *(correctness bug)*
 - [x] **#10** Fix JS handle `dispose()` to call the WASM destructor, or remove the `AutoCloseable` pattern — `jswasm.go` *(correctness bug / misleading API)*
 - [x] **#9** Fix WASM return-struct marshal to use `wasmStructLayout` alignment — `impl_go_wasmexport.go` `writeWasmReturnMarshal` *(correctness bug)*
-- [ ] **#1** Refactor Swift closure-wrapping duplication into a shared helper — `swift.go` lines 411–635
+- [x] **#1** Refactor Swift closure-wrapping duplication into a shared helper — `swift.go` lines 411–635
 - [ ] **#3** Extract Kotlin instance/factory method error-return dispatch into a shared helper — `kotlin.go` lines 134–327
 - [ ] **#6** Replace `p.Type[7:]` with `model.IsHandle()` in `jniToCArg` — `kotlin.go` line 694 *(one-line fix)*
 - [ ] **#4** Extract `computeWASMExportNames` helper from `ComputeWASMExports` / `ComputeWASMExportsCSV` — `makefile.go`
