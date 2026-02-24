@@ -8,7 +8,7 @@ import (
 
 func TestLoadAPIDefinition_Minimal(t *testing.T) {
 	path := filepath.Join("..", "testdata", "minimal.yaml")
-	def, err := LoadAPIDefinition(path)
+	def, _, err := LoadAPIDefinition(path)
 	if err != nil {
 		t.Fatalf("unexpected error loading minimal.yaml: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestLoadAPIDefinition_Minimal(t *testing.T) {
 
 func TestLoadAPIDefinition_Full(t *testing.T) {
 	path := filepath.Join("..", "testdata", "full.yaml")
-	def, err := LoadAPIDefinition(path)
+	def, _, err := LoadAPIDefinition(path)
 	if err != nil {
 		t.Fatalf("unexpected error loading full.yaml: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestLoadAPIDefinition_Full(t *testing.T) {
 }
 
 func TestLoadAPIDefinition_FileNotFound(t *testing.T) {
-	_, err := LoadAPIDefinition("nonexistent.yaml")
+	_, _, err := LoadAPIDefinition("nonexistent.yaml")
 	if err == nil {
 		t.Error("expected error for nonexistent file")
 	}
@@ -74,7 +74,7 @@ func TestLoadAPIDefinition_InvalidYAML(t *testing.T) {
 	tmp := t.TempDir()
 	path := filepath.Join(tmp, "bad.yaml")
 	os.WriteFile(path, []byte("not: valid: yaml: {{{}}}"), 0644)
-	_, err := LoadAPIDefinition(path)
+	_, _, err := LoadAPIDefinition(path)
 	if err == nil {
 		t.Error("expected error for invalid YAML")
 	}

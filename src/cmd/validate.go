@@ -34,7 +34,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Load and schema-validate the API definition
-	def, err := loader.LoadAPIDefinition(apiDefPath)
+	def, srcMap, err := loader.LoadAPIDefinition(apiDefPath)
 	if err != nil {
 		return fmt.Errorf("loading API definition: %w", err)
 	}
@@ -59,7 +59,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Run semantic validation
-	result := validate.Validate(def, resolvedTypes)
+	result := validate.Validate(def, resolvedTypes, apiDefPath, srcMap)
 	if !result.IsValid() {
 		return fmt.Errorf("semantic validation failed:\n%s", result.Error())
 	}

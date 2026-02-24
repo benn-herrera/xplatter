@@ -18,21 +18,32 @@ func isValidConstructorName(name string) bool {
 
 // ValidationError represents a single semantic validation error.
 type ValidationError struct {
+	File    string // source YAML file path, empty if unknown
+	Line    int    // 1-based line number, 0 if unknown
 	Path    string // e.g., "interfaces[0].methods[1].returns.type"
 	Message string
 }
 
 func (e *ValidationError) Error() string {
+	if e.File != "" && e.Line > 0 {
+		return fmt.Sprintf("%s:%d: %s: %s", e.File, e.Line, e.Path, e.Message)
+	}
+	if e.File != "" {
+		return fmt.Sprintf("%s: %s: %s", e.File, e.Path, e.Message)
+	}
 	return fmt.Sprintf("%s: %s", e.Path, e.Message)
 }
 
 // ValidationResult holds all validation errors.
 type ValidationResult struct {
 	Errors []ValidationError
+	file   string
+	srcMap map[string]int
 }
 
 func (r *ValidationResult) addError(path, message string) {
-	r.Errors = append(r.Errors, ValidationError{Path: path, Message: message})
+	line := r.srcMap[path]
+	r.Errors = append(r.Errors, ValidationError{File: r.file, Line: line, Path: path, Message: message})
 }
 
 func (r *ValidationResult) IsValid() bool {
@@ -52,8 +63,10 @@ func (r *ValidationResult) Error() string {
 
 // Validate performs semantic validation on a parsed API definition.
 // resolvedTypes may be nil if FBS files are not available (skips type resolution checks).
-func Validate(def *model.APIDefinition, resolvedTypes resolver.ResolvedTypes) *ValidationResult {
-	result := &ValidationResult{}
+// file is the source YAML path for error messages; srcMap maps YAML paths to line numbers.
+// Pass empty string and nil when source location is unavailable.
+func Validate(def *model.APIDefinition, resolvedTypes resolver.ResolvedTypes, file string, srcMap map[string]int) *ValidationResult {
+	result := &ValidationResult{file: file, srcMap: srcMap}
 
 	handleNames := make(map[string]bool)
 	for _, h := range def.Handles {

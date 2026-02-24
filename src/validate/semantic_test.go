@@ -40,7 +40,7 @@ func TestValidate_ValidMinimal(t *testing.T) {
 	types := resolver.ResolvedTypes{
 		"Common.ErrorCode": &resolver.TypeInfo{Kind: resolver.TypeKindEnum},
 	}
-	result := Validate(minimalAPI(), types)
+	result := Validate(minimalAPI(), types, "", nil)
 	if !result.IsValid() {
 		t.Errorf("expected valid, got errors:\n%s", result.Error())
 	}
@@ -55,7 +55,7 @@ func TestValidate_UnresolvedHandle(t *testing.T) {
 		},
 	})
 
-	result := Validate(api, nil)
+	result := Validate(api, nil, "", nil)
 	if result.IsValid() {
 		t.Error("expected validation error for unresolved handle:Widget")
 	}
@@ -77,7 +77,7 @@ func TestValidate_StringReturnType(t *testing.T) {
 		Returns: &model.ReturnDef{Type: "string"},
 	})
 
-	result := Validate(api, nil)
+	result := Validate(api, nil, "", nil)
 	if result.IsValid() {
 		t.Error("expected validation error for string return type")
 	}
@@ -99,7 +99,7 @@ func TestValidate_BufferReturnType(t *testing.T) {
 		Returns: &model.ReturnDef{Type: "buffer<uint8>"},
 	})
 
-	result := Validate(api, nil)
+	result := Validate(api, nil, "", nil)
 	if result.IsValid() {
 		t.Error("expected validation error for buffer<T> return type")
 	}
@@ -113,7 +113,7 @@ func TestValidate_ErrorTypeNotEnum(t *testing.T) {
 	}
 	api.Interfaces[0].Methods[0].Error = "Common.Result"
 
-	result := Validate(api, types)
+	result := Validate(api, types, "", nil)
 	if result.IsValid() {
 		t.Error("expected validation error for non-enum error type")
 	}
@@ -132,7 +132,7 @@ func TestValidate_DuplicateHandleName(t *testing.T) {
 	api := minimalAPI()
 	api.Handles = append(api.Handles, model.HandleDef{Name: "Engine"})
 
-	result := Validate(api, nil)
+	result := Validate(api, nil, "", nil)
 	if result.IsValid() {
 		t.Error("expected validation error for duplicate handle name")
 	}
@@ -144,7 +144,7 @@ func TestValidate_DuplicateMethodName(t *testing.T) {
 		Name: "create_engine",
 	})
 
-	result := Validate(api, nil)
+	result := Validate(api, nil, "", nil)
 	if result.IsValid() {
 		t.Error("expected validation error for duplicate method name")
 	}
@@ -159,7 +159,7 @@ func TestValidate_HandleTransferNotValue(t *testing.T) {
 		},
 	})
 
-	result := Validate(api, nil)
+	result := Validate(api, nil, "", nil)
 	if result.IsValid() {
 		t.Error("expected validation error for handle with ref transfer")
 	}
@@ -174,7 +174,7 @@ func TestValidate_BufferMissingTransfer(t *testing.T) {
 		},
 	})
 
-	result := Validate(api, nil)
+	result := Validate(api, nil, "", nil)
 	if result.IsValid() {
 		t.Error("expected validation error for buffer without transfer")
 	}
@@ -193,7 +193,7 @@ func TestValidate_UnresolvedFlatBufferType(t *testing.T) {
 		"Common.ErrorCode": &resolver.TypeInfo{Kind: resolver.TypeKindEnum},
 	}
 
-	result := Validate(api, types)
+	result := Validate(api, types, "", nil)
 	if result.IsValid() {
 		t.Error("expected validation error for unresolved FlatBuffer type")
 	}
@@ -216,7 +216,7 @@ func TestValidate_CollectsAllErrors(t *testing.T) {
 		},
 	)
 
-	result := Validate(api, nil)
+	result := Validate(api, nil, "", nil)
 	if result.IsValid() {
 		t.Fatal("expected multiple validation errors")
 	}

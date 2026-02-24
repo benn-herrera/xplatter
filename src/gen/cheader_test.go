@@ -34,7 +34,7 @@ func stripGeneratedHeader(s string) string {
 func loadTestAPI(t *testing.T, name string) *Context {
 	t.Helper()
 	path := filepath.Join("..", "testdata", name)
-	def, err := loader.LoadAPIDefinition(path)
+	def, _, err := loader.LoadAPIDefinition(path)
 	if err != nil {
 		t.Fatalf("failed to load %s: %v", name, err)
 	}
