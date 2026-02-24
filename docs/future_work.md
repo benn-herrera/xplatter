@@ -18,6 +18,9 @@
   * experiment during building of projects downstream of xplatter
   * if it shows deal breaker issues or just doesn't pan out cut it and save the hassle.
 
+## architecture question: do we want to allow for interface inheritance?
+* complexity cost vs. flexibility benefit?
+
 ## Add additional use cases to READMEs
 
 * Rapid AI-assisted development from prototype through alpha in fast/loose language (Zig, Go) with minimal iterative friction. Final alpha version is low-cost, AI executed port from fast/loose language to safe language (e.g. Rust) aided by full spec (AI maintained during development) and working reference implementation.

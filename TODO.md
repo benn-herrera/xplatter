@@ -11,6 +11,8 @@
 * unless otherwise instructed in the task item read ./AGENTS.md and ./ARCHITECTURE.md to acquire context if you have not already done so.
 * when a task is completed mark it as done (## DONE - [description]) and move it to the end of the file for archival purposes.
 
+## ensure method and constructor names are not allowed to collide. name collisions must be fatal errors.
+
 ## _IGNORE THIS LINE AND EVERYTHING BELOW IT IN THIS FILE - STAGING AREA FOR FUTURE WORK_
  
 ## in GC'd languages (Swift, Kotlin, JavaScript)   
@@ -22,11 +24,4 @@
   * calling 'teardown' multiple times should be safe
   * method binding wrappers should verify a non-null (zero) handle and raise an exception if verification fails.
 
-## ensure method and constructor names are not allowed to collide. name collisions must be fatal errors.
-
 ## returning strings only as flatbuffer BoxedString that requires implementer to hold an allocation indefinitely is unacceptably burdensome on xplatter users (API implementers) - think about this problem more carefully.
-
-## architecture question: do we want to allow for interface inheritance?
-* complexity cost vs. flexibility benefit?
-
-## DONE - error messages for violations of api definition constraints in the yaml file that can't be caught by the schema validator must produce error message that include file path and line number.
