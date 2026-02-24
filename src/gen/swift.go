@@ -260,6 +260,12 @@ func writeSwiftInstanceMethod(b *strings.Builder, apiName, ifaceName string, met
 }
 
 // writeSwiftFreeFunctions writes free functions that don't belong to any handle class.
+//
+// Classification rule: a method is handle-related (excluded from free functions) if its
+// first parameter is a handle OR if it returns a handle. The return-type check is intentionally
+// absent from Kotlin's isAnyInstanceMethod — Kotlin maps handle-returning factory methods to
+// top-level companion object factories, not instance methods, so the Kotlin side only needs
+// the first-parameter check. See kotlin.go isAnyInstanceMethod for the symmetric entry point.
 func writeSwiftFreeFunctions(b *strings.Builder, api *model.APIDefinition, resolved resolver.ResolvedTypes) {
 	// Collect methods that are not associated with any handle
 	// (no handle as first param, not returning a handle)

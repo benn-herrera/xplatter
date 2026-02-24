@@ -209,6 +209,12 @@ func writeKotlinNativeObject(b *strings.Builder, api *model.APIDefinition, pasca
 }
 
 // isAnyInstanceMethod returns true if this method is an instance method on any handle.
+//
+// Classification rule: only the first-parameter handle check is performed here. This is a
+// deliberate asymmetry with Swift's writeSwiftFreeFunctions, which also excludes methods that
+// return a handle. In Kotlin, handle-returning methods become top-level factory functions
+// (companion object or package-level), not instance methods, so the return-type check is
+// not needed for this predicate. See swift.go writeSwiftFreeFunctions for the Swift equivalent.
 func isAnyInstanceMethod(method model.MethodDef, api *model.APIDefinition) bool {
 	if len(method.Parameters) == 0 {
 		return false
