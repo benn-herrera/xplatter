@@ -49,8 +49,6 @@ Decision: windows sdk is how real work is done. replacing with zig is nice for t
   * calling 'teardown' multiple times should be safe
   * method binding wrappers should verify a non-null (zero) handle and raise an exception if verification fails.
 
-## users are going to have their own preferences for build systems in their projects. the extent to which we generate Makefiles to help them may be too opinionated. investigate just how much of an obstruction the current behavior is toward the user's preferences.
-
 ## ensure method and constructor names are not allowed to collide. name collisions must be fatal errors.
 
 ## error messages for violations of api definition constraints in the yaml file that can't be caught by the schema validator must produce error message that include file path and line number.
