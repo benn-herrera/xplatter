@@ -81,10 +81,10 @@ xplatter generate my_api.yaml --dry-run
 3. Run `xplatter generate your_api.yaml -o generated`
 4. Implement the generated abstract interface in your language (C++, Rust, Go, or plain C)
 5. Build your implementation against the generated C header and shim
-  * xplatter should be integrated into your project build system as a code gen dependency
+   1. xplatter should be integrated into your project build system as a code gen dependency
 6. Minimal installation
-   * You only need xplatter.sh and the contents of bin/
-   * The rest of the SDK is doc and examples.
+   1. You only need xplatter.sh and the contents of bin/
+   2. The rest of the SDK is doc and examples.
 
 ## CLI Reference
 
