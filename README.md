@@ -1,3 +1,5 @@
+See the [TOMBSTONE](TOMBSTONE.md).
+
 # ![xplatter logo](docs/logo_small.png)<br/> xplatter
 xplatter takes an API spec and generates performant bindings for every major user-facing platform's natural app development language.
 

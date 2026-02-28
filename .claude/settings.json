@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "_comment_00": "close find/grep loophole in .agentignore masking.",
+    "deny": [
+      "Read(dist/)",
+      "Read(.git/)",
+      "Read(build/)"
+    ]
+  }
+}
